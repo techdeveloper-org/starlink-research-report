@@ -22,7 +22,7 @@ Yeh repository SpaceX ke **Starlink** project ka ek rigorous, graduate-level res
 
 ## 🔬 Deep R&D Engineering Whitepapers (`docs/rnd/`)
 
-Claude Global Library ke specialist subagents dwara develop kiye gaye 6 graduate-level technical whitepapers:
+Claude Global Library ke specialist subagents dwara develop kiye gaye 7 graduate-level technical whitepapers:
 
 | Document | Author Discipline / Subagent | Key Engineering Focus |
 | :--- | :--- | :--- |
@@ -32,6 +32,7 @@ Claude Global Library ke specialist subagents dwara develop kiye gaye 6 graduate
 | 🚀 **[04. Plasma Propulsion & Orbital Lifecycle](./docs/rnd/04-propulsion-mass-budget-and-lifecycle.md)** | `spacecraft-orbital-mechanics-engineer`<br>`aerospace-flight-mathematics-expert` | Krypton & Argon Hall-effect plasma thrusters ($I_{sp} \approx 1,600-1,850\text{ s}$), Tsiolkovsky $\Delta v$ budgeting, thermospheric drag physics, root cause of the Feb 2022 solar storm loss of 38 satellites, and $100\%$ demisability. |
 | 🔐 **[05. Quantitative STRIDE Threat Model](./docs/rnd/05-quantitative-stride-threat-model.md)** | `threat-modeling-specialist`<br>`security-defense-architect` | Level-2 DFD trust boundaries, hardware voltage glitching ($<10\text{ ns}$ fault injection on User Terminal bootROM), Electronic Warfare jamming link budgets ($J/S$ ratio), spatial null-steering, and CVSS v4.0 threat register. |
 | 🌌 **[06. Space Environmental & Kessler Modeling](./docs/rnd/06-space-environmental-kessler-modeling.md)** | `spacecraft-orbital-mechanics-engineer`<br>`aerospace-flight-mathematics-expert` | Kessler Syndrome non-linear cascade differential equations, critical spatial density $N_{crit} \approx 273,000$ objects at $550\text{ km}$, astronomical visual magnitude mitigation (VisorSat/dielectric mirrors), and mesospheric alumina deposition ($1,560\text{ tons/year}$). |
+| 🛡️ **[07. Zero Trust Satellite Architecture (ZTSA)](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md)** | Multi-Disciplinary Master Cyber Squad<br>`security-defense-architect`<br>`post-quantum-security-engineer`<br>`mpc-protocol-engineer` | Formal ZTSA specification (NIST SP 800-207), Capon MVDR spatial null-steering ($>45\text{ dB}$ null), NIST FIPS 203/204 Post-Quantum Cryptography, BBM92 QKD, Shamir (3,5) MPC sovereign quorum, DCLS anti-glitch silicon, and SUIT immutable firmware. |
 
 ---
 
@@ -56,6 +57,7 @@ Broad overview aur contextual reports repository root par available hain:
 | **[13-future-roadmap.md](./13-future-roadmap.md)** | 🚀 Starlink V3 (1 Tbps/sat), Starship heavy-lift, Marslink |
 | **[14-india-perspective.md](./14-india-perspective.md)** | 🇮🇳 Starlink India license, TRAI/DoT saga, BharatNet integration |
 | **[15-conclusions.md](./15-conclusions.md)** | ✅ Final multi-stakeholder recommendations & scorecard |
+| **[16-security-countermeasures-and-mitigations.md](./16-security-countermeasures-and-mitigations.md)** | 🛡️ Zero Trust Architecture, anti-jamming, PQC, sovereign escrow, privacy |
 
 ---
 
@@ -86,9 +88,11 @@ Broad overview aur contextual reports repository root par available hain:
 - **Plasma Thrusters & Solar Drag Storms** → [Propulsion Whitepaper](./docs/rnd/04-propulsion-mass-budget-and-lifecycle.md)
 - **Hardware Glitching & EW Jamming** → [Threat Model Whitepaper](./docs/rnd/05-quantitative-stride-threat-model.md)
 - **Kessler Syndrome & Mesospheric Alumina** → [Environmental Whitepaper](./docs/rnd/06-space-environmental-kessler-modeling.md)
+- **Zero Trust Architecture & Cyber Defense** → [Zero Trust Whitepaper](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md)
 
 ### General Analysis:
 - **"Starlink kya hai aur overview?"** → [Executive Summary](./01-executive-summary.md)
+- **"Security risks aur unka complete solution?"** → [Security Countermeasures](./16-security-countermeasures-and-mitigations.md)
 - **"Geopolitical impacts & Ukraine war?"** → [Geopolitical Analysis](./08-geopolitical-analysis.md)
 - **"India mein licensing aur pricing?"** → [India Perspective](./14-india-perspective.md)
 - **"Competitors vs Starlink comparison?"** → [Competitive Landscape](./10-competitive-landscape.md)
