@@ -37,3 +37,11 @@ ENV/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Compiled Binaries
+*.exe
+*.o
+*.obj
+*.dll
+*.dylib
+

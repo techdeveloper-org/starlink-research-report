@@ -140,7 +140,18 @@ The normative technical specifications of the StarSec Constellation Security Fra
 - **[`RFC-003-RF-PHY-Jamming-Defense.md`](./spec/RFC-003-RF-PHY-Jamming-Defense.md):** AESA Capon MVDR Spatial Null-Steering, Doppler Cross-Correlation & Cognitive Frequency Hopping.
 - **[`RFC-004-TTC-Multi-Party-Quorum.md`](./spec/RFC-004-TTC-Multi-Party-Quorum.md):** Sovereign $(t, n)$ Multi-Party Threshold Quorum for Flight-Critical Telecommands.
 
-### 5.2 Space Threat Matrix & CVSS v4 Profile (`/framework/threat-matrix/`)
+### 5.2 Deep System-Level Specifications (`/framework/system-architecture/`)
+- **[`HARDWARE-TRUST-SPEC.md`](./system-architecture/HARDWARE-TRUST-SPEC.md):** Hardware Root of Trust, MMIO Registers, ARM TrustZone Memory Layout, and Sub-10 ns Crowbar Memory Zeroization.
+- **[`IN-ORBIT-ROUTING-ENGINE.md`](./system-architecture/IN-ORBIT-ROUTING-ENGINE.md):** In-Orbit Laser Link Framing, eBPF XDP Wire-Speed Packet Filter, Anti-Replay Timing Windows, and BGP Mesh Quarantine.
+
+### 5.3 Production-Grade C Hardware Drivers (`/system/`)
+- **`system/include/tamper_zeroize.h` & `system/src/tamper_zeroize_driver.c`:** Register-level MMIO driver with volatile compiler barriers and sub-10 ns memory zeroization.
+- **`system/include/sram_puf.h` & `system/src/sram_puf_fuzzy_extractor.c`:** Constant-time SRAM-PUF helper data generation and 256-bit key recovery with error correction.
+- **`system/include/dcls_monitor.h` & `system/src/dcls_fault_monitor.c`:** Dual-Core Lockstep radiation single-event upset (SEU) comparator and recovery state machine.
+- **`system/include/xdp_orbital.h` & `system/src/xdp_orbital_filter.c`:** Wire-speed laser packet filter dropping corrupt, replayed, or rogue BGP route frames.
+- **`system/src/main_system_test.c`:** Native C standalone test suite executing positive, negative, and edge-case test vectors.
+
+### 5.4 Space Threat Matrix & CVSS v4 Profile (`/framework/threat-matrix/`)
 - **[`README.md`](./threat-matrix/README.md):** Space Cyber Threat Taxonomy & Assessment Methodology.
 - **[`constellation-threat-matrix.md`](./threat-matrix/constellation-threat-matrix.md):** 30+ Space Constellation Threat Vectors mapped to Aerospace SPARTA, MITRE ATT&CK for Space, and StarSec Controls.
 - **[`cvss-v4-space-profile.md`](./threat-matrix/cvss-v4-space-profile.md):** CVSS v4 Space Domain Scoring Extension incorporating orbital conjunction risk and life-safety impacts.

@@ -1,0 +1,50 @@
+{
+  "title": "Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework",
+  "description": "A comprehensive technical monograph, open-source security framework (StarSec CSF v1.0), and reproducible simulation suite examining SpaceX's Starlink constellation across orbital mechanics, phased-array antenna physics, optical inter-satellite networking, hardware fault injection resilience, post-quantum cryptography, and space cyber threat modeling.",
+  "creators": [
+    {
+      "name": "Makhija, Piyush",
+      "affiliation": "techdeveloper-org"
+    },
+    {
+      "name": "techdeveloper-org Open Research",
+      "affiliation": "techdeveloper-org"
+    }
+  ],
+  "access_right": "open",
+  "license": "MIT",
+  "upload_type": "publication",
+  "publication_type": "report",
+  "keywords": [
+    "aerospace-engineering",
+    "satellite-constellation",
+    "starlink",
+    "space-cybersecurity",
+    "starsec",
+    "zero-trust",
+    "post-quantum-cryptography",
+    "sparta",
+    "phased-array",
+    "beamforming",
+    "ebpf-xdp",
+    "sram-puf",
+    "astrodynamics"
+  ],
+  "communities": [
+    {
+      "identifier": "aerospace-engineering"
+    },
+    {
+      "identifier": "cybersecurity"
+    },
+    {
+      "identifier": "space-systems"
+    }
+  ],
+  "related_identifiers": [
+    {
+      "relation": "isSupplementTo",
+      "identifier": "https://github.com/techdeveloper-org/starlink-research-report"
+    }
+  ]
+}

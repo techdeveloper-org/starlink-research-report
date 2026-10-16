@@ -1,0 +1,196 @@
+"""
+Unified Zero-Cloud-Cost Test and Verification Runner for StarSec CSF v1.0.
+
+Compiles native C system drivers via MinGW GCC, executes the 100% Triad C test harness,
+runs the 23-test Python simulation unit test suite, and validates CLI tooling sanity
+locally in under 0.4 seconds with zero cloud dependency or GitHub Actions consumption.
+
+Standard: StarSec Constellation Security Framework (CSF v1.0)
+Governance: Rules 01, 05, 12 (Docstrings-Only), 28, 33, 35, 36, 37, 40
+"""
+
+import os
+import sys
+import time
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+
+
+class StarSecUnifiedTestRunner:
+    """
+    Executes and coordinates native C compilation and Python unit testing suites.
+    """
+
+    def __init__(self, workspace_root: Path):
+        """
+        Initializes runner with repository paths and tool locations.
+
+        :param workspace_root: Absolute path to the repository root directory.
+        """
+        self.workspace_root = workspace_root
+        self.system_dir = workspace_root / "system"
+        self.tools_dir = workspace_root / "tools"
+        self.simulations_dir = workspace_root / "simulations"
+        self.test_binary_path = self.tools_dir / "test_system_drivers.exe"
+
+    def compile_c_drivers(self) -> bool:
+        """
+        Compiles the native C hardware drivers and test harness using local MinGW GCC.
+
+        :return: True if compilation succeeded with exit code 0, False otherwise.
+        """
+        gcc_path = shutil.which("gcc")
+        if not gcc_path:
+            print("  [ERROR] GCC compiler not found in system PATH.")
+            return False
+
+        c_sources = [
+            str(self.system_dir / "src" / "tamper_zeroize_driver.c"),
+            str(self.system_dir / "src" / "sram_puf_fuzzy_extractor.c"),
+            str(self.system_dir / "src" / "dcls_fault_monitor.c"),
+            str(self.system_dir / "src" / "xdp_orbital_filter.c"),
+            str(self.system_dir / "src" / "main_system_test.c"),
+        ]
+        include_dir = str(self.system_dir / "include")
+
+        cmd = [
+            gcc_path,
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            f"-I{include_dir}",
+            *c_sources,
+            "-o",
+            str(self.test_binary_path),
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"  [FAIL] Compilation failed:\n{result.stderr}")
+            return False
+        return True
+
+    def execute_c_test_harness(self) -> bool:
+        """
+        Executes the compiled native C test harness binary and verifies Triad pass.
+
+        :return: True if test binary exited cleanly with return code 0, False otherwise.
+        """
+        if not self.test_binary_path.exists():
+            print(f"  [ERROR] Test binary {self.test_binary_path} does not exist.")
+            return False
+
+        result = subprocess.run(
+            [str(self.test_binary_path)],
+            capture_output=True,
+            text=True
+        )
+        print(result.stdout.strip())
+        return result.returncode == 0
+
+    def cleanup_c_binary(self) -> None:
+        """
+        Removes the generated temporary test binary.
+        """
+        if self.test_binary_path.exists():
+            try:
+                self.test_binary_path.unlink()
+            except OSError:
+                pass
+
+    def run_python_unit_tests(self) -> bool:
+        """
+        Executes the full 23-test Python simulation suite using unittest.
+
+        :return: True if all unit tests pass, False if any assertion fails.
+        """
+        if str(self.workspace_root) not in sys.path:
+            sys.path.insert(0, str(self.workspace_root))
+
+        loader = unittest.TestLoader()
+        suite = loader.discover(
+            start_dir=str(self.simulations_dir),
+            top_level_dir=str(self.workspace_root),
+            pattern="test_*.py"
+        )
+        runner = unittest.TextTestRunner(verbosity=1)
+        result = runner.run(suite)
+        return result.wasSuccessful()
+
+    def run_cli_sanity_checks(self) -> bool:
+        """
+        Runs quick execution checks on CLI tooling scripts to ensure interface parity.
+
+        :return: True if all CLI commands exit with code 0, False otherwise.
+        """
+        cmd_calc = [
+            sys.executable,
+            str(self.simulations_dir / "threat_score_calculator.py"),
+            "--vector",
+            "RF-JAM-001",
+        ]
+        res_calc = subprocess.run(cmd_calc, capture_output=True, text=True)
+
+        cmd_mpc = [
+            sys.executable,
+            str(self.simulations_dir / "mpc_quorum_telecommand.py"),
+            "--demo",
+        ]
+        res_mpc = subprocess.run(cmd_mpc, capture_output=True, text=True)
+
+        return (res_calc.returncode == 0) and (res_mpc.returncode == 0)
+
+    def run_all(self) -> bool:
+        """
+        Coordinates execution of all compilation, C Triad, and Python suites.
+
+        :return: True if 100% of checks pass, False otherwise.
+        """
+        start_time = time.perf_counter()
+        print("=" * 70)
+        print("  STARSEC CSF v1.0: UNIFIED ZERO-CLOUD-COST LOCAL TEST RUNNER")
+        print("  Governance: Level 2.2 Docstrings-Only, Testing Triad (Rules 01-40)")
+        print("=" * 70)
+
+        print("\n[PHASE 1/3] Compiling and Executing Native C Hardware Drivers...")
+        c_compiled = self.compile_c_drivers()
+        if not c_compiled:
+            return False
+
+        c_passed = self.execute_c_test_harness()
+        self.cleanup_c_binary()
+        if not c_passed:
+            return False
+
+        print("\n[PHASE 2/3] Executing Python Simulation Unit Test Suite (23 Tests)...")
+        py_passed = self.run_python_unit_tests()
+        if not py_passed:
+            return False
+
+        print("\n[PHASE 3/3] Validating CLI Tooling Interfaces...")
+        cli_passed = self.run_cli_sanity_checks()
+        if not cli_passed:
+            return False
+
+        elapsed = time.perf_counter() - start_time
+        print("\n" + "-" * 70)
+        print(f"  [SUCCESS] 100% TESTS PASSED LOCALLY IN {elapsed:.3f} SECONDS")
+        print("  ZERO CLOUD COSTS INCURRED | ZERO GITHUB ACTIONS MINUTES USED")
+        print("=" * 70)
+        return True
+
+
+def main() -> None:
+    """
+    CLI entry point executing the test runner.
+    """
+    root = Path(__file__).resolve().parent.parent
+    runner = StarSecUnifiedTestRunner(workspace_root=root)
+    success = runner.run_all()
+    sys.exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    main()

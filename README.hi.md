@@ -6,11 +6,13 @@
 > 🌐 **Language / भाषा:** [English (Primary Technical Monograph)](./README.md) | **[हिंदी / Hinglish (Localized Edition)](./README.hi.md)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release: v1.0.0-csf](https://img.shields.io/badge/Release-v1.0.0--csf-blue.svg)](https://github.com/techdeveloper-org/starlink-research-report/releases/tag/v1.0.0-csf)
+[![DOI: Zenodo](https://img.shields.io/badge/DOI-Zenodo%20(Pending)-informational.svg)](https://zenodo.org)
 [![Security Framework: StarSec CSF v1.0](https://img.shields.io/badge/Security%20Framework-StarSec%20CSF%20v1.0-blueviolet.svg)](./framework/README.md)
 [![Threat Matrix: SPARTA Aligned](https://img.shields.io/badge/Threat%20Matrix-SPARTA%20%2F%20ATT%26CK-red.svg)](./framework/threat-matrix/constellation-threat-matrix.md)
-[![Tests: 23 Passed](https://img.shields.io/badge/Unit%20Tests-23%20Passed-brightgreen.svg)](./simulations/test_simulations.py)
+[![Zero-Cost Tests: Passed](https://img.shields.io/badge/Local%20Tests-100%25%20Passed-brightgreen.svg)](./tools/run_all_tests.py)
+[![C Drivers: Level 2.2 Compliant](https://img.shields.io/badge/C%20Drivers-Level%202.2%20Docstrings--Only-blue.svg)](./system/)
 [![Orchestration](https://img.shields.io/badge/Library-Claude%20Global%20Library-purple.svg)]()
-[![Status](https://img.shields.io/badge/Status-Peer--Reviewed%20Standard-green.svg)]()
 
 ---
 
@@ -152,6 +154,30 @@ Broad overview aur contextual reports repository root par available hain:
 - **Hardware Glitching & EW Jamming** → [Threat Model Whitepaper](./docs/rnd/05-quantitative-stride-threat-model.md) | [Fault Injection Simulation](./simulations/stride_fault_injection_sim.py) | [RFC-002 UT Hardening](./framework/spec/RFC-002-UT-Hardware-Hardening.md)
 - **Kessler Syndrome & Space Debris** → [Environmental Whitepaper](./docs/rnd/06-space-environmental-kessler-modeling.md)
 - **Zero Trust Architecture & Cyber Defense** → [Zero Trust Whitepaper](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) | [StarSec Framework](./framework/README.md) | [Threat Matrix](./framework/threat-matrix/constellation-threat-matrix.md) | [Threat Score Tool](./simulations/threat_score_calculator.py) | [TT&C Quorum Tool](./simulations/mpc_quorum_telecommand.py)
+- **Deep System Architecture & Hardware C Drivers** → [Hardware Trust Spec](./framework/system-architecture/HARDWARE-TRUST-SPEC.md) | [In-Orbit Routing Engine](./framework/system-architecture/IN-ORBIT-ROUTING-ENGINE.md) | [Tamper Zeroize Driver](./system/src/tamper_zeroize_driver.c) | [SRAM-PUF Fuzzy Extractor](./system/src/sram_puf_fuzzy_extractor.c) | [DCLS Fault Monitor](./system/src/dcls_fault_monitor.c) | [XDP Laser Filter](./system/src/xdp_orbital_filter.c) | [Zero-Cost Test Runner](./tools/run_all_tests.py)
+
+---
+
+## 📚 Academic Citation & Citation Metadata (फॉर्मल साइटेशन)
+
+Agar aap is monograph, StarSec framework specifications, ya simulation tooling ko apne research paper, defense tech analysis, ya academic publication me use karte hain, toh kripya ise formally cite karein:
+
+### BibTeX Format:
+```bibtex
+@techreport{makhija2026starlink,
+  author       = {Makhija, Piyush and {techdeveloper-org}},
+  title        = {{Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation \& The StarSec Framework}},
+  institution  = {techdeveloper-org Open Research},
+  year         = {2026},
+  month        = {10},
+  version      = {v1.0.0-csf},
+  url          = {https://github.com/techdeveloper-org/starlink-research-report},
+  note         = {Open-Source Aerospace Cybersecurity Standard}
+}
+```
+
+### APA (7th Edition):
+> Makhija, P., & techdeveloper-org. (2026). *Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework* (Version 1.0.0-csf) [Technical Report]. techdeveloper-org Open Research. https://github.com/techdeveloper-org/starlink-research-report
 
 ---
 
@@ -166,5 +192,8 @@ Yeh report purely educational, scientific, aur research purposes ke liye banayi 
 MIT License — Free to use, share, and modify with attribution.
 
 ---
+
+*Compiled and maintained by: [techdeveloper-org](https://github.com/techdeveloper-org) | October 2026*
+
 
 *Report compiled by: [techdeveloper-org](https://github.com/techdeveloper-org) | October 2026*

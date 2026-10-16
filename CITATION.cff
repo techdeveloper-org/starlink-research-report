@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this monograph, the StarSec framework specifications, or the simulation tooling in your research or mission design, please cite it using the metadata from this file."
+title: "Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework"
+abstract: "A comprehensive technical monograph, open-source security framework (StarSec CSF v1.0), and reproducible simulation suite examining SpaceX's Starlink constellation across orbital mechanics, phased-array antenna physics, optical inter-satellite networking, hardware fault injection resilience, post-quantum cryptography, and space cyber threat modeling."
+authors:
+  - family-names: "Makhija"
+    given-names: "Piyush"
+    website: "https://github.com/piyushmakhija28"
+  - name: "techdeveloper-org"
+    website: "https://github.com/techdeveloper-org"
+version: "1.0.0-csf"
+date-released: "2026-10-16"
+license: "MIT"
+repository-code: "https://github.com/techdeveloper-org/starlink-research-report"
+url: "https://github.com/techdeveloper-org/starlink-research-report"
+keywords:
+  - "aerospace-engineering"
+  - "satellite-constellation"
+  - "starlink"
+  - "space-cybersecurity"
+  - "starsec"
+  - "zero-trust-satellite-architecture"
+  - "sparta"
+  - "post-quantum-cryptography"
+  - "fips-203"
+  - "fips-204"
+  - "phased-array"
+  - "beamforming"
+  - "ebpf-xdp"
+  - "sram-puf"
+  - "astrodynamics"
+preferred-citation:
+  type: report
+  authors:
+    - family-names: "Makhija"
+      given-names: "Piyush"
+    - name: "techdeveloper-org"
+  title: "Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework"
+  year: 2026
+  month: 10
+  version: "1.0.0-csf"
+  publisher: "techdeveloper-org Open Research"
+  url: "https://github.com/techdeveloper-org/starlink-research-report"

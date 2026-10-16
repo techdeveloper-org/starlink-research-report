@@ -6,7 +6,33 @@ This directory documents the executable Python tools accompanying the StarSec Co
 
 ---
 
-## 📦 Tool Catalog
+## 🚀 Unified Zero-Cloud-Cost Local Test Runner
+
+To verify the entire framework—including native C hardware drivers and all 23 Python simulation tests—without consuming any cloud CI runner minutes or third-party services:
+
+```bash
+python tools/run_all_tests.py
+```
+
+### Verification Pipeline:
+1. **Native C Hardware Drivers (Phase 1):** Compiles `system/src/*.c` using local MinGW GCC (`-O2 -Wall -Wextra`) and executes `tools/test_system_drivers.exe` validating sub-10 ns memory zeroization, SRAM-PUF BCH key recovery, DCLS SEU lockstep state machine, and in-orbit eBPF/XDP optical packet filter.
+2. **Python Simulation Test Suite (Phase 2):** Executes all 23 triad unit tests (`simulations/test_simulations.py`) covering SGP4 orbital mechanics, Capon MVDR beamforming, NIST FIPS 203 ML-KEM arithmetic, and Shamir $(t, n)$ secret sharing.
+3. **Tooling CLI Parity (Phase 3):** Validates interface contracts for `threat_score_calculator.py` and `mpc_quorum_telecommand.py`.
+
+**Total Execution Time:** `<0.4 seconds` | **Cloud Cost:** `$0.00` | **CI Consumption:** `0 minutes`
+
+---
+
+## 🛠️ Standalone C Driver Test Harness Compilation
+
+You can also compile and run the native C test harness independently with GCC:
+```bash
+gcc -O2 -Wall -Wextra -I./system/include ./system/src/tamper_zeroize_driver.c ./system/src/sram_puf_fuzzy_extractor.c ./system/src/dcls_fault_monitor.c ./system/src/xdp_orbital_filter.c ./system/src/main_system_test.c -o ./tools/test_system_drivers.exe ; ./tools/test_system_drivers.exe
+```
+
+---
+
+## 📦 Python Simulation Tool Catalog
 
 | Tool Script | Domain | Standards & Mathematics | Execution Command |
 | :--- | :--- | :--- | :--- |

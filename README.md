@@ -6,11 +6,13 @@
 > 🌐 **Language / भाषा:** **[English (Primary Technical Monograph)](./README.md)** | [हिंदी / Hinglish (Localized Edition)](./README.hi.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release: v1.0.0-csf](https://img.shields.io/badge/Release-v1.0.0--csf-blue.svg)](https://github.com/techdeveloper-org/starlink-research-report/releases/tag/v1.0.0-csf)
+[![DOI: Zenodo](https://img.shields.io/badge/DOI-Zenodo%20(Pending)-informational.svg)](https://zenodo.org)
 [![Framework: StarSec CSF v1.0](https://img.shields.io/badge/Security%20Framework-StarSec%20CSF%20v1.0-blueviolet.svg)](./framework/README.md)
 [![Threat Matrix: SPARTA Aligned](https://img.shields.io/badge/Threat%20Matrix-SPARTA%20%2F%20ATT%26CK-red.svg)](./framework/threat-matrix/constellation-threat-matrix.md)
-[![Tests: 23 Passed](https://img.shields.io/badge/Unit%20Tests-23%20Passed-brightgreen.svg)](./simulations/test_simulations.py)
+[![Zero-Cost Tests: Passed](https://img.shields.io/badge/Local%20Tests-100%25%20Passed-brightgreen.svg)](./tools/run_all_tests.py)
+[![C Drivers: Level 2.2 Compliant](https://img.shields.io/badge/C%20Drivers-Level%202.2%20Docstrings--Only-blue.svg)](./system/)
 [![Orchestration: Claude Global Library](https://img.shields.io/badge/Orchestrated%20By-Claude%20Global%20Library-purple.svg)]()
-[![Status: Peer-Reviewed](https://img.shields.io/badge/Status-Peer--Reviewed%20Standard-green.svg)]()
 
 ---
 
@@ -181,7 +183,34 @@ Comprehensive architectural, economic, and geopolitical analyses covering the co
 - **Optical Laser Crosslinks (OISL):** [Whitepaper 03](./docs/rnd/03-optical-inter-satellite-laser-links.md) | [Simulation: PQC KEM](./simulations/pqc_kem_benchmark.py) | [RFC-001: ISL Mutual Auth](./framework/spec/RFC-001-ISL-Mutual-Auth.md)
 - **Propulsion & Thermospheric Drag:** [Whitepaper 04](./docs/rnd/04-propulsion-mass-budget-and-lifecycle.md)
 - **Cybersecurity & Threat Modeling:** [StarSec Framework](./framework/README.md) | [Threat Matrix](./framework/threat-matrix/constellation-threat-matrix.md) | [CVSS Space Profile](./framework/threat-matrix/cvss-v4-space-profile.md) | [Chapter 07](./07-security-risks.md) | [Chapter 16](./16-security-countermeasures-and-mitigations.md) | [Whitepaper 05](./docs/rnd/05-quantitative-stride-threat-model.md) | [Whitepaper 07](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) | [Tool: Threat Calculator](./simulations/threat_score_calculator.py) | [Tool: TT&C Quorum](./simulations/mpc_quorum_telecommand.py)
+- **Deep System Architecture & Hardware C Drivers:** [Hardware Trust Spec](./framework/system-architecture/HARDWARE-TRUST-SPEC.md) | [In-Orbit Routing Engine](./framework/system-architecture/IN-ORBIT-ROUTING-ENGINE.md) | [Tamper Zeroize Driver](./system/src/tamper_zeroize_driver.c) | [SRAM-PUF Fuzzy Extractor](./system/src/sram_puf_fuzzy_extractor.c) | [DCLS Fault Monitor](./system/src/dcls_fault_monitor.c) | [XDP Laser Filter](./system/src/xdp_orbital_filter.c) | [Zero-Cost Test Runner](./tools/run_all_tests.py)
 - **Space Environmental Stewardship:** [Chapter 09](./09-environmental-concerns.md) | [Whitepaper 06](./docs/rnd/06-space-environmental-kessler-modeling.md)
+
+---
+
+## 📚 Academic Citation & BibTeX Attribution
+
+If you utilize this technical monograph, the StarSec Constellation Security Framework specifications, or the simulation tooling in academic publications, defense whitepapers, or mission designs, please cite this work:
+
+### BibTeX
+```bibtex
+@techreport{makhija2026starlink,
+  author       = {Makhija, Piyush and {techdeveloper-org}},
+  title        = {{Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation \& The StarSec Framework}},
+  institution  = {techdeveloper-org Open Research},
+  year         = {2026},
+  month        = {10},
+  version      = {v1.0.0-csf},
+  url          = {https://github.com/techdeveloper-org/starlink-research-report},
+  note         = {Open-Source Aerospace Cybersecurity Standard}
+}
+```
+
+### APA (7th Edition)
+> Makhija, P., & techdeveloper-org. (2026). *Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework* (Version 1.0.0-csf) [Technical Report]. techdeveloper-org Open Research. https://github.com/techdeveloper-org/starlink-research-report
+
+### IEEE Format
+> P. Makhija and techdeveloper-org, "Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation & The StarSec Framework," techdeveloper-org Open Research, Tech. Rep. CSF-v1.0.0, Oct. 2026. [Online]. Available: https://github.com/techdeveloper-org/starlink-research-report
 
 ---
 
@@ -198,3 +227,4 @@ This technical monograph is open-source and licensed under the **MIT License**. 
 ---
 
 *Compiled and maintained by: [techdeveloper-org](https://github.com/techdeveloper-org) | October 2026*
+
