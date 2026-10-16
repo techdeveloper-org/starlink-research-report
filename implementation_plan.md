@@ -1,177 +1,187 @@
-# 🚀 Implementation Plan (10/10 Ultra-Deep Orchestration) — Starlink Security Risk Remediation & Publication-Grade R&D Research Paper
+# 🚀 10/10 Master Implementation Plan — Repository Elevation to Open-Source Technical Monograph
 
 > **Project:** Starlink Research & Deep R&D Report (`techdeveloper-org/starlink-research-report`)  
-> **Orchestration Framework:** Claude Global Library Master Orchestration (23-Node Decision Tree, 7 Knowledge Domains, 6 Opus Math Masters, 5 Engineering Disciplines, STEP 0–14 Full Pipeline)  
-> **Standard Compliance:** Level 2.1 Security (`05-security-standards.md`, `31-security-authentication.md`), Level 2.2 Documentation (`11-documentation-files.md`, `12-docstrings-only.md`), Architecture (`46-architecture-documentation.md`)  
-> **Status:** PENDING USER APPROVAL (Plan Mode Active — 10/10 Ultra-Deep Edition)
+> **Standard:** Open-Source Aerospace Technical Monograph & Peer-Reviewed Engineering Standard  
+> **Orchestration Framework:** Claude Global Library Master Orchestration (7 Domains, 10 Specialist Agents, 6 Opus Math Masters, 8 Mandatory Skills)  
+> **Governance Compliance:** Level 2.1 Security (`05-security-standards.md`), Level 2.2 Documentation (`11-documentation-files.md`, `12-docstrings-only.md`), Architecture (`46-architecture-documentation.md`), Python Standards (`41-testing-standards-python-fastapi.md`)  
+> **Status:** PENDING USER APPROVAL (Plan Mode Active — 10/10 Perfectionist Edition)
 
 ---
 
-## 1. Problem Statement & Root Cause Synthesis
+## 1. Executive Problem Statement & Gap Analysis
 
-The Starlink mega-constellation represents a first-of-its-kind, hybrid dual-use space telecommunications infrastructure comprising >11,000 LEO satellites, >12 million consumer/enterprise user terminals, hundreds of terrestrial gateway earth stations, and a dynamic space-based optical laser mesh. 
+A peer review of `techdeveloper-org/starlink-research-report` acknowledged its extraordinary depth (Walker Delta astrodynamics, AESA phased array electromagnetics, optical laser links, plasma propulsion, and Zero Trust Satellite Architecture), while highlighting three actionable areas required to transform the repository from a developer repo into a globally cited **open-source technical monograph**:
 
-As established in `07-security-risks.md` and modeled in `docs/rnd/05-quantitative-stride-threat-model.md`, this colossal attack surface exhibits seven systemic, critical vulnerabilities:
-1. **User Terminal Physical & Hardware Vulnerabilities:** Sub-10 ns voltage glitching on the SoC $V_{core}$ rail during BootROM execution (Lennert Wouters/Darknavy) corrupts conditional branch instructions, bypassing ARM Trusted Firmware Secure Boot (BL1/BL2) and exposing baseband secrets.
-2. **RF Signal-Layer & Electronic Warfare (EW) Susceptibility:** Adversary high-power Ku/Ka-band barrage and sweep jammers (Krasukha-4, Tirada-2S) degrade uplink/downlink Carrier-to-Noise ($C/N_0$), while civilian GPS spoofing attacks trick user terminals into unauthorized pointing or geofence breaches.
-3. **Space Crosslink Optical Insecurities & Quantum Vulnerabilities:** Free-space optical laser (1550 nm) sensors (InGaAs quadrant photodiodes) face ground/orbital dazzling; unencrypted or classical RSA/ECC-encrypted crosslinks face Harvest-Now-Decrypt-Later (HNDL) quantum cryptanalysis.
-4. **Terrestrial Gateway, Ground Segment & SDN Weaknesses:** Centralized SDN controllers present a single blast-radius point of failure; gateway modems are susceptible to firmware-wiping wiper malware (e.g., AcidRain / Viasat incident); BGP peering at AS14593 is vulnerable to route hijacking.
-5. **Geopolitical Single-Point-of-Control Risk ("Musk Kill Switch"):** Unilateral corporate authority to disable, throttle, or geofence sovereign national defense communications (e.g., Crimea 2022 drone mission abort) without democratic due process or cryptographic multi-party checks.
-6. **Anti-Satellite (ASAT) Kinetic Attacks, Cyber-ASAT & Kessler Cascade:** Direct-ascent kinetic ASAT strikes generating exponential debris cascades, coupled with cyber-ASAT threats where hijacked telemetry, tracking, and command (TT&C) links could trigger coordinated mass de-orbit burns.
-7. **Subscriber Privacy, CGNAT & Metadata Exploitation:** Centralized Carrier-Grade NAT (CGNAT) pools and DNS ingestion enable deep traffic correlation, metadata profiling, and state-actor surveillance via FISA/subpoena avenues.
+```
+═════════════════════════════════════════════════════════════════════════════════════════════════════
+                              REPOSITORY ELEVATION PILLARS (10/10)
+═════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  [ PILLAR 1: LANGUAGE INTEGRITY ]     [ PILLAR 2: VISUAL ARTIFACTS ]      [ PILLAR 3: REPRODUCIBLE CODE ]
+  Standardize primary chapters 01–15   Embed rich, publication-grade       Build verified 5-module Python
+  to peer-reviewed Technical English.  Mermaid & ASCII diagrams across     scientific simulation suite:
+  Preserve dedicated full Hindi        constellation geometry, RF links,   SGP4, AESA MVDR, Link Budget,
+  monograph in README.hi.md.           gateways, and security DFDs.        PQC ML-KEM, and Fault Injection.
+═════════════════════════════════════════════════════════════════════════════════════════════════════
+```
 
 ---
 
-## 2. Ultra-Deep Claude Global Library Orchestration (10/10)
+## 2. Comprehensive Orchestration Architecture
 
-### 2.1 The 5 Engineering Disciplines Evaluation
-1. **Context Engineering (D80 `context-engineering-agent`):**
-   - Micro-contextual isolation across the 7 security domains.
-   - Enforce token-budgeted mathematical proofs and structured tables without context degradation.
-2. **Prompt Engineering (D47 `prompt-generation-expert`):**
-   - High-precision domain prompts enforcing zero hand-waving, explicit mathematical parameters, and executable algorithms.
-3. **Graph Engineering (D102):**
-   - Multi-agent DAG execution spanning 7 Knowledge Graph domain slices.
-   - Cross-domain validation pipeline: Hardware RoT $\to$ RF Physical Layer $\to$ Space Optical Crosslinks $\to$ Zero Trust SDN $\to$ Sovereign MPC Quorum.
-4. **Loop Engineering (D51 `loop-engineering-architect`):**
-   - Convergence validation loop: Ensure all mathematical proofs ($P_{glitch}$, MVDR $\mathbf{w}_{opt}$, PQC lattice BKZ hardness, BBM92 QBER, Foster $P_c$) converge with published empirical space-ground telemetry.
-5. **Harness Engineering (D50 `harness-engineering-architect`):**
-   - Strict Level 2.1/2.2 quality gates: UTF-8 BOM-free validation, no inline narration comments (`12-docstrings-only.md`), and complete cross-linking integrity.
-
-### 2.2 Orchestrated Knowledge Graph Domains (7 Domains)
-From `claude-global-library/knowledge-graph/`:
-1. `cybersecurity` (Domain 5)
-2. `advanced-cryptographic-protocols-zk-fhe-mpc-engineering` (Domain 98)
-3. `aerospace-avionics-flight-space-engineering` (Domain 95)
-4. `telecom-5g` (Domain 4)
+### 2.1 The 7 Knowledge Graph Domains
+1. `aerospace-avionics-flight-space-engineering` (Domain 95)
+2. `telecom-5g` (Domain 4)
+3. `cybersecurity` (Domain 5)
+4. `advanced-cryptographic-protocols-zk-fhe-mpc-engineering` (Domain 98)
 5. `quantum-computing` (Domain 96)
 6. `silicon-architecture` (Domain 94)
 7. `security-governance` (Domain 54)
 
-### 2.3 Specialist Agent Squad & 6 Opus Math Masters
-
-| Agent ID | Domain | Role in Security Remediation |
-| :--- | :--- | :--- |
-| `security-defense-architect` | `cybersecurity` | **Lead Architect:** Overall Zero Trust Satellite Architecture (ZTSA) and Defense-in-Depth design. |
-| `threat-modeling-specialist` | `cybersecurity` | Quantitative STRIDE/PASTA remediation mapping & CVSS v4.0 delta scoring. |
-| `post-quantum-security-engineer` | `cybersecurity` / `quantum-computing` | NIST FIPS 203 (ML-KEM-1024) & FIPS 204 (ML-DSA-87) lattice protocol deployment. |
-| `mpc-protocol-engineer` | `advanced-cryptographic-protocols...` | Shamir Secret Sharing & FROST threshold signature sovereign kill-switch quorum. |
-| `radio-frequency-specialist` | `cybersecurity` / `telecom-5g` | Phased array adaptive null-steering & Cognitive Frequency Hopping (CFHSS) architecture. |
-| `satellite-systems-engineer` | `aerospace-avionics...` | Spacecraft optical sensor hardening, MEMS laser dazzle shutters, and TT&C isolation. |
-| `spacecraft-orbital-mechanics-engineer`| `aerospace-avionics...` | Autonomous orbital collision avoidance ($P_c$) and kinetic ASAT debris evasion. |
-| `exploit-researcher` | `cybersecurity` | Hardware fault injection, voltage glitching defense circuits, and dual-core lockstep. |
-| `cloud-security-architect` | `cybersecurity` | Decentralized BFT SDN controllers, eBPF microsegmentation, and BGP RPKI ROA. |
-| `zero-knowledge-proof-engineer` | `advanced-cryptographic-protocols...` | ZKP anonymous subscriber authentication and Oblivious DoH privacy overlays. |
-
-#### The 6 Opus Math Masters (First-Principles Proofs):
-1. **`cyber-mathematics-expert`:** Derives glitch vulnerability probability bounds $P_{glitch}$ and constant-time entropy leakage $H(K|T) = 0$.
-2. **`cryptographic-protocols-mathematics-expert`:** Derives Shamir $(k, n)$ Lagrange interpolation over $\mathbb{F}_{2^{256}}$ and MLWE lattice reduction hardness.
-3. **`telecom-mathematics-expert`:** Derives Capon MVDR spatial covariance matrix inversion $\mathbf{w}_{opt} = \frac{\mathbf{R}_{xx}^{-1}\mathbf{a}}{\mathbf{a}^H\mathbf{R}_{xx}^{-1}\mathbf{a}}$ and CFHSS anti-jamming margin.
-4. **`quantum-mathematics-expert`:** Derives BBM92 decoy-state quantum bit error rate threshold ($QBER < 11.0\%$) for vacuum laser QKD.
-5. **`silicon-mathematics-expert`:** Derives SRAM-PUF Hamming distance intra-chip vs inter-chip Gaussian distributions with BCH error correction ($FRR < 10^{-9}$).
-6. **`aerospace-flight-mathematics-expert`:** Derives the B-plane covariance collision probability integral ($P_c$ Foster 1992) for autonomous evasive burns.
-
-### 2.4 Mandatory Skills Loaded (8 Skills)
-1. `zero-trust-architecture-core` (`skills/zero-trust-architecture-core/SKILL.md`) — NIST SP 800-207 7 tenets for space networks.
-2. `post-quantum-cryptography-core` (`skills/post-quantum-cryptography-core/SKILL.md`) — FIPS 203/204/205 post-quantum standards.
-3. `threshold-signature-custody-mpc-core` (`skills/threshold-signature-custody-mpc-core/SKILL.md`) — Multi-party threshold signatures.
-4. `secret-sharing-mpc-foundations-core` (`skills/secret-sharing-mpc-foundations-core/SKILL.md`) — Shamir secret sharing & BGW protocol.
-5. `lwe-rlwe-lattice-cryptography-core` (`skills/lwe-rlwe-lattice-cryptography-core/SKILL.md`) — Lattice security proofs.
-6. `firmware-security-core` (`skills/firmware-security-core/SKILL.md`) — ARM TrustZone, glitch mitigation, SUIT manifests (RFC 9019).
-7. `network-security-core` (`skills/network-security-core/SKILL.md`) — BGP RPKI, eBPF microsegmentation, WireGuard overlays.
-8. `zero-knowledge-proof-foundations-core` (`skills/zero-knowledge-proof-foundations-core/SKILL.md`) — Anonymous credential authentication.
+### 2.2 The 10 Specialist Agents & 6 Opus Math Masters
+- **`technical-writer` / `documentation-engineer`:** Lead Technical English standardization across Chapters 01–15 and `README.md`, ensuring formal academic terminology.
+- **`uml-diagram-specialist` / `security-defense-architect`:** Author formal Mermaid and ASCII diagrams across the monograph.
+- **`telecom-mathematics-expert` & `radio-frequency-specialist`:** Derive and implement the 2D AESA Array Factor, beam steering, and Capon MVDR spatial nulling algorithms, plus the end-to-end decibel link budget engine.
+- **`spacecraft-orbital-mechanics-engineer` & `aerospace-flight-mathematics-expert`:** Derive and implement the SGP4 orbit propagator, $J_2$ secular precession equations, and Foster & Estes B-plane collision probability ($P_c$) solver.
+- **`post-quantum-security-engineer` & `cryptographic-protocols-mathematics-expert`:** Formulate and implement the NIST FIPS 203 ML-KEM-1024 polynomial ring simulation over $\mathbb{Z}_{3329}[X]/(X^{256} + 1)$.
+- **`exploit-researcher` & `cyber-mathematics-expert`:** Formulate and implement the Lennert Wouters voltage glitch timing simulation and CMOS alpha-power law propagation delay expansion model.
 
 ---
 
-## 3. Applicable Claude Global Rules Adhered To
+## 3. Detailed Scope of Work Across the 3 Pillars
 
-| Rule File in `~/.claude/rules/` | Enforced Standards |
-| :--- | :--- |
-| `05-security-standards.md` | NIST-standard cryptographic suites, zero trust microsegmentation, constant-time arithmetic, secure enclave key storage. |
-| `31-security-authentication.md` | Hardware-backed mTLS, TPM 2.0 / DICE remote attestation, Ed25519/Dilithium signatures. |
-| `11-documentation-files.md` | Clean documentation governance, structured headers, unambiguous indexing. |
-| `12-docstrings-only.md` | Strict technical contract definitions, zero inline narration fluff, formal equations and schemas. |
-| `46-architecture-documentation.md` | Formal ASCII DFDs, Trust Boundary definitions, C4-level architecture views. |
+### Pillar 1: Language Standardization & Dual-Language Architecture
+1. **Preserve Dedicated Hindi / Hinglish Edition (`README.hi.md`):**
+   - Retain the rich, engaging Hindi/Hinglish documentation as a first-class localized edition (`README.hi.md`), ensuring native regional accessibility is honored.
+   - Add language toggle banners at the top of `README.md` and `README.hi.md`:
+     `🌐 [English (Primary Technical Monograph)](./README.md) | [हिंदी / Hinglish (Localized Edition)](./README.hi.md)`
+2. **Standardize Chapters 01 through 15 to Formal Technical English:**
+   - Elevate `01-executive-summary.md` through `15-conclusions.md` to graduate-level aerospace and engineering prose.
+   - Eliminate conversational phrasing while preserving 100% of the factual data, tables, financial metrics ($11.4B revenue, $4.4B operating income), technical specifications, and citations.
+
+### Pillar 2: Rich Visualizations & Architectural Diagrams (Mermaid)
+Embed rendered Mermaid diagrams in primary chapters to make the monograph visually compelling:
+- **`01-executive-summary.md`:** System architecture overview & performance scorecard flowchart.
+- **`02-problem-statement.md`:** Global digital divide structural deficit vs LEO reach flowchart.
+- **`03-solution-architecture.md`:** End-to-end C4 container & data flow diagram (User Terminal $\leftrightarrow$ Space Laser Mesh $\leftrightarrow$ Gateway $\leftrightarrow$ Core PoP).
+- **`04-satellite-constellation.md`:** Walker Delta $53^\circ:72/22/1$ orbital geometry & shell altitude breakdown.
+- **`05-ground-segment.md`:** Gateway Earth Station baseband processing, fiber backhaul, and BGP AS14593 peering topology.
+- **`06-network-technology.md`:** RF frequency spectrum allocation (Ku/Ka/V/E-band) & AESA True Time Delay beamforming sequence.
+- **`07-security-risks.md`:** Complete Level-2 Data Flow Diagram (DFD) attack surface and trust boundary map.
+- **`08-geopolitical-analysis.md`:** Sovereign airspace vs orbital crossing geofence decision flow.
+- **`10-competitive-landscape.md`:** Mega-constellation architecture comparison (Starlink vs Amazon Kuiper vs Eutelsat OneWeb).
+- **`13-future-roadmap.md`:** Evolution roadmap from V1 to V2 Mini to V3 (Starship) and Marslink relay architecture.
+
+### Pillar 3: Executable Scientific Python Simulation Suite (`simulations/`)
+Create a dedicated `simulations/` package with zero heavy external compiled dependencies (uses pure Python 3.10+ standard library with optional NumPy acceleration), full type annotations, Level 2.2 contract docstrings (`12-docstrings-only.md`), and an automated test suite:
+
+1. **`simulations/orbit_sgp4_propagator.py`:**
+   - Evaluates Keplerian orbital mechanics and two-body equations.
+   - Computes $J_2$ secular nodal precession rate:
+     $$\dot{\Omega} = -\frac{3}{2} J_2 \left(\frac{R_E}{p}\right)^2 n \cos i$$
+     (yielding $-4.71^\circ/\text{day}$ at $550\text{ km}$ altitude, $53^\circ$ inclination).
+   - Solves the Foster & Estes (1992) B-plane covariance collision probability integral:
+     $$P_c = \iint_{x^2 + y^2 \le R_A^2} f(x, y) \, dx \, dy$$
+   - Features automated CLI mode with formatted console output.
+2. **`simulations/phased_array_beamforming.py`:**
+   - Models a 2D Active Electronically Scanned Array (AESA) with $M \times N$ elements (up to $32 \times 40 = 1,280$ elements).
+   - Computes 2D Array Factor:
+     $$AF(\theta, \phi) = \sum_{m=1}^M \sum_{n=1}^N w_{mn} \exp\left(j \frac{2\pi}{\lambda} (x_m \sin\theta \cos\phi + y_n \sin\theta \sin\phi)\right)$$
+   - Computes spatial covariance matrix $\mathbf{R}_{xx}$ and evaluates Capon MVDR adaptive digital null-steering weight vector:
+     $$\mathbf{w}_{opt} = \frac{\mathbf{R}_{xx}^{-1} \mathbf{a}_s}{\mathbf{a}_s^H \mathbf{R}_{xx}^{-1} \mathbf{a}_s}$$
+     synthesizing $>45\text{ dB}$ spatial nulls directly on jammer angles of arrival.
+3. **`simulations/rf_link_budget_calculator.py`:**
+   - Evaluates full decibel link budgets for Ku-band user downlinks (10.7–12.7 GHz), Ku-band uplinks (14.0–14.5 GHz), and Ka/V-band gateway feeder links.
+   - Models Free-Space Path Loss ($FSPL$), atmospheric gaseous attenuation, and ITU-R P.618 rain attenuation ($A_{0.01}$).
+   - Derives system noise temperature $T_{sys}$, Carrier-to-Noise spectral density ($C/N_0$), and receiver SNR margin against DVB-S2X MODCODs (QPSK to 64-APSK).
+4. **`simulations/pqc_kem_benchmark.py`:**
+   - Pure-Python reference simulation of NIST FIPS 203 (ML-KEM-1024 / Kyber-1024) polynomial ring arithmetic over $\mathbb{Z}_{3329}[X]/(X^{256} + 1)$.
+   - Simulates matrix-vector multiplication $\mathbf{b} = \mathbf{A}\mathbf{s} + \mathbf{e} \pmod{3329}$ and shared secret encapsulation.
+   - Measures key and ciphertext sizes (1,568 bytes) against classical X25519 (32 bytes), quantifying space crosslink latency and throughput impacts.
+5. **`simulations/stride_fault_injection_sim.py`:**
+   - Numerical simulation of the Lennert Wouters sub-10 ns voltage glitching attack on ARM Cortex BootROMs.
+   - Models CMOS FinFET propagation delay expansion via the alpha-power law:
+     $$t_{pd} \propto \frac{V_{DD}}{(V_{DD} - V_{th})^\alpha}$$
+   - Evaluates timing fault probability, simulates analog crowbar clamp detection ($\tau < 250\text{ ps}$), and validates Dual-Core Lockstep (DCLS) parity verification ($P_{glitch} < 10^{-11}$).
+6. **`simulations/test_simulations.py`:**
+   - Comprehensive unit test suite exercising all 5 simulation scripts, validating mathematical outputs against FCC filings and published aerospace literature.
+7. **`simulations/README.md`:**
+   - Monograph simulation handbook with instructions, equations, and verification outputs.
 
 ---
 
-## 4. Complete List of Proposed Changes
+## 4. Complete List of Affected Files
 
 ```
 starlink-research-report/
-├── [NEW] docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md  # Publication-Grade R&D Research Paper (Whitepaper 07)
-├── [NEW] 16-security-countermeasures-and-mitigations.md                      # Main Report Countermeasures Chapter
-├── [MODIFY] 07-security-risks.md                                             # Cross-reference solutions & navigation banners
-├── [MODIFY] 15-conclusions.md                                                # Bridge forward to Chapter 16 in conclusion scorecard
-└── [MODIFY] README.md                                                        # Index Whitepaper 07 & Chapter 16, update metrics
+├── README.md                                          # [MODIFY] Elevated to formal Technical English + language selector
+├── README.hi.md                                       # [NEW] Full Hindi / Hinglish localized edition
+├── 01-executive-summary.md                            # [MODIFY] English standardization + Mermaid system overview
+├── 02-problem-statement.md                            # [MODIFY] English standardization + Mermaid digital divide model
+├── 03-solution-architecture.md                        # [MODIFY] English standardization + Mermaid C4 architecture
+├── 04-satellite-constellation.md                      # [MODIFY] English standardization + Mermaid Walker Delta diagram
+├── 05-ground-segment.md                               # [MODIFY] English standardization + Mermaid Gateway PoP topology
+├── 06-network-technology.md                           # [MODIFY] English standardization + Mermaid AESA beam sequence
+├── 07-security-risks.md                               # [MODIFY] English standardization + Mermaid attack surface DFD
+├── 08-geopolitical-analysis.md                        # [MODIFY] English standardization + Mermaid sovereign decision tree
+├── 09-environmental-concerns.md                       # [MODIFY] English standardization
+├── 10-competitive-landscape.md                        # [MODIFY] English standardization + Mermaid competitor matrix
+├── 11-business-model-pricing.md                       # [MODIFY] English standardization
+├── 12-history-timeline.md                             # [MODIFY] English standardization
+├── 13-future-roadmap.md                               # [MODIFY] English standardization + Mermaid Starlink V3 roadmap
+├── 14-india-perspective.md                            # [MODIFY] English standardization
+├── 15-conclusions.md                                  # [MODIFY] English standardization
+├── simulations/                                       # [NEW DIRECTORY]
+│   ├── README.md                                      # [NEW] Monograph simulation handbook
+│   ├── requirements.txt                               # [NEW] Zero heavy dependencies
+│   ├── orbit_sgp4_propagator.py                       # [NEW] SGP4 orbit propagator & Foster Pc solver
+│   ├── phased_array_beamforming.py                    # [NEW] AESA 2D Array Factor & Capon MVDR nulling
+│   ├── rf_link_budget_calculator.py                   # [NEW] Ku/Ka-band decibel link budget engine
+│   ├── pqc_kem_benchmark.py                           # [NEW] NIST FIPS 203 ML-KEM-1024 simulator
+│   ├── stride_fault_injection_sim.py                  # [NEW] BootROM voltage glitch & crowbar simulator
+│   └── test_simulations.py                            # [NEW] Comprehensive test suite for all simulations
 ```
 
 ---
 
-## 5. Detailed Phase-Based Implementation Blueprint
+## 5. Ordered Implementation Strategy
 
-### Phase 1: Author Publication-Grade R&D Research Paper (`docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md`)
-- **Title:** *Zero Trust Satellite Architecture (ZTSA): Cryptographic Hardening, Phased Array Electronic Counter-Countermeasures, and Sovereign Resilience for Mega-Constellations*
-- **Rigorous Mathematical & Architectural Breakdown:**
-  1. **Executive Summary & Abstract:** Paradigm shift from perimeter-based satellite security to Zero Trust Space Architecture (ZTSA).
-  2. **ZTSA Formal Specification (NIST SP 800-207 & CCSDS 350.0-G):** Split Policy Decision Point (PDP) in orbit and terrestrial Policy Enforcement Points (PEP), continuous dynamic policy evaluation.
-  3. **Hardware Root of Trust & Anti-Glitch Silicon Defense:**
-     - SRAM-PUF key generation with BCH $(255, 71, 29)$ error correction derivation.
-     - Dual-Core Lockstep (DCLS) ARM Cortex cores with 2-clock-cycle phase delay comparator.
-     - Sub-nanosecond analog crowbar clamp circuits and glitch-resistant assembly state machines.
-  4. **Electronic Counter-Countermeasures (ECCM) & Phased Array Math:**
-     - Capon MVDR adaptive digital null-steering mathematical derivation ($>45\text{ dB}$ jammer nulling).
-     - Cognitive Frequency Hopping (CFHSS) at $>10,000\text{ hops/sec}$ avoiding detected jamming bands.
-     - Doppler-trajectory cross-correlation anti-spoofing algorithm.
-  5. **Post-Quantum Cryptography & Quantum Key Distribution (QKD):**
-     - NIST FIPS 203 (ML-KEM-1024) & FIPS 204 (ML-DSA-87) lattice parameters and BKZ hardness estimation.
-     - Space-to-space BBM92 entangled photon pair QKD link budget and QBER threshold proof.
-     - MEMS $<50\text{ ns}$ acousto-optic laser dazzle protection shutters.
-  6. **Resilient Ground Segment & Immutable Software:**
-     - Byzantine Fault Tolerant (BFT) distributed SDN controllers with Raft/Tendermint state replication.
-     - IETF RFC 9019 SUIT firmware manifests with dm-verity read-only rootfs (preventing AcidRain wiper malware).
-     - BGP RPKI Route Origin Authorization (ROA) strict invalid-drop filtering.
-  7. **Sovereign Multi-Party Quorum Escrow (Anti-Kill-Switch Architecture):**
-     - Shamir $(k, n)$ secret sharing mathematical derivation over $\mathbb{F}_{2^{256}}$ with FROST threshold signatures.
-     - Sovereign Gateway architecture with Local Data Breakout (LBO).
-  8. **Autonomous Anti-ASAT & Collision Avoidance Interlocks:**
-     - Foster & Estes (1992) B-plane covariance matrix collision probability integral ($P_c > 10^{-4}$).
-     - Cryptographic dual-operator hardware enclaves on de-orbit thruster commands.
-  9. **Subscriber Privacy & CGNAT Overlays:**
-     - Oblivious DNS-over-HTTPS (ODoH) and Encrypted Client Hello (ECH).
-     - WireGuard zero-knowledge mesh overlay integration.
-  10. **CVSS v4.0 Remediation Scorecard & Future Defense Roadmap (2026–2032).**
+```
+Step 1: Build & Verify Simulation Suite (Pillar 3)
+   ├── Create simulations/ directory
+   ├── Implement orbit_sgp4_propagator.py
+   ├── Implement phased_array_beamforming.py
+   ├── Implement rf_link_budget_calculator.py
+   ├── Implement pqc_kem_benchmark.py
+   ├── Implement stride_fault_injection_sim.py
+   ├── Implement test_simulations.py and execute full test pass
+   └── Author simulations/README.md
 
-### Phase 2: Author Main Report Solution Chapter (`16-security-countermeasures-and-mitigations.md`)
-- Comprehensive chapter designed to complement `07-security-risks.md`.
-- Side-by-side Vulnerability-to-Countermeasure matrix across all 7 risk areas.
-- Practical implementation phases (Phase I: Firmware & PQC 2026; Phase II: ECCM & ZTSA 2027; Phase III: Sovereign Escrow & QKD 2028–2030).
-- High-level system architecture diagrams and policy scorecards.
+Step 2: Dual-Language Architecture & README.hi.md (Pillar 1)
+   ├── Copy current README.md to README.hi.md with language header
+   └── Elevate main README.md to formal Technical English monograph style
 
-### Phase 3: Seamless Repository Indexing & Cross-Referencing
-- Update `07-security-risks.md`: Link to Chapter 16 and R&D Whitepaper 07.
-- Update `15-conclusions.md`: Bridge forward to Chapter 16.
-- Update `README.md`: Index Whitepaper 07 in `docs/rnd/`, index Chapter 16 in topic reports, update navigation links and repository statistics.
+Step 3: Standardize Chapters 01–15 & Embed Visualizations (Pillars 1 & 2)
+   ├── Batch 1: Chapters 01–05 (Summary, Problem, Architecture, Constellation, Ground) + Mermaid diagrams
+   ├── Batch 2: Chapters 06–10 (Network, Security, Geopolitics, Environment, Competitors) + Mermaid diagrams
+   └── Batch 3: Chapters 11–15 (Business, Timeline, Roadmap, India, Conclusions) + Mermaid diagrams
+
+Step 4: Comprehensive Monograph Verification & Git Lifecycle
+   ├── Run Python simulation test suite (`pytest` or `python test_simulations.py`)
+   ├── Run UTF-8 BOM verification script
+   ├── Run relative markdown link checker across all files
+   ├── Open GitHub issue via mcp__github-api
+   ├── Commit all changes referencing issue via mcp__git-ops
+   ├── Close GitHub issue
+   └── Push to origin/main via mcp__git-ops
+```
 
 ---
 
-## 6. Risks, Edge Cases & Mitigations
+## 6. Concrete Verification Criteria for 10/10 Acceptance
 
-| Risk / Edge Case | Impact | Mitigation Strategy |
-| :--- | :--- | :--- |
-| **Rad-Hard Spacecraft Compute Budget** | PQC lattice polynomial multiplications may strain radiation-hardened processors. | Specify dedicated hardware accelerator IP (ARM Cryptography Extensions / ASIC coprocessors) for orbital ML-KEM-1024 operations. |
-| **Main-Lobe Distortion in Jammer Nulling** | Jammer located very close to satellite elevation could distort main beam. | Use Linear Constrained Minimum Variance (LCMV) with derivative constraints to preserve main-lobe width. |
-| **Sovereign Key Revocation Latency** | Network partitions between ground and orbit could delay emergency revocation. | Deploy high-priority emergency authenticated broadcast over UHF/S-band auxiliary TT&C channels. |
-
----
-
-## 7. Concrete Verification Plan
-
-### Automated Verification:
-- UTF-8 encoding verification (strict no-BOM).
-- Relative markdown link validation across all 18 project files.
-- Header hierarchy and governance compliance checks (`grep -E "^## "` checks).
-
-### Manual Engineering Review:
-- Verification of MVDR matrix equations, Shamir polynomial formulas, and Foster collision integrals.
-- Verification that all 7 security risks raised in `07-security-risks.md` and `docs/rnd/05-quantitative-stride-threat-model.md` are 100% remediated.
+- **Automated Python Tests:** All 5 simulation modules pass unit tests cleanly (`100% assertions valid`).
+- **Mathematical Integrity:** SGP4 $J_2$ rate equals $-4.71^\circ/\text{day}$; Capon MVDR achieves $>45\text{ dB}$ spatial null; Link Budget derives $+29.7\text{ dB}$ downlink SNR; ML-KEM-1024 generates 1,568-byte ciphertexts; Fault injection simulator validates $P_{glitch} < 10^{-11}$.
+- **Diagrams:** At least 10 high-value Mermaid flowcharts/diagrams embedded across chapters.
+- **Language Uniformity:** 100% of primary monograph (Chapters 01–16, Whitepapers 01–07, README.md) in formal Technical English; 100% of Hindi/Hinglish preserved in `README.hi.md`.
+- **Formatting:** Strict UTF-8 without BOM across all markdown and Python files. Zero broken links.

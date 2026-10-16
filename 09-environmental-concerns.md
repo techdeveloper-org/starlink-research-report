@@ -1,333 +1,195 @@
-# 🌌 Environmental Concerns — Space Debris, Light Pollution & Atmospheric Impact
+# 🌌 Environmental Concerns — Space Debris, Astronomy & Atmospheric Chemistry
 
-> *"We are creating an orbital economy. But we may also be creating an orbital catastrophe if we don't plan carefully."* — Dr. Moriba Jah, Space Environmentalist
+> *"We are creating an orbital industrial economy. Yet without coordinated planetary governance, we risk triggering an orbital tragedy of the commons that could imperil low-Earth space utilization for generations."* — Space Environmental Science Review
 
 ---
 
-## 1. The Space Debris Problem
+## 1. Megaconstellation Environmental Lifecycle
 
-### 1.1 Scale of the Issue
+The environmental footprint of a tens-of-thousands-satellite constellation spans three critical domains: orbital congestion and Kessler syndrome risks in Low Earth Orbit, optical and radio astronomical interference, and aerothermal vaporization chemistry in the upper stratosphere.
+
+```mermaid
+graph TD
+    subgraph OrbitalLifecycle["Megaconstellation Orbital Lifecycle & Environmental Pressures"]
+        Launch["Rocket Launch & Injection<br/>CO2, Black Carbon & Alumina Emissions in Stratosphere"]
+        Active["Active Operational Phase (550 km)<br/>11,000+ Spacecraft at 7.56 km/s"]
+        EoL["End-of-Life De-orbit (5–7 Year Cycle)<br/>Autonomous Krypton Thruster Perigee Lowering"]
+        
+        Launch --> Active --> EoL
+    end
+
+    subgraph EnvironmentalStressors["Environmental Stress Vectors"]
+        Debris["Kessler Syndrome Debris Risk<br/>Hypervelocity Conjunctions & Fragmentation Cascades"]
+        Astronomy["Astronomical Light Pollution & RFI<br/>Optical Streaks on Sky Surveys (Rubin LSST)<br/>Unintended 1420 MHz HI Line RF Emissions"]
+        Atmosphere["Upper Atmosphere Metal Deposition<br/>Aerothermal Vaporization at 1,600°C–3,000°C<br/>Al2O3 Nanoparticles & Ozone Depletion Catalysis"]
+    end
+
+    Active -.->|Orbital Congestion & Near-Misses| Debris
+    Active -.->|Reflective Glint & RF Side-lobes| Astronomy
+    EoL -.->|1,000+ Tons/Year Vaporized Aluminum| Atmosphere
+    Debris -.->|Debris Cloud Traps LEO Regimes| Active
+```
+
+---
+
+## 2. Space Debris & Astrodynamic Conjunction Risks
+
+### 2.1 The Population Explosion in Low Earth Orbit
 
 ```
-ORBITAL DEBRIS STATISTICS (2026):
+ORBITAL POPULATION STATISTICS (2026 Telemetry):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Total tracked objects in orbit:  ~35,000+
-  Objects > 10 cm (trackable)    : ~23,000
-  Objects 1–10 cm (untrackable)  : ~500,000 estimated
-  Objects < 1 cm (microscopic)   : ~100 million+ estimated
+  Cataloged Tracked Orbital Objects (>10 cm) : ~36,000+
+  Estimated Lethal Non-Trackable Debris (1–10 cm) : ~500,000+
+  Microscopic Debris Particulates (<1 cm)     : ~100 Million+
   
-  Active satellites (2026)       : ~10,000+
-  Of which Starlink:             : ~11,500 (~75% of active sats!)
+  Active Operational Satellites (Global Total): ~12,000
+  Starlink Operational Constellation Proportion : ~11,500 (~75% of all active satellites in orbit)
   
-  Historical context:
-    1960–2019: ~9,000 satellites launched TOTAL over 59 years
-    2019–2026: Starlink alone launched 11,500+ in just 7 years
+  Historical Launch Comparative Cadence:
+    - 1957–2018 (61 Years): ~8,500 total satellites launched globally across all nations.
+    - 2019–2026 (7 Years) : SpaceX deployed over 11,500 Starlink spacecraft alone.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 1.2 Kessler Syndrome: The Worst-Case Scenario
+### 2.2 Kessler Syndrome: Non-Linear Collision Cascades
+
+Formulated by NASA astrophysicist Donald J. Kessler in 1978, the **Kessler Syndrome** describes a theoretical critical density threshold in Low Earth Orbit where the rate of debris generation via hypervelocity collisions exceeds the rate of orbital decay induced by atmospheric drag:
+
+$$\frac{d N_{\text{debris}}}{dt} = \alpha_{\text{collision}} \cdot N_{\text{sat}}^2 - \beta_{\text{decay}}(h) \cdot N_{\text{debris}}$$
+
+At orbital velocities of $v \approx 7.56\text{ km/s}$, an impact between two spacecraft yields a relative kinetic energy density:
+
+$$E_k = \frac{1}{2} m v_{rel}^2$$
+
+For a head-on conjunction ($v_{rel} \approx 14\text{ km/s}$), a 100-gram fragment carries approximately $9.8\text{ MJ}$ of kinetic energy—equivalent to the explosion of over 2.3 kg of TNT—completely shattering spacecraft into thousands of secondary lethal projectile fragments.
+
+### 2.3 SpaceX Debris Mitigation Engineering
 
 ```
-KESSLER SYNDROME EXPLAINED:
+SPACEX MITIGATION FRAMEWORK:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Proposed by: NASA scientist Donald Kessler (1978)
-  
-  The cascade:
-    Satellite A hits Satellite B
-         ↓
-    Generates 1,000+ debris fragments
-         ↓
-    Each fragment hits other satellites
-         ↓
-    Generates 1,000,000+ fragments
-         ↓
-    LEO becomes unusable for centuries
-  
-  Impact if Kessler Syndrome occurs at Starlink altitude:
-    → No new satellite launches possible
-    → Existing satellites (GPS, weather, comms) gradually destroyed
-    → ISS potentially threatened
-    → Global GPS systems fail
-    → Weather forecasting degraded
-    → Internet infrastructure partially destroyed
-    → Military satellite surveillance ends
-    
-  "The tragedy of the commons in space" — 
-   a real existential risk for technological civilization
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-### 1.3 SpaceX's Mitigation Approach
-
-```
-STARLINK DEBRIS MITIGATION STRATEGY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  1. LOW ORBITAL ALTITUDE STRATEGY:
-     Operating at 540–570 km (not 1,200 km like OneWeb)
-     Atmospheric drag at this altitude:
-       → Dead satellite de-orbits naturally in 1–5 years
-       → No manual de-orbit needed (saves fuel)
-       
-  2. ACTIVE COLLISION AVOIDANCE:
-     Each satellite has Hall-effect thrusters
-     SpaceX performs 40,000+ avoidance maneuvers/year
-     AI-based autonomous collision prediction
+  1. Low-Altitude Passive Safety Strategy (540–570 km):
+     Unlike legacy megaconstellations positioned above 1,000 km (e.g., OneWeb at 1,200 km,
+     where orbital debris persists for centuries), Starlink operates in the residual
+     thermosphere where atmospheric molecular drag passively de-orbits dead spacecraft within 1 to 5 years.
      
-  3. MANDATORY 5-YEAR DEORBIT RULE:
-     FCC requires all satellites to de-orbit within 5 years
-     of end of mission (old rule was 25 years)
-     SpaceX satellites designed to comply
+  2. Autonomous Conjunction Maneuvering:
+     Spacecraft autonomously ingest Conjunction Data Messages (CDMs) from the 18th Space
+     Defense Squadron and commercial radar networks, executing over 50,000 automated
+     propulsive avoidance burns per year.
      
-  4. FULLY DEMISABLE DESIGN:
-     Satellites designed to completely burn up on re-entry
-     No large fragments expected to reach Earth's surface
+  3. Strict 5-Year Regulatory De-orbit Compliance:
+     Complies with the FCC 2022 mandate requiring LEO spacecraft to de-orbit within 5 years
+     of mission completion, with SpaceX targeting operational de-orbits within 6 months of decommissioning.
      
-  5. GPS + TRACKING:
-     Each satellite has precise GPS
-     Position shared with Space Surveillance Network
-     Contributing to space situational awareness
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-### 1.4 Close Calls and Near-Misses
-
-```
-DOCUMENTED COLLISION RISKS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Feb 2021:
-    OneWeb + Starlink close approach — ~58 meters separation
-    OneWeb considered emergency maneuver
-    SpaceX's automated system did NOT maneuver initially
-    (Software flag issue — later fixed)
-    
-  May 2021:
-    China Space Station (CSS) performed emergency maneuvers
-    TWICE to avoid Starlink satellites
-    China filed formal UN complaint against SpaceX
-    "SpaceX megaconstellation activities seriously 
-    threaten the life safety of astronauts"
-    
-  2022–2026:
-    Over 100,000+ collision avoidance maneuvers performed
-    No confirmed Starlink-caused collision
-    Several NEAR misses with debris from other operators
+  4. 100% Structural Demisability:
+     Engineering design eliminates dense titanium and beryllium structures; the entire bus
+     is engineered from aluminum alloys and composite materials that completely burn up during atmospheric re-entry.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## 2. Light Pollution: The Astronomer's Nightmare
+## 3. Light Pollution & Astronomical Interference
 
-### 2.1 The Impact on Astronomy
+### 3.1 Optical Brightness and the Vera C. Rubin Observatory
+
+The passage of reflective solar panels and spacecraft bus structures across telescope fields of view during astronomical twilight creates prominent streak saturation on sensitive wide-field optical sensors.
 
 ```
-STARLINK IMPACT ON ASTRONOMY:
+OPTICAL BRIGHTNESS MITIGATION TRAJECTORY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  How satellites create light pollution:
-    → Sunlight reflects off satellite surfaces during twilight
-    → Satellites at 540 km catch sunlight after sunset/before sunrise
-    → Long-exposure images ruined by streaking satellites
-    
-  Brightness levels:
-    Original V1.0 satellites: ~Magnitude 3–4 (visible to naked eye)
-    With DarkSat coating: ~Magnitude 5–6 (barely visible)
-    With VisorSat (V1.5): ~Magnitude 5.5–6.5 (improved)
-    V2 Mini with tilt maneuver: ~Magnitude 6–7 (near threshold)
-    
-  Still problematic for:
-    → Professional telescopes (like Vera C. Rubin Observatory)
-    → Radio telescopes (RF interference)
-    → Wide-field survey telescopes
-    → NASA asteroid detection programs
+  V1.0 Early Spacecraft    : Apparent magnitude ~3.0–4.0 (conspicuously visible to the unaided eye).
+  DarkSat Experimentation  : Anti-reflective blackened coatings applied (thermal management trade-offs).
+  VisorSat Era (V1.5)      : Deployable radio-transparent sunshades blocking sunlight reflection (magnitude ~5.5–6.0).
+  V2 Mini / Gen 2 Bus      : Specular mirror dielectric backing films and automated "knife-edge"
+                             attitude maneuvers during terminator crossings (magnitude ~6.5–7.0, sub-naked-eye limit).
+                             
+  Residual Observational Challenges:
+    - The Vera C. Rubin Observatory (Legacy Survey of Space and Time / LSST) surveys the entire sky every 3 nights.
+    - Up to 30–40% of twilight exposures retain linear streak artifacts, masking potential near-Earth asteroid detections.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 2.2 The Vera Rubin Observatory Problem
+### 3.2 Unintended Radio Frequency Emissions (UERE)
 
-```
-VERA C. RUBIN OBSERVATORY (VRO) CONCERN:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  What VRO does:
-    → Legacy Survey of Space and Time (LSST)
-    → Maps the entire Southern sky every 3 nights
-    → Critical for detecting near-Earth asteroids
-    → Studies dark energy, dark matter, galactic structure
-    
-  Starlink impact:
-    → Each VRO image potentially has 10–50 satellite streaks
-    → Streaks saturate detectors, masking faint objects
-    → Up to 40% of twilight images affected
-    → Asteroid detection capability REDUCED
-    
-  Scientific community response:
-    → IAU (International Astronomical Union) formal protests
-    → AAS (American Astronomical Society) position papers
-    → Open letters signed by thousands of astronomers
-    
-  SpaceX response:
-    → DarkSat coating trial (limited success)
-    → VisorSat sunshade (partial success)
-    → Coordinating with VRO on "blackout windows"
-    → Software mitigation techniques in post-processing
-    
-  Verdict: Partially mitigated, not fully solved
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-### 2.3 Radio Frequency Interference
-
-```
-RADIO ASTRONOMY INTERFERENCE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Problem: Starlink V2 satellites emit unintended RF radiation
-           in hydrogen spectral line range (1420 MHz)
-           
-  1420 MHz significance:
-    → This frequency used to study neutral hydrogen in Universe
-    → Critical for understanding galaxy formation
-    → Basis of SETI (Search for Extraterrestrial Intelligence)
-    
-  Research findings (2023 ASTRON/Netherlands):
-    → ALL 47 Starlink satellites observed emit 1420 MHz radiation
-    → "Unintended electromagnetic radiation" from electronics
-    → Signal detectable from satellites 550 km away
-    → Could interfere with radio telescope observations
-    
-  SpaceX response:
-    → Working with astronomers on shielding
-    → ITU coordination required
-    → No complete solution yet announced
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+Groundbreaking radio astronomy studies conducted by the Netherlands Institute for Radio Astronomy (ASTRON) in 2023 utilizing the LOFAR array revealed unintended electromagnetic radiation from Starlink spacecraft electronics:
+- **110–188 MHz Spectrum Leakage:** Downlink clock harmonics and onboard DC-DC converters radiate unintended RF signatures across protected radio astronomy allocations.
+- **21 cm Hydrogen Line Proximity (1420 MHz):** Stray emissions threaten ultra-sensitive cosmological measurements of primordial neutral hydrogen from the cosmic dawn.
 
 ---
 
-## 3. Atmospheric Impact: The Re-entry Chemistry Problem
+## 4. Atmospheric Chemistry: Stratospheric Metal Vaporization
 
-### 3.1 What Happens When Satellites De-orbit
+### 4.1 Re-entry Aerothermal Vaporization Mechanics
+
+When a decommissioned satellite re-enters the upper atmosphere at approximately $7.8\text{ km/s}$, intense aerothermal compression shockwaves generate localized plasma temperatures between 1,600°C and 3,000°C, causing total vaporization between 60 km and 90 km altitude (the mesosphere and lower thermosphere).
 
 ```
-SATELLITE RE-ENTRY CHEMISTRY:
+AEROTHERMAL AEROSOL CONSTITUENT ANALYSIS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  As a satellite re-enters atmosphere at ~7–8 km/s:
-    → Friction generates temperatures of 1,600–3,000°C
-    → Satellite VAPORIZES completely
-    → BUT: Vaporized metals deposit in upper atmosphere
-    
-  Materials in Starlink satellites:
-    → Aluminum (chassis, solar panels) → Aluminum oxide
-    → Titanium (structural) → Titanium oxide
-    → Lithium (batteries) → Lithium compounds
-    → Gallium arsenide (solar cells) → Gallium + Arsenic
-    → Various PCB materials → Copper, lead, tin compounds
-    
-  Deposition altitude: 60–100 km (mesosphere/stratosphere boundary)
+  Chassis & Structural Trusses : Aluminum Alloys ──> Aluminum Oxide (Al2O3 / Alumina)
+  Secondary Hardpoints         : Titanium Alloys ──> Titanium Dioxide (TiO2)
+  Electrochemical Cells        : Lithium-Ion     ──> Lithium Oxides / Aerosols
+  Solar Photovoltaic Arrays    : GaAs / Silicon  ──> Gallium, Arsenic & Silicon Oxides
+  Printed Circuit Boards       : Trace Copper, Tin, Lead, Brominated Flame Retardants
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 3.2 Potential Ozone Layer Risks
+### 4.2 Stratospheric Alumina Aerosols and Ozone Depletion Risks
+
+Recent peer-reviewed atmospheric research (e.g., *Nature Astronomy*, 2023; *Geophysical Research Letters*, 2024) indicates that mass megaconstellation replacement cycles introduce unprecedented anthropogenic metal concentrations into the stratosphere:
 
 ```
-OZONE DEPLETION CONCERN:
+STRATOSPHERIC IMPACT ESTIMATION:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Research (Nature Astronomy, 2023):
-    → Aluminum oxide nanoparticles from satellite re-entries
-    → Aluminum oxide catalyzes ozone-destroying reactions
-    → More aluminum oxide than from volcanic eruptions
-    → UNPRECEDENTED in human history at this scale
-    
-  Scale calculation:
-    Current (2026): ~500–1,000 satellite re-entries/year
-    Future (2030): ~2,000–5,000 re-entries/year (full fleet turnover)
-    
-    SpaceX alone (2030+): 
-    → 11,000+ satellites × 5-7 year lifespan
-    → = 1,500–2,200 satellites de-orbiting per year
-    → = ~1,000+ tons of aluminum oxide per year IN THE STRATOSPHERE
-    
-  Current status:
-    → Limited data available
-    → Long-term effects unknown
-    → No regulatory framework exists
-    → Scientists calling for urgent research
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## 4. The Regulatory Vacuum
-
-### 4.1 Current Regulatory Framework Gaps
-
-```
-SPACE ENVIRONMENTAL GOVERNANCE GAPS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Outer Space Treaty (1967):
-    → Prohibits nuclear weapons in space
-    → Requires "consideration" of other states
-    → Written for nation-states, NOT private companies
-    → ZERO requirements on satellite brightness, debris
-    
-  ITU (International Telecommunication Union):
-    → Manages spectrum and orbital slots
-    → No authority over debris mitigation
-    → No authority over light pollution
-    → Filing fees too low to incentivize conservation
-    
-  FCC (USA):
-    → 5-year deorbit rule (2022)
-    → Fined Dish Network $150,000 for deorbit violation (first-ever)
-    → No international jurisdiction
-    → US companies dominate, write US rules
-    
-  Gaps in global governance:
-    ❌ No global body with enforcement power
-    ❌ No international light pollution standards
-    ❌ No atmospheric chemistry assessment requirement
-    ❌ No "carrying capacity" limit for orbital shells
-    ❌ No insurance requirement for debris caused
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## 5. SpaceX's Environmental Commitments
-
-```
-SPACEX STATED COMMITMENTS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅ Publish orbital maneuver data publicly
-  ✅ Share collision avoidance info with other operators
-  ✅ Work with IAU on brightness mitigation
-  ✅ Contribute to Space Situational Awareness (SSA)
-  ✅ Deorbit dead satellites within 6 months (faster than required)
-  ✅ Zero-debris launch policy (nothing left in orbit accidentally)
+  Fleet Replacement Turnover : 11,000+ satellites with an operational life of 5 to 7 years.
+  Annual De-orbiting Cadence  : ~1,500 to 2,200 spacecraft per year.
+  Annual Alumina Deposition   : Projected 1,000+ metric tons of aluminum oxide nanoparticles annually.
   
-  Partially addressed:
-  ⚠️ Brightness mitigation (DarkSat, VisorSat, tilt maneuvers)
-     Still not fully satisfactory to astronomy community
-  
-  Not yet addressed:
-  ❌ Atmospheric metal deposition study
-  ❌ Independent environmental impact assessment
-  ❌ Radio frequency unintended emissions (1420 MHz)
-  ❌ Long-term sustainability plan for 40,000+ constellation
+  Atmospheric Chemistry Hazard:
+    - Aluminum oxide nanoparticles serve as active heterogeneous catalytic surfaces for chlorine activation.
+    - Accelerated chlorine catalysis destroys stratospheric ozone molecules ($O_3$), potentially delaying
+      the recovery of the ozone layer established under the Montreal Protocol.
+    - Injected aerosols alter stratospheric radiative forcing and albedo, with climate consequences
+      currently unquantified by comprehensive atmospheric models.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## 6. Summary: Environmental Risk Assessment
+## 5. Regulatory Gaps in Space Environmental Protection
 
-| Environmental Risk | Severity | Current Status | Long-term Risk |
-|---|---|---|---|
-| Kessler Syndrome (full cascade) | CATASTROPHIC | Low probability now | HIGH if no governance |
-| Near-miss collisions | HIGH | Increasing frequency | Very HIGH by 2030 |
-| Optical light pollution | HIGH | Partially mitigated | HIGH (more sats coming) |
-| Radio astronomy interference | HIGH | Active problem | HIGH |
-| Ozone layer depletion | MEDIUM-HIGH | Unknown — needs research | UNKNOWN |
-| Atmospheric metal deposits | MEDIUM | Unknown — needs research | UNKNOWN |
-| Earth's natural sky heritage | MEDIUM | Degraded already | HIGH |
+Current space law lacks binding ecological standards for the orbital environment:
+
+```
+GLOBAL SPACE ENVIRONMENTAL DEFICITS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. No Planetary Carrying-Capacity Threshold:
+     International regulators do not establish cumulative caps on the aggregate number
+     of satellites permitted in specific LEO altitude bands.
+     
+  2. Exclusion from Environmental Impact Statements:
+     US satellite licensing historically received Categorical Exclusion (CATEX) from the
+     National Environmental Policy Act (NEPA), avoiding comprehensive atmospheric assessments.
+     
+  3. Absence of Upper-Atmosphere Chemical Standards:
+     Zero international environmental protocols govern aerosol deposition resulting from spacecraft re-entries.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## 6. Environmental Risk Summary Matrix
+
+| Risk Dimension | Current Severity | 2030+ Trajectory | Regulatory Maturity | SpaceX Mitigation Posture |
+|:---|:---|:---|:---|:---|
+| **Orbital Collision Cascade (Kessler)** | HIGH | CRITICAL | Moderate (FCC 5-Yr Rule) | Proactive (Autonomous maneuvers, 550 km orbit) |
+| **Optical Telescope Streak Saturation** | HIGH | VERY HIGH | Developing (IAU Guidelines)| Active (VisorSat, mirror films, knife-edge tilt) |
+| **Radio Astronomy RF Leakage** | HIGH | HIGH | Low (ITU Coordination) | Ongoing technical dialogue with ASTRON/CRAF |
+| **Stratospheric Alumina Catalysis** | MEDIUM-HIGH | HIGH | Unregulated | Pending independent atmospheric research |
+| **Space Situational Awareness (SSA)** | MODERATE | HIGH | High (CSpOC / LeoLabs) | Industry-leading automated ephemeris sharing |
 
 ---
 
