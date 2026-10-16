@@ -157,6 +157,21 @@ Physical side-channel and voltage-fault attacks on user terminals inject transie
 3. **Total Memory Zeroization Time:** $T_{\text{zeroize}} \le 10\text{ ns}$ from physical glitch edge.
 4. **Residual Voltage:** $V_{\text{rem}} \le 5\text{ mV}$ (far below SRAM bitcell data retention threshold of $\sim 200\text{ mV}$).
 
+### 4.2 Dual-Tier Latency Boundary Specification (Hardware vs Software):
+To eliminate audit ambiguity between silicon physics and CPU instruction execution, StarSec formally defines a dual-tier response boundary:
+
+| Tier | Domain | Mechanism | Specification Ceiling | Verification Tooling |
+|:---|:---|:---|:---|:---|
+| **Tier 1 (Hardware)** | Analog Silicon Physics | N-Channel MOSFET / SCR Crowbar Shunt to Ground | **$T_{\text{crowbar}} < 10\text{ ns}$** | Oscilloscope / SPICE circuit simulation |
+| **Tier 2 (Software)** | OS Kernel / Driver ISR | MMIO register sequencing, volatile memory scrub, barrier flush | **$T_{\text{driver}} \le 250\text{ ns}$ ($< 500\text{ cycles}$)** | `starsec_bench.h` (RDTSC / QPC cycle harness) |
+
+#### Mathematical Derivation (Proof 3 - Hardware Mathematics Expert):
+1. **Silicon Crowbar Discharge Bound:**
+   $$T_{\text{crowbar}} = \frac{C_{\text{BBRAM\_rail}} \cdot (V_{\text{core}} - V_{\text{th}})}{I_{\text{peak\_shunt}}} = \frac{50\text{ pF} \times 1.2\text{ V}}{1.0\text{ A}} \approx 0.06\text{ ns} \ll 10\text{ ns}$$
+2. **Software Driver Instruction Budget:**
+   $$T_{\text{driver}} = \frac{N_{\text{instructions}} \times \text{CPI}}{f_{\text{CPU}}} + T_{\text{bus\_barrier}} \approx \frac{45 \times 1.2}{3.0\text{ GHz}} + 15\text{ ns} \approx 33\text{ ns} \le 250\text{ ns}$$
+Architectural Invariant: The physical crowbar shunts power and drains BBRAM cells in $< 10\text{ ns}$, while the software driver safely captures telemetry and asserts register status bits within its $\le 250\text{ ns}$ budget.
+
 ---
 
 ## 5. Dual-Core Lockstep (DCLS) Radiation Mitigation Architecture

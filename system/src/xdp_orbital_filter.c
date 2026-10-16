@@ -2,7 +2,7 @@
  * @file xdp_orbital_filter.c
  * @brief Implementation of StarSec In-Orbit Laser Link eBPF / XDP High-Performance Packet Filter.
  *
- * Implements wire-speed packet inspection, constant-time authentication tag
+ * Implements wire-speed packet inspection, constant-time RFC 8439 Poly1305 MAC
  * validation, propagation window enforcement, and rogue node isolation.
  *
  * Standard: StarSec Constellation Security Framework (CSF v1.0)
@@ -40,27 +40,73 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
 }
 
 /**
- * @brief Computes and validates truncated 128-bit authentication tag.
- * @param hdr Pointer to StarSec packet header.
+ * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC for an ISL frame.
+ * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
  * @param key_32 Pointer to 32-byte shared optical link secret.
- * @return true if authentication tag matches, false otherwise.
  */
-bool xdp_verify_isl_auth_tag(const starsec_isl_header_t *hdr, const uint8_t *key_32) {
+void xdp_generate_isl_auth_tag(
+    starsec_isl_header_t *hdr,
+    const uint8_t        *payload,
+    size_t                payload_len,
+    const uint8_t        *key_32
+) {
+    if (hdr == NULL || key_32 == NULL) {
+        return;
+    }
+
+    starsec_poly1305_ctx_t ctx;
+    starsec_poly1305_init(&ctx, key_32);
+
+    starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
+    starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
+
+    if (payload != NULL && payload_len > 0) {
+        starsec_poly1305_update(&ctx, payload, payload_len);
+    }
+
+    starsec_poly1305_finish(&ctx, hdr->auth_tag);
+}
+
+/**
+ * @brief Computes and validates 128-bit RFC 8439 Poly1305 authentication tag.
+ * @param hdr Pointer to StarSec packet header.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
+ * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @return true if authentication tag matches in constant time, false otherwise.
+ */
+bool xdp_verify_isl_auth_tag(
+    const starsec_isl_header_t *hdr,
+    const uint8_t              *payload,
+    size_t                      payload_len,
+    const uint8_t              *key_32
+) {
     if (hdr == NULL || key_32 == NULL) {
         return false;
     }
 
-    uint8_t expected_tag[16];
-    for (size_t i = 0; i < 16; i++) {
-        expected_tag[i] = (uint8_t)(key_32[i] ^ key_32[i + 16] ^
-                                    ((hdr->src_satellite_id >> (i % 8)) & 0xFF) ^
-                                    ((hdr->sequence_number >> (i % 8)) & 0xFF) ^
-                                    ((hdr->magic >> ((i * 2) % 32)) & 0xFF));
+    starsec_poly1305_ctx_t ctx;
+    uint8_t calculated_tag[16];
+
+    starsec_poly1305_init(&ctx, key_32);
+    starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
+    starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
+
+    if (payload != NULL && payload_len > 0) {
+        starsec_poly1305_update(&ctx, payload, payload_len);
     }
 
-    uint8_t diff = 0;
+    starsec_poly1305_finish(&ctx, calculated_tag);
+
+    volatile uint8_t diff = 0;
     for (size_t i = 0; i < 16; i++) {
-        diff |= (hdr->auth_tag[i] ^ expected_tag[i]);
+        diff |= (calculated_tag[i] ^ hdr->auth_tag[i]);
+    }
+
+    for (size_t i = 0; i < 16; i++) {
+        calculated_tag[i] = 0;
     }
 
     return (diff == 0);
@@ -122,7 +168,8 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
-    if (!xdp_verify_isl_auth_tag(hdr, config->isl_shared_key)) {
+    const uint8_t *payload = frame_bytes + sizeof(starsec_isl_header_t);
+    if (!xdp_verify_isl_auth_tag(hdr, payload, hdr->payload_len, config->isl_shared_key)) {
         stats->dropped_invalid_auth++;
         return STARSEC_XDP_DROP;
     }

@@ -50,6 +50,7 @@ class StarSecUnifiedTestRunner:
             str(self.system_dir / "src" / "tamper_zeroize_driver.c"),
             str(self.system_dir / "src" / "sram_puf_fuzzy_extractor.c"),
             str(self.system_dir / "src" / "dcls_fault_monitor.c"),
+            str(self.system_dir / "src" / "starsec_poly1305.c"),
             str(self.system_dir / "src" / "xdp_orbital_filter.c"),
             str(self.system_dir / "src" / "main_system_test.c"),
         ]

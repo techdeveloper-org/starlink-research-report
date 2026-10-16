@@ -2,8 +2,8 @@
  * @file xdp_orbital.h
  * @brief StarSec In-Orbit Laser Link eBPF / XDP High-Performance Packet Filter Header.
  *
- * Implements wire-speed packet inspection, cryptographic header verification,
- * anti-replay epoch window checking, and rogue BGP route isolation.
+ * Implements wire-speed packet inspection, cryptographic header verification via
+ * RFC 8439 Poly1305, anti-replay epoch window checking, and rogue BGP route isolation.
  *
  * Standard: StarSec Constellation Security Framework (CSF v1.0)
  * Compliance: Level 2.2 Docstrings-Only, MISRA-C:2023 Principles
@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "starsec_poly1305.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +44,7 @@ typedef enum {
 } isl_proto_type_t;
 
 /**
- * @brief Fixed 36-byte header structure for StarSec laser crosslink packets.
+ * @brief Fixed 40-byte header structure for StarSec laser crosslink packets.
  */
 typedef struct __attribute__((packed)) {
     uint32_t magic;                      /**< 0x00: Must match STARSEC_ISL_MAGIC */
@@ -53,7 +54,7 @@ typedef struct __attribute__((packed)) {
     uint16_t dst_satellite_id;           /**< 0x08: Destination Constellation Node ID */
     uint32_t sequence_number;            /**< 0x0A: Monotonic anti-replay counter */
     uint64_t tx_epoch_ms;                /**< 0x0E: GPS UTC transmit timestamp */
-    uint8_t  auth_tag[16];               /**< 0x16: Truncated 128-bit authentication tag */
+    uint8_t  auth_tag[16];               /**< 0x16: 128-bit RFC 8439 Poly1305 MAC */
     uint16_t payload_len;                /**< 0x26: Payload length in bytes */
 } starsec_isl_header_t;
 
@@ -103,12 +104,33 @@ int xdp_starsec_filter_frame(
 bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_drift_ms);
 
 /**
- * @brief Computes and validates truncated 128-bit authentication tag.
- * @param hdr Pointer to StarSec packet header.
+ * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC for an ISL frame.
+ * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
  * @param key_32 Pointer to 32-byte shared optical link secret.
- * @return true if authentication tag matches, false otherwise.
  */
-bool xdp_verify_isl_auth_tag(const starsec_isl_header_t *hdr, const uint8_t *key_32);
+void xdp_generate_isl_auth_tag(
+    starsec_isl_header_t *hdr,
+    const uint8_t        *payload,
+    size_t                payload_len,
+    const uint8_t        *key_32
+);
+
+/**
+ * @brief Computes and validates 128-bit RFC 8439 Poly1305 authentication tag.
+ * @param hdr Pointer to StarSec packet header.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
+ * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @return true if authentication tag matches in constant time, false otherwise.
+ */
+bool xdp_verify_isl_auth_tag(
+    const starsec_isl_header_t *hdr,
+    const uint8_t              *payload,
+    size_t                      payload_len,
+    const uint8_t              *key_32
+);
 
 /**
  * @brief Resets all diagnostic telemetry counters to zero.
