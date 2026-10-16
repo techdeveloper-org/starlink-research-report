@@ -173,9 +173,9 @@ When pointing micro-vibrations or brief solar blinding cause an optical laser di
 
 ---
 
-## 9. Dual-Tier Line-Rate Fast-Path vs. Cryptographic Offload Architecture
+## 9. Two-Stage Anti-Replay Commit & Cryptographic Offload Architecture (CSF v1.1)
 
-To sustain 100 Gbps line-rate optical crosslinks without packet buffer overflows or OS interrupt storms, StarSec mandates a strict dual-tier ingress architecture:
+To sustain 100 Gbps line-rate optical crosslinks while provably preventing Unauthenticated Replay State Poisoning (DoS) and False-Positive Inter-Packet Delta Drops, StarSec mandates a strict Two-Stage Commit Architecture:
 
 ```mermaid
 graph TD
@@ -183,25 +183,34 @@ graph TD
     XDP -->|Magic Check Fails| DropMagic[Drop: BAD_MAGIC]
     XDP -->|Truncated Header| DropLen[Drop: BAD_LEN]
     XDP -->|Not in authorized_satellites_map| DropAuth[Drop: UNAUTHORIZED_NODE]
-    XDP -->|Seq &lt;= last_seq or Drift &gt;200ms| DropReplay[Drop: REPLAY_OR_DRIFT]
-    XDP -->|Passes All Fast Checks| AFXDP[Tier 2: Zero-Copy AF_XDP Ring Buffer<br>Userspace / Hardware Crypto Engine]
+    XDP -->|Freshness Delta &lt; -200ms or &gt; +20ms vs time_sync_map| DropDrift[Drop: EPOCH_DRIFT]
+    XDP -->|Seq strictly older than 64-window base or bit set| DropReplay[Drop: REPLAY_SEQ]
+    XDP -->|Passes All Fast Checks (State NOT Mutated)| AFXDP[Tier 2: Zero-Copy AF_XDP Ring Buffer<br>Userspace / Hardware Crypto Engine]
     AFXDP --> ChaChaKey[RFC 8439 Section 2.6 ChaCha20 Block 0<br>Derive Ephemeral One-Time Poly1305 Key]
     ChaChaKey --> PolyAuth{Poly1305 128-bit MAC Verification<br>Constant-Time Match}
-    PolyAuth -->|Forged Tag| DropCrypto[Drop: INVALID_AUTH]
-    PolyAuth -->|Valid Tag| DecryptPayload[Authenticated Payload to FSW Routing Core]
+    PolyAuth -->|Forged Tag (State Remains Safe)| DropCrypto[Drop: INVALID_AUTH]
+    PolyAuth -->|Valid Tag| CommitState[Stage 2: Commit Auth Sequence to Sliding Window<br>Update BPF isl_replay_filter_map]
+    CommitState --> DecryptPayload[Authenticated Payload to FSW Routing Core]
 ```
 
-### 9.1 Tier 1: In-Kernel eBPF/XDP Fast-Path (<15 ns)
-- Executed directly at the network interface card (NIC) driver layer prior to Linux `sk_buff` allocation.
-- Enforces wire-speed packet boundary validation, magic identifier matching (`STARSEC_ISL_MAGIC`), authorized peer node validation via BPF hash map (`authorized_satellites_map`), and anti-replay state tracking via `isl_replay_filter_map`.
+### 9.1 Tier 1: In-Kernel Speculative Ingress Pre-Filter (<15 ns)
+- Executed directly at the network interface card (NIC) driver layer prior to Linux `sk_buff` memory allocation.
+- Enforces wire-speed packet boundary validation, magic identifier matching (`STARSEC_ISL_MAGIC`), and authorized peer node validation via BPF hash map (`authorized_satellites_map`).
+- **Local-Clock Freshness Enforcement:** Validates transmit epoch against the receiver's trusted local clock (`time_sync_map`), calibrated via GPS/PTP disciplined oscillator:
+  $$-200\text{ ms} \le (t_{\text{tx}} - t_{\text{local}}) \le +20\text{ ms}$$
+  Eliminates the flaw of inter-packet delta checking: links idle for minutes incur zero false drops upon reconnection.
+- **Speculative Read-Only Replay Checking:** Validates that `sequence_number` falls within or ahead of the 64-bit sliding window. Crucially, Tier 1 **NEVER modifies** the replay state or advances the high-water mark. Unauthenticated packets cannot poison the window.
 - Updates per-CPU lockless telemetry counters (`isl_telemetry_map`).
-- **Rationale for Boundary:** Standard Linux eBPF verifiers strictly prohibit unbounded loops, dynamic jumps, and arbitrary 130-bit multi-limb big-integer arithmetic required for Poly1305 polynomial modular reduction ($2^{130}-5$) directly inside XDP without specialized hardware kfuncs.
 
-### 9.2 Tier 2: Cryptographic Offload & One-Time Keying (RFC 8439)
-- Packets passing Tier 1 are dispatched via zero-copy AF_XDP sockets to cryptographic acceleration hardware or flight software worker threads.
-- **Unique One-Time Key Derivation:** To strictly prevent Poly1305 key reuse, every frame derives an ephemeral, single-use 32-byte key $(r, s)$ using ChaCha20 block 0:
-  $$\text{Nonce}_{96} = \text{src\_id}_{16} \parallel \text{dst\_id}_{16} \parallel \text{sequence\_number}_{32} \parallel \text{tx\_epoch\_ms\_low}_{32}$$
-  $$K_{\text{one-time}} = \text{ChaCha20}_{\text{block}}(K_{\text{master}}, \, \text{counter}=0, \, \text{Nonce}_{96})[0..31]$$
-- Poly1305 evaluates the polynomial accumulator over the frame and compares against `hdr->auth_tag` in constant time.
-- The ephemeral key $K_{\text{one-time}}$ is securely zeroized from volatile memory immediately upon completion.
+### 9.2 Tier 2: Cryptographic Offload, One-Time Keying & State Commitment (RFC 8439)
+- Packets passing Tier 1 are dispatched via zero-copy AF_XDP ring buffers to cryptographic acceleration hardware or flight software worker threads.
+- **Collision-Free 96-Bit Nonce Architecture:**
+  $$\text{Nonce}_{96} = \mathbf{LE32}(\text{session\_id}) \parallel \mathbf{LE64}(\text{sequence\_number})$$
+  - `session_id` is an ephemeral 32-bit boot counter incremented monotonically upon every spacecraft reboot or session key exchange.
+  - `sequence_number` is a 64-bit monotonic packet counter.
+  - **Hard Rekeying Boundary:** When `sequence_number` reaches $N_{\text{max}} = 2^{32} - 10000$, further transmissions are halted with `STARSEC_CRYPTO_ERR_REKEY_REQUIRED` until a fresh post-quantum key exchange (ML-KEM-1024 / X25519) yields a new session key and resets `session_id`.
+- Poly1305 evaluates the polynomial accumulator over the 48-byte header and payload, performing constant-time verification against `hdr->auth_tag`.
+- **Authoritative Stage 2 State Commit:** ONLY after constant-time MAC verification succeeds is `xdp_commit_replay_window_authenticated` invoked to advance `window_base_seq`, shift the 64-bit bitmap, and update `isl_replay_filter_map` via BPF syscall.
+- Ephemeral subkey $K_{\text{one-time}}$ is securely zeroized from volatile memory immediately upon completion.
+
 

@@ -205,29 +205,33 @@ A terminal or spacecraft implementation must satisfy:
 
 ---
 
-## 7. Dual-Tier Network Ingress & Cryptographic Processing Boundary
+## 7. Dual-Tier Network Ingress & Two-Stage Cryptographic State Machine
 
 ```
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
-                      DUAL-TIER INGRESS & CRYPTOGRAPHIC PROCESSING ARCHITECTURE
+                      DUAL-TIER INGRESS & TWO-STAGE COMMIT ARCHITECTURE (CSF v1.1)
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-  [ TIER 1: IN-KERNEL eBPF/XDP INGRESS FAST-PATH (<15 ns) ]
+  [ TIER 1: IN-KERNEL eBPF/XDP SPECULATIVE FAST-PATH (<15 ns) ]
   • Executed in NIC driver ring buffer before sk_buff memory allocation
   • Validates STARSEC_ISL_MAGIC (0x53545345) and packet length limits
   • Consults authorized_satellites_map (BPF_MAP_TYPE_HASH) for whitelisted satellite IDs
-  • Enforces anti-replay monotonic sequence tracking via isl_replay_filter_map
-  • Enforces GPS UTC temporal drift limits (STARSEC_MAX_PROPAGATION_DRIFT_MS <= 200 ms)
+  • Reads trusted spacecraft local clock from time_sync_map (-200 ms <= t_tx - t_local <= +20 ms)
+  • Speculative Read-Only Replay Checking: Checks 64-bit sliding window without state mutation
+  • State Poisoning Protection: Tier 1 NEVER advances window_base_seq or sets bitmap bits
   • Updates per-CPU diagnostic telemetry counters (isl_telemetry_map) with zero lock contention
-  • DROPS unauthorized, replayed, or malformed packets at wire speed with sub-15 ns latency
+  • DROPS unauthorized, stale, or obsolete frames at wire speed with sub-15 ns latency
 
-  [ TIER 2: CRYPTOGRAPHIC VERIFICATION VIA AF_XDP ZERO-COPY / HARDWARE CRYPTO ]
+  [ TIER 2: CRYPTOGRAPHIC VERIFICATION & AUTHORITATIVE STATE COMMIT ]
   • Receives validated ingress frames through zero-copy AF_XDP ring buffers
   • Derives ephemeral 32-byte one-time Poly1305 key via RFC 8439 Section 2.6 ChaCha20 block 0
-  • Nonce: 96 bits derived from (src_sat_id, dst_sat_id, sequence_number, tx_epoch_ms_low)
+  • Nonce: 96 bits derived from (session_id LE32 || sequence_number LE64)
+  • Nonce Invariant: session_id incremented on reboot; sequence counter hard ceiling at 2^32 - 10000
   • Eliminates Poly1305 key reuse vulnerability by ensuring distinct (r, s) per packet
   • Evaluates 128-bit Poly1305 MAC over packet header and payload in constant time
+  • AUTHORITATIVE STAGE 2 COMMIT: Only upon valid MAC is isl_replay_filter_map updated in kernel
   • Immediately zeroizes one-time key material from volatile memory
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ```
+
 

@@ -170,6 +170,78 @@ class PhasedArrayBeamformer:
         return w_opt, target_gain
 
 
+def compute_steering_weights(
+    geometry: PhasedArrayGeometry,
+    theta_steer_deg: float,
+    phi_steer_deg: float
+) -> np.ndarray:
+    """Computes progressive phase shift steering weights for an AESA aperture.
+
+    Args:
+        geometry: Phased array antenna dimensions and element spacing.
+        theta_steer_deg: Elevation steering angle in degrees.
+        phi_steer_deg: Azimuth steering angle in degrees.
+
+    Returns:
+        Complex ndarray of normalized beam steering weights.
+    """
+    beamformer = PhasedArrayBeamformer(geometry)
+    weights = beamformer.compute_steering_vector(theta_steer_deg, phi_steer_deg)
+    return weights / math.sqrt(geometry.total_elements)
+
+
+def calculate_array_factor(
+    geometry: PhasedArrayGeometry,
+    weights: np.ndarray,
+    theta_deg: float,
+    phi_deg: float
+) -> float:
+    """Calculates normalized array factor in dBi in evaluation direction (theta, phi).
+
+    Args:
+        geometry: Phased array antenna dimensions and element spacing.
+        weights: Complex beamforming weight vector.
+        theta_deg: Evaluation elevation angle in degrees.
+        phi_deg: Evaluation azimuth angle in degrees.
+
+    Returns:
+        Normalized array factor power response in dBi.
+    """
+    beamformer = PhasedArrayBeamformer(geometry)
+    return beamformer.evaluate_array_factor_dbi(weights, theta_deg, phi_deg)
+
+
+def capon_mvdr_beamforming(
+    geometry: PhasedArrayGeometry,
+    desired_theta_deg: float,
+    desired_phi_deg: float,
+    jammers: List[JammerEmitter],
+    noise_variance_watts: float = 1e-3
+) -> Tuple[np.ndarray, float]:
+    """Synthesizes optimal Capon MVDR adaptive weights and computes jammer null cancellation.
+
+    Args:
+        geometry: Phased array antenna dimensions and element spacing.
+        desired_theta_deg: Desired satellite look elevation angle in degrees.
+        desired_phi_deg: Desired satellite look azimuth angle in degrees.
+        jammers: List of interfering electronic warfare jammers.
+        noise_variance_watts: Background noise variance power in Watts.
+
+    Returns:
+        Tuple of (optimal_weight_vector, synthesized_null_depth_db).
+    """
+    beamformer = PhasedArrayBeamformer(geometry)
+    w_opt, target_gain = beamformer.synthesize_capon_mvdr_weights(
+        desired_theta_deg, desired_phi_deg, jammers, noise_power_watts=noise_variance_watts
+    )
+    if len(jammers) > 0:
+        j_gain = beamformer.evaluate_array_factor_dbi(w_opt, jammers[0].theta_deg, jammers[0].phi_deg)
+        null_depth = target_gain - j_gain
+    else:
+        null_depth = 0.0
+    return w_opt, null_depth
+
+
 def execute_phased_array_simulation() -> None:
     """Executes verification simulation of Starlink Dishy AESA beamforming and MVDR nulling."""
     freq_hz = 12.0e9

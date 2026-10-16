@@ -228,6 +228,86 @@ class FosterCollisionProbabilitySolver:
         return float(prob)
 
 
+def calculate_j2_secular_precession(elements: OrbitalElements) -> Tuple[float, float]:
+    """Calculates RAAN and perigee secular precession rates in degrees per solar day.
+
+    Args:
+        elements: Keplerian orbital elements of the spacecraft.
+
+    Returns:
+        Tuple of (d_raan_dt_deg_day, d_arg_perigee_dt_deg_day).
+    """
+    prop = StarlinkOrbitPropagator(elements)
+    return prop.compute_j2_nodal_precession_rate_deg_per_day(), prop.compute_j2_apsidal_precession_rate_deg_per_day()
+
+
+def keplerian_to_cartesian_state(elements: OrbitalElements) -> Tuple[np.ndarray, np.ndarray]:
+    """Converts Keplerian orbital elements to Cartesian position and velocity state vectors in ECI.
+
+    Args:
+        elements: Keplerian orbital elements of the spacecraft.
+
+    Returns:
+        Tuple of (r_vec_km, v_vec_km_s) 3D numpy arrays.
+    """
+    prop = StarlinkOrbitPropagator(elements)
+    return prop.propagate_state_vector(0.0)
+
+
+def generate_walker_delta_constellation(
+    total_satellites: int,
+    num_planes: int,
+    phasing_parameter: int,
+    altitude_km: float,
+    inclination_deg: float
+) -> list:
+    """Synthesizes a symmetric Walker Delta constellation geometry (total:planes/sats/phase).
+
+    Args:
+        total_satellites: Total number of satellites across all planes.
+        num_planes: Total number of orbital planes.
+        phasing_parameter: Relative inter-plane phase spacing parameter.
+        altitude_km: Circular orbital altitude in kilometers above Earth surface.
+        inclination_deg: Orbital plane inclination in degrees.
+
+    Returns:
+        List of OrbitalElements objects representing the constellation mesh.
+    """
+    sats_per_plane = total_satellites // num_planes
+    semi_major_axis = RADIUS_EARTH_KM + altitude_km
+    raan_spacing_deg = 360.0 / num_planes
+    mean_anomaly_spacing_deg = 360.0 / sats_per_plane
+    delta_f_deg = (phasing_parameter * 360.0) / total_satellites
+
+    constellation = []
+    for p in range(num_planes):
+        plane_raan = p * raan_spacing_deg
+        for s in range(sats_per_plane):
+            true_anom = (s * mean_anomaly_spacing_deg + p * delta_f_deg) % 360.0
+            elem = OrbitalElements(
+                semi_major_axis_km=semi_major_axis,
+                eccentricity=0.0001,
+                inclination_deg=inclination_deg,
+                raan_deg=plane_raan,
+                arg_perigee_deg=0.0,
+                true_anomaly_deg=true_anom
+            )
+            constellation.append(elem)
+    return constellation
+
+
+def foster_collision_probability(conjunction: ConjunctionGeometry) -> float:
+    """Computes Foster & Estes (1992) B-plane conjunction collision probability.
+
+    Args:
+        conjunction: Conjunction encounter geometry and combined covariance.
+
+    Returns:
+        Collision probability Pc (dimensionless).
+    """
+    return FosterCollisionProbabilitySolver.compute_collision_probability(conjunction)
+
+
 def execute_starlink_shell1_simulation() -> None:
     """Runs verification simulation for Starlink Shell 1 orbital parameters."""
     shell1_elements = OrbitalElements(
@@ -281,3 +361,4 @@ def execute_starlink_shell1_simulation() -> None:
 
 if __name__ == "__main__":
     execute_starlink_shell1_simulation()
+

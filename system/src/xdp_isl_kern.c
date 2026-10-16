@@ -51,8 +51,14 @@
 /** @brief Magic identifier for StarSec optical frames (ASCII "STSE"). */
 #define STARSEC_ISL_MAGIC                0x53545345UL
 
+/** @brief Size of the sliding anti-replay window in bits / packets. */
+#define STARSEC_SLIDING_WINDOW_SIZE      64U
+
 /** @brief Maximum allowable orbital propagation jitter and clock drift in milliseconds. */
 #define STARSEC_MAX_PROPAGATION_DRIFT_MS 200ULL
+
+/** @brief Permitted forward clock skew tolerance in milliseconds (GPSDO sync bound). */
+#define STARSEC_MAX_CLOCK_SKEW_AHEAD_MS  20ULL
 
 /**
  * @brief Kernel context structure provided to XDP filter programs.
@@ -67,7 +73,7 @@ struct xdp_md {
 };
 
 /**
- * @brief Fixed 40-byte header structure for StarSec laser crosslink packets.
+ * @brief Fixed 48-byte header structure for StarSec laser crosslink packets (RFC-001 v1.1).
  */
 typedef struct __attribute__((packed)) {
     uint32_t magic;                      /**< 0x00: Must match STARSEC_ISL_MAGIC */
@@ -75,10 +81,11 @@ typedef struct __attribute__((packed)) {
     uint8_t  flags;                      /**< 0x05: Priority & encryption flags */
     uint16_t src_satellite_id;           /**< 0x06: Originating Constellation Node ID */
     uint16_t dst_satellite_id;           /**< 0x08: Destination Constellation Node ID */
-    uint32_t sequence_number;            /**< 0x0A: Monotonic anti-replay counter */
-    uint64_t tx_epoch_ms;                /**< 0x0E: GPS UTC transmit timestamp */
-    uint8_t  auth_tag[16];               /**< 0x16: 128-bit RFC 8439 Poly1305 MAC */
-    uint16_t payload_len;                /**< 0x26: Payload length in bytes */
+    uint32_t session_id;                 /**< 0x0A: Ephemeral session / boot ID */
+    uint64_t sequence_number;            /**< 0x0E: Monotonic 64-bit anti-replay counter */
+    uint64_t tx_epoch_ms;                /**< 0x16: GPS UTC transmit timestamp */
+    uint8_t  auth_tag[16];               /**< 0x1E: 128-bit RFC 8439 Poly1305 MAC */
+    uint16_t payload_len;                /**< 0x2E: Payload length in bytes */
 } starsec_isl_header_t;
 
 /**
@@ -93,12 +100,22 @@ struct bpf_map_def {
 };
 
 /**
- * @brief Anti-replay state tracking monotonic counter and timestamp per peer node.
+ * @brief Two-stage anti-replay state tracking 64-bit sliding window per peer node.
  */
 typedef struct {
-    uint32_t last_sequence_number;
-    uint64_t last_epoch_ms;
+    uint64_t window_base_seq;
+    uint64_t window_bitmap;
+    uint32_t session_id;
 } isl_anti_replay_state_t;
+
+/**
+ * @brief Spacecraft receiver local clock synchronization reference.
+ */
+typedef struct {
+    uint64_t local_epoch_ms;
+    uint64_t max_past_drift_ms;
+    uint64_t max_future_skew_ms;
+} starsec_time_sync_state_t;
 
 /**
  * @brief Telemetry metric indices for per-CPU line-rate observability.
@@ -115,8 +132,8 @@ enum isl_telemetry_metric {
 /**
  * @brief Standard BPF helper function prototypes.
  */
-static void *(*bpf_map_lookup_elem)(void *map, const void *key) = (void *)1;
-static long (*bpf_map_update_elem)(void *map, const void *key, const void *value, uint64_t flags) = (void *)2;
+static void *(*bpf_map_lookup_elem)(void *map, const void *key) __attribute__((unused)) = (void *)1;
+static long (*bpf_map_update_elem)(void *map, const void *key, const void *value, uint64_t flags) __attribute__((unused)) = (void *)2;
 
 /**
  * @brief BPF map storing IDs of cryptographically authorized constellation peer nodes.
@@ -130,13 +147,24 @@ struct bpf_map_def SEC("maps") authorized_satellites_map = {
 };
 
 /**
- * @brief BPF map tracking monotonic sequence numbers and timestamps per satellite node.
+ * @brief BPF map tracking sliding window anti-replay state committed by Tier 2 auth engine.
  */
 struct bpf_map_def SEC("maps") isl_replay_filter_map = {
     .type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(uint16_t),
     .value_size = sizeof(isl_anti_replay_state_t),
     .max_entries = 256,
+    .map_flags = 0,
+};
+
+/**
+ * @brief BPF map storing spacecraft local clock reference updated by GPS/PTP daemon.
+ */
+struct bpf_map_def SEC("maps") time_sync_map = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(uint32_t),
+    .value_size = sizeof(starsec_time_sync_state_t),
+    .max_entries = 1,
     .map_flags = 0,
 };
 
@@ -169,8 +197,8 @@ static inline void starsec_increment_telemetry(uint32_t metric) {
  */
 SEC("xdp")
 int starsec_isl_xdp_filter(struct xdp_md *ctx) {
-    void *data = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
+    void *data = (void *)(uintptr_t)ctx->data;
+    void *data_end = (void *)(uintptr_t)ctx->data_end;
 
     if ((uint8_t *)data + sizeof(starsec_isl_header_t) > (uint8_t *)data_end) {
         starsec_increment_telemetry(STARSEC_TELEM_DROPPED_BAD_LEN);
@@ -189,6 +217,16 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
         return XDP_DROP;
     }
 
+    uint32_t time_key = 0;
+    starsec_time_sync_state_t *time_ref = (starsec_time_sync_state_t *)bpf_map_lookup_elem(&time_sync_map, &time_key);
+    if (time_ref != NULL && time_ref->local_epoch_ms > 0) {
+        if (hdr->tx_epoch_ms + time_ref->max_past_drift_ms < time_ref->local_epoch_ms ||
+            hdr->tx_epoch_ms > time_ref->local_epoch_ms + time_ref->max_future_skew_ms) {
+            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_EPOCH_DRIFT);
+            return XDP_DROP;
+        }
+    }
+
     uint32_t *auth_status = (uint32_t *)bpf_map_lookup_elem(&authorized_satellites_map, &hdr->src_satellite_id);
     if (auth_status == NULL || *auth_status == 0) {
         starsec_increment_telemetry(STARSEC_TELEM_DROPPED_UNAUTHORIZED);
@@ -196,28 +234,14 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
     }
 
     isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id);
-    if (replay_state != NULL) {
-        if (hdr->sequence_number <= replay_state->last_sequence_number) {
-            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
-            return XDP_DROP;
+    if (replay_state != NULL && (replay_state->window_base_seq != 0 || replay_state->window_bitmap != 0)) {
+        if (hdr->sequence_number <= replay_state->window_base_seq) {
+            uint64_t diff = replay_state->window_base_seq - hdr->sequence_number;
+            if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) {
+                starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
+                return XDP_DROP;
+            }
         }
-
-        uint64_t drift = (hdr->tx_epoch_ms > replay_state->last_epoch_ms) ?
-                         (hdr->tx_epoch_ms - replay_state->last_epoch_ms) :
-                         (replay_state->last_epoch_ms - hdr->tx_epoch_ms);
-
-        if (drift > STARSEC_MAX_PROPAGATION_DRIFT_MS) {
-            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_EPOCH_DRIFT);
-            return XDP_DROP;
-        }
-
-        replay_state->last_sequence_number = hdr->sequence_number;
-        replay_state->last_epoch_ms = hdr->tx_epoch_ms;
-    } else {
-        isl_anti_replay_state_t initial_state;
-        initial_state.last_sequence_number = hdr->sequence_number;
-        initial_state.last_epoch_ms = hdr->tx_epoch_ms;
-        bpf_map_update_elem(&isl_replay_filter_map, &hdr->src_satellite_id, &initial_state, 0);
     }
 
     starsec_increment_telemetry(STARSEC_TELEM_PASSED_FRAMES);

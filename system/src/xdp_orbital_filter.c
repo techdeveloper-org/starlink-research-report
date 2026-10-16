@@ -28,6 +28,113 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats) {
 }
 
 /**
+ * @brief Stage 1 (Read-Only Pre-Filter): Speculatively verifies packet sequence against window.
+ *
+ * Checks if sequence number is eligible for Tier 2 crypto verification without
+ * advancing the window base or mutating the bitmap. Prevents unauthenticated
+ * spoofed frames from poisoning the sliding window state.
+ *
+ * @param state Pointer to current anti-replay state for peer node.
+ * @param seq_num Ingress packet sequence number.
+ * @return true if packet is within or ahead of window and not a duplicate, false if obsolete/duplicate.
+ */
+bool xdp_check_replay_window_speculative(
+    const isl_anti_replay_state_t *state,
+    uint64_t                       seq_num
+) {
+    if (state == NULL) {
+        return false;
+    }
+
+    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
+        return true;
+    }
+
+    if (seq_num > state->window_base_seq) {
+        return true;
+    }
+
+    uint64_t diff = state->window_base_seq - seq_num;
+    if (diff >= STARSEC_SLIDING_WINDOW_SIZE) {
+        return false;
+    }
+
+    if ((state->window_bitmap & (1ULL << diff)) != 0) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Stage 2 (Post-Auth Commit): Commits authenticated sequence into sliding window.
+ *
+ * Invoked ONLY after RFC 8439 Poly1305 MAC verification succeeds in constant time.
+ * Advances window_base_seq and shifts window_bitmap accordingly.
+ *
+ * @param state Pointer to anti-replay state to update.
+ * @param seq_num Authenticated packet sequence number.
+ */
+void xdp_commit_replay_window_authenticated(
+    isl_anti_replay_state_t *state,
+    uint64_t                 seq_num
+) {
+    if (state == NULL) {
+        return;
+    }
+
+    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
+        state->window_base_seq = seq_num;
+        state->window_bitmap = 1ULL;
+        return;
+    }
+
+    if (seq_num > state->window_base_seq) {
+        uint64_t delta = seq_num - state->window_base_seq;
+        if (delta < STARSEC_SLIDING_WINDOW_SIZE) {
+            state->window_bitmap = (state->window_bitmap << delta) | 1ULL;
+        } else {
+            state->window_bitmap = 1ULL;
+        }
+        state->window_base_seq = seq_num;
+    } else {
+        uint64_t diff = state->window_base_seq - seq_num;
+        if (diff < STARSEC_SLIDING_WINDOW_SIZE) {
+            state->window_bitmap |= (1ULL << diff);
+        }
+    }
+}
+
+/**
+ * @brief Validates packet transmit timestamp against receiver's trusted local clock.
+ *
+ * Ensures packet was transmitted within [-max_past_drift_ms, +max_future_skew_ms]
+ * relative to local spacecraft receiver time. Rejects stale bursts and future timestamps.
+ *
+ * @param tx_epoch_ms Packet transmit epoch in milliseconds.
+ * @param clock_ref Pointer to trusted local receiver clock state.
+ * @return true if timestamp is fresh and within bounds, false otherwise.
+ */
+bool xdp_validate_local_freshness(
+    uint64_t                         tx_epoch_ms,
+    const starsec_time_sync_state_t *clock_ref
+) {
+    if (clock_ref == NULL) {
+        return false;
+    }
+
+    if (tx_epoch_ms + clock_ref->max_past_drift_ms < clock_ref->local_epoch_ms) {
+        return false;
+    }
+
+    if (tx_epoch_ms > clock_ref->local_epoch_ms + clock_ref->max_future_skew_ms) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * @brief Verifies that transmit timestamp falls within acceptable propagation window.
  * @param tx_ms Transmit epoch timestamp in milliseconds.
  * @param local_ms Local spacecraft epoch timestamp in milliseconds.
@@ -41,6 +148,11 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
 
 /**
  * @brief Constructs a deterministic 96-bit (12-byte) nonce from packet header fields.
+ *
+ * Nonce layout (RFC 8439 Section 2.6):
+ * - Bytes 0..3:  session_id (little-endian 32-bit)
+ * - Bytes 4..11: sequence_number (little-endian 64-bit)
+ *
  * @param hdr Pointer to StarSec packet header.
  * @param nonce Output buffer of at least 12 bytes receiving the nonce.
  */
@@ -52,21 +164,7 @@ void xdp_derive_isl_nonce(
         return;
     }
 
-    nonce[0] = (uint8_t)(hdr->src_satellite_id & 0xFFU);
-    nonce[1] = (uint8_t)((hdr->src_satellite_id >> 8) & 0xFFU);
-    nonce[2] = (uint8_t)(hdr->dst_satellite_id & 0xFFU);
-    nonce[3] = (uint8_t)((hdr->dst_satellite_id >> 8) & 0xFFU);
-
-    nonce[4] = (uint8_t)(hdr->sequence_number & 0xFFU);
-    nonce[5] = (uint8_t)((hdr->sequence_number >> 8) & 0xFFU);
-    nonce[6] = (uint8_t)((hdr->sequence_number >> 16) & 0xFFU);
-    nonce[7] = (uint8_t)((hdr->sequence_number >> 24) & 0xFFU);
-
-    uint32_t epoch_low32 = (uint32_t)(hdr->tx_epoch_ms & 0xFFFFFFFFULL);
-    nonce[8]  = (uint8_t)(epoch_low32 & 0xFFU);
-    nonce[9]  = (uint8_t)((epoch_low32 >> 8) & 0xFFU);
-    nonce[10] = (uint8_t)((epoch_low32 >> 16) & 0xFFU);
-    nonce[11] = (uint8_t)((epoch_low32 >> 24) & 0xFFU);
+    starsec_derive_nonce_v2(hdr->session_id, hdr->sequence_number, nonce);
 }
 
 /**
@@ -173,10 +271,10 @@ bool xdp_verify_isl_auth_tag(
  * @return STARSEC_XDP_PASS or STARSEC_XDP_DROP.
  */
 int xdp_starsec_filter_frame(
-    const uint8_t             *frame_bytes,
-    size_t                     frame_len,
-    const xdp_filter_config_t *config,
-    xdp_filter_stats_t        *stats
+    const uint8_t       *frame_bytes,
+    size_t               frame_len,
+    xdp_filter_config_t *config,
+    xdp_filter_stats_t  *stats
 ) {
     if (frame_bytes == NULL || config == NULL || stats == NULL) {
         if (stats != NULL) {
@@ -202,7 +300,14 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
-    if (!xdp_validate_epoch_window(hdr->tx_epoch_ms, config->local_clock_epoch_ms, STARSEC_MAX_PROPAGATION_DRIFT_MS)) {
+    bool fresh = false;
+    if (config->clock_ref.local_epoch_ms > 0) {
+        fresh = xdp_validate_local_freshness(hdr->tx_epoch_ms, &config->clock_ref);
+    } else {
+        fresh = true;
+    }
+
+    if (!fresh) {
         stats->dropped_epoch_drift++;
         return STARSEC_XDP_DROP;
     }
@@ -220,11 +325,32 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
+    size_t replay_idx = 0;
+    bool found_replay_slot = false;
+    for (size_t i = 0; i < config->replay_count; i++) {
+        if (config->authorized_nodes[i] == hdr->src_satellite_id) {
+            replay_idx = i;
+            found_replay_slot = true;
+            break;
+        }
+    }
+
+    if (!found_replay_slot && config->replay_count < 256) {
+        replay_idx = config->replay_count++;
+    }
+
+    if (!xdp_check_replay_window_speculative(&config->replay_states[replay_idx], hdr->sequence_number)) {
+        stats->dropped_epoch_drift++;
+        return STARSEC_XDP_DROP;
+    }
+
     const uint8_t *payload = frame_bytes + sizeof(starsec_isl_header_t);
     if (!xdp_verify_isl_auth_tag(hdr, payload, hdr->payload_len, config->isl_shared_key)) {
         stats->dropped_invalid_auth++;
         return STARSEC_XDP_DROP;
     }
+
+    xdp_commit_replay_window_authenticated(&config->replay_states[replay_idx], hdr->sequence_number);
 
     stats->passed_frames++;
     return STARSEC_XDP_PASS;

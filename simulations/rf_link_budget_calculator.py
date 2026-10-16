@@ -86,6 +86,63 @@ class LinkBudgetResult:
     eb_over_n0_db: float
     snr_margin_db: float
 
+    @property
+    def free_space_path_loss_db(self) -> float:
+        """Alias for free-space path loss in dB."""
+        return self.fspl_db
+
+    @property
+    def receiver_g_over_t_db_k(self) -> float:
+        """Alias for receiver G/T in dB/K."""
+        return self.g_over_t_db_k
+
+    @property
+    def eb_n0_db(self) -> float:
+        """Alias for energy per bit to noise spectral density in dB."""
+        return self.eb_over_n0_db
+
+    @property
+    def margin_db(self) -> float:
+        """Alias for operating link margin in dB."""
+        return self.snr_margin_db
+
+    @property
+    def link_closes(self) -> bool:
+        """Returns True if operating SNR margin is non-negative (>= 0 dB)."""
+        return self.snr_margin_db >= 0.0
+
+
+def calculate_slant_range_km(altitude_km: float, elevation_deg: float) -> float:
+    """Calculates geometric slant range from earth station to satellite.
+
+    Uses spherical Earth geometry with R_E = 6378.137 km:
+    d = R_E * (sqrt(((R_E + h) / R_E)^2 - cos^2(el)) - sin(el))
+
+    Args:
+        altitude_km: Orbital altitude of satellite in kilometers.
+        elevation_deg: Ground station antenna elevation angle in degrees.
+
+    Returns:
+        Slant distance in kilometers.
+    """
+    radius_earth_km = 6378.137
+    el_rad = math.radians(elevation_deg)
+    ratio = (radius_earth_km + altitude_km) / radius_earth_km
+    sqrt_term = math.sqrt(max(0.0, ratio ** 2 - math.cos(el_rad) ** 2))
+    return float(radius_earth_km * (sqrt_term - math.sin(el_rad)))
+
+
+def calculate_link_budget(params: LinkParameters) -> LinkBudgetResult:
+    """Calculates full decibel link budget from input link parameters.
+
+    Args:
+        params: Geometric, RF, and environmental parameters of the link.
+
+    Returns:
+        LinkBudgetResult containing power levels, G/T, C/N0, and operating margins.
+    """
+    return RFLinkBudgetCalculator.compute_link_budget(params)
+
 
 class RFLinkBudgetCalculator:
     """Evaluates microwave link budgets for space-to-ground links."""

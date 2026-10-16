@@ -151,3 +151,38 @@ void starsec_chacha20_poly1305_key_gen(
         p_block[i] = 0;
     }
 }
+
+/**
+ * @brief Derives a collision-free 96-bit transmission nonce adhering to RFC 8439.
+ *
+ * Packs 32-bit session/boot identifier and 64-bit monotonic packet sequence:
+ * Nonce[0..3] = Little-Endian 32-bit session_id
+ * Nonce[4..11] = Little-Endian 64-bit sequence_number
+ *
+ * @param session_id Monotonic boot counter or negotiated session identifier.
+ * @param sequence_number Monotonic 64-bit packet sequence number.
+ * @param nonce Output buffer receiving 12-byte (96-bit) RFC 8439 nonce.
+ * @return STARSEC_CRYPTO_SUCCESS on successful construction,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence_number exceeds ceiling,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM if nonce pointer is NULL.
+ */
+starsec_crypto_status_t starsec_derive_nonce_v2(
+    uint32_t session_id,
+    uint64_t sequence_number,
+    uint8_t  nonce[STARSEC_CHACHA20_NONCE_BYTES]
+) {
+    if (nonce == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    if (sequence_number >= STARSEC_MAX_PACKET_COUNTER_PER_KEY) {
+        return STARSEC_CRYPTO_ERR_REKEY_REQUIRED;
+    }
+
+    starsec_store32_le(nonce + 0, session_id);
+    starsec_store32_le(nonce + 4, (uint32_t)(sequence_number & 0xFFFFFFFFULL));
+    starsec_store32_le(nonce + 8, (uint32_t)((sequence_number >> 32) & 0xFFFFFFFFULL));
+
+    return STARSEC_CRYPTO_SUCCESS;
+}
+

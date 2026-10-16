@@ -44,20 +44,43 @@ typedef enum {
     STARSEC_PROTO_EMERGENCY_DEORBIT      = 0x04
 } isl_proto_type_t;
 
-/**
- * @brief Fixed 40-byte header structure for StarSec laser crosslink packets.
- */
+/** @brief Fixed 48-byte header structure for StarSec laser crosslink packets (RFC-001 v1.1). */
 typedef struct __attribute__((packed)) {
-    uint32_t magic;                      /**< 0x00: Must match STARSEC_ISL_MAGIC */
+    uint32_t magic;                      /**< 0x00: Must match STARSEC_ISL_MAGIC (0x53545345) */
     uint8_t  protocol_type;              /**< 0x04: isl_proto_type_t */
     uint8_t  flags;                      /**< 0x05: Priority & encryption flags */
     uint16_t src_satellite_id;           /**< 0x06: Originating Constellation Node ID */
     uint16_t dst_satellite_id;           /**< 0x08: Destination Constellation Node ID */
-    uint32_t sequence_number;            /**< 0x0A: Monotonic anti-replay counter */
-    uint64_t tx_epoch_ms;                /**< 0x0E: GPS UTC transmit timestamp */
-    uint8_t  auth_tag[16];               /**< 0x16: 128-bit RFC 8439 Poly1305 MAC */
-    uint16_t payload_len;                /**< 0x26: Payload length in bytes */
+    uint32_t session_id;                 /**< 0x0A: Ephemeral session / boot counter ID */
+    uint64_t sequence_number;            /**< 0x0E: Monotonic 64-bit packet sequence number */
+    uint64_t tx_epoch_ms;                /**< 0x16: GPS UTC transmit timestamp */
+    uint8_t  auth_tag[16];               /**< 0x1E: 128-bit RFC 8439 Poly1305 MAC */
+    uint16_t payload_len;                /**< 0x2E: Payload length in bytes */
 } starsec_isl_header_t;
+
+/** @brief Size of the sliding anti-replay window in bits / packets. */
+#define STARSEC_SLIDING_WINDOW_SIZE      64U
+
+/** @brief Permitted forward clock skew tolerance in milliseconds (GPSDO sync bound). */
+#define STARSEC_MAX_CLOCK_SKEW_AHEAD_MS  20ULL
+
+/**
+ * @brief Two-stage anti-replay state with RFC 6479 64-bit sliding window.
+ */
+typedef struct {
+    uint64_t window_base_seq;            /**< Highest authenticated sequence committed to date */
+    uint64_t window_bitmap;              /**< 64-bit bitmap of authenticated packets (bit 0 = base) */
+    uint32_t session_id;                 /**< Active authenticated session identifier */
+} isl_anti_replay_state_t;
+
+/**
+ * @brief Spacecraft receiver local clock synchronization reference.
+ */
+typedef struct {
+    uint64_t local_epoch_ms;             /**< Trusted local UTC/GPS epoch in milliseconds */
+    uint64_t max_past_drift_ms;          /**< Permitted backward flight+drift window (200 ms) */
+    uint64_t max_future_skew_ms;         /**< Permitted forward clock skew tolerance (20 ms) */
+} starsec_time_sync_state_t;
 
 /**
  * @brief Diagnostic traffic counters for the in-orbit XDP filter.
@@ -74,11 +97,58 @@ typedef struct {
  * @brief Configuration rules for the active optical link filter instance.
  */
 typedef struct {
-    uint16_t authorized_nodes[256];
-    size_t   authorized_count;
-    uint64_t local_clock_epoch_ms;
-    uint8_t  isl_shared_key[32];
+    uint16_t                  authorized_nodes[256];
+    size_t                    authorized_count;
+    starsec_time_sync_state_t clock_ref;
+    uint8_t                   isl_shared_key[32];
+    isl_anti_replay_state_t   replay_states[256];
+    size_t                    replay_count;
 } xdp_filter_config_t;
+
+/**
+ * @brief Stage 1 (Read-Only Pre-Filter): Speculatively verifies packet sequence against window.
+ *
+ * Checks if sequence number is eligible for Tier 2 crypto verification without
+ * advancing the window base or mutating the bitmap. Prevents unauthenticated
+ * spoofed frames from poisoning the sliding window state.
+ *
+ * @param state Pointer to current anti-replay state for peer node.
+ * @param seq_num Ingress packet sequence number.
+ * @return true if packet is within or ahead of window and not a duplicate, false if obsolete/duplicate.
+ */
+bool xdp_check_replay_window_speculative(
+    const isl_anti_replay_state_t *state,
+    uint64_t                       seq_num
+);
+
+/**
+ * @brief Stage 2 (Post-Auth Commit): Commits authenticated sequence into sliding window.
+ *
+ * Invoked ONLY after RFC 8439 Poly1305 MAC verification succeeds in constant time.
+ * Advances window_base_seq and shifts window_bitmap accordingly.
+ *
+ * @param state Pointer to anti-replay state to update.
+ * @param seq_num Authenticated packet sequence number.
+ */
+void xdp_commit_replay_window_authenticated(
+    isl_anti_replay_state_t *state,
+    uint64_t                 seq_num
+);
+
+/**
+ * @brief Validates packet transmit timestamp against receiver's trusted local clock.
+ *
+ * Ensures packet was transmitted within [-max_past_drift_ms, +max_future_skew_ms]
+ * relative to local spacecraft receiver time. Rejects stale bursts and future timestamps.
+ *
+ * @param tx_epoch_ms Packet transmit epoch in milliseconds.
+ * @param clock_ref Pointer to trusted local receiver clock state.
+ * @return true if timestamp is fresh and within bounds, false otherwise.
+ */
+bool xdp_validate_local_freshness(
+    uint64_t                         tx_epoch_ms,
+    const starsec_time_sync_state_t *clock_ref
+);
 
 /**
  * @brief In-flight line-rate packet filter hook for optical inter-satellite links.
@@ -91,7 +161,7 @@ typedef struct {
 int xdp_starsec_filter_frame(
     const uint8_t             *frame_bytes,
     size_t                     frame_len,
-    const xdp_filter_config_t *config,
+    xdp_filter_config_t       *config,
     xdp_filter_stats_t        *stats
 );
 
@@ -107,11 +177,9 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
 /**
  * @brief Constructs a deterministic 96-bit (12-byte) nonce from packet header fields.
  *
- * Byte layout:
- * - Bytes 0..1:   src_satellite_id (little-endian)
- * - Bytes 2..3:   dst_satellite_id (little-endian)
- * - Bytes 4..7:   sequence_number (little-endian)
- * - Bytes 8..11:  tx_epoch_ms lower 32 bits (little-endian)
+ * Nonce layout (RFC 8439 Section 2.6):
+ * - Bytes 0..3:  session_id (little-endian 32-bit)
+ * - Bytes 4..11: sequence_number (little-endian 64-bit)
  *
  * @param hdr Pointer to StarSec packet header.
  * @param nonce Output buffer of at least 12 bytes receiving the nonce.

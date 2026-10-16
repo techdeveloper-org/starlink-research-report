@@ -33,6 +33,19 @@ extern "C" {
 /** @brief Size of derived one-time Poly1305 key (16-byte r + 16-byte s). */
 #define STARSEC_ONE_TIME_KEY_BYTES      32U
 
+/** @brief Hard cryptographic packet counter limit per session key before mandatory rekeying. */
+#define STARSEC_MAX_PACKET_COUNTER_PER_KEY  4294957296ULL
+
+/**
+ * @brief Cryptographic operation status and lifecycle codes.
+ */
+typedef enum {
+    STARSEC_CRYPTO_SUCCESS             = 0,
+    STARSEC_CRYPTO_ERR_REKEY_REQUIRED  = 1,
+    STARSEC_CRYPTO_ERR_NULL_PARAM      = 2,
+    STARSEC_CRYPTO_ERR_AUTH_FAIL       = 3
+} starsec_crypto_status_t;
+
 /**
  * @brief Internal 512-bit ChaCha20 state structure holding 16 32-bit words.
  */
@@ -69,6 +82,26 @@ void starsec_chacha20_poly1305_key_gen(
     const uint8_t master_key[STARSEC_CHACHA20_KEY_BYTES],
     const uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES],
     uint8_t       one_time_key[STARSEC_ONE_TIME_KEY_BYTES]
+);
+
+/**
+ * @brief Derives a collision-free 96-bit transmission nonce adhering to RFC 8439.
+ *
+ * Packs 32-bit session/boot identifier and 64-bit monotonic packet sequence:
+ * Nonce[0..3] = Little-Endian 32-bit session_id
+ * Nonce[4..11] = Little-Endian 64-bit sequence_number
+ *
+ * @param session_id Monotonic boot counter or negotiated session identifier.
+ * @param sequence_number Monotonic 64-bit packet sequence number.
+ * @param nonce Output buffer receiving 12-byte (96-bit) RFC 8439 nonce.
+ * @return STARSEC_CRYPTO_SUCCESS on successful construction,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence_number exceeds ceiling,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM if nonce pointer is NULL.
+ */
+starsec_crypto_status_t starsec_derive_nonce_v2(
+    uint32_t session_id,
+    uint64_t sequence_number,
+    uint8_t  nonce[STARSEC_CHACHA20_NONCE_BYTES]
 );
 
 #ifdef __cplusplus

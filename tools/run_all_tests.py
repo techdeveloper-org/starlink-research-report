@@ -74,6 +74,28 @@ class StarSecUnifiedTestRunner:
         if result.returncode != 0:
             print(f"  [FAIL] Compilation failed:\n{result.stderr}")
             return False
+
+        # Standalone compilation verification for eBPF kernel filter (xdp_isl_kern.c)
+        ebpf_source = str(self.system_dir / "src" / "xdp_isl_kern.c")
+        ebpf_out = str(self.system_dir / "src" / "xdp_isl_kern.o")
+        clang_path = shutil.which("clang")
+        if clang_path:
+            ebpf_cmd = [clang_path, "-target", "bpf", "-O2", "-Wall", "-Werror", f"-I{include_dir}", "-c", ebpf_source, "-o", ebpf_out]
+        else:
+            ebpf_cmd = [gcc_path, "-O2", "-Wall", "-Wextra", "-Werror", f"-I{include_dir}", "-c", ebpf_source, "-o", ebpf_out]
+
+        ebpf_res = subprocess.run(ebpf_cmd, capture_output=True, text=True)
+        if Path(ebpf_out).exists():
+            try:
+                Path(ebpf_out).unlink()
+            except OSError:
+                pass
+
+        if ebpf_res.returncode != 0:
+            print(f"  [FAIL] eBPF kernel compilation failed:\n{ebpf_res.stderr}")
+            return False
+
+        print("  [PASS] eBPF kernel program (xdp_isl_kern.c) compiled cleanly with 0 warnings/errors.")
         return True
 
     def execute_c_test_harness(self) -> bool:
@@ -148,9 +170,9 @@ class StarSecUnifiedTestRunner:
 
     def validate_jupyter_notebooks(self) -> bool:
         """
-        Validates JSON schema, structural validity, and syntax integrity of Jupyter notebooks.
+        Validates JSON schema, structural validity, and executes all code cells headlessly in an isolated namespace.
 
-        :return: True if all notebooks parse successfully and adhere to nbformat v4 structure, False otherwise.
+        :return: True if all notebooks parse and execute cleanly with 0 exceptions, False otherwise.
         """
         if not self.notebooks_dir.exists():
             print("  [ERROR] Notebooks directory does not exist.")
@@ -162,6 +184,7 @@ class StarSecUnifiedTestRunner:
             return False
 
         for nb_path in notebook_files:
+            nb_start = time.perf_counter()
             try:
                 with open(nb_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -177,12 +200,32 @@ class StarSecUnifiedTestRunner:
                 print(f"  [ERROR] Unsupported nbformat version in {nb_path.name}: {data.get('nbformat')}")
                 return False
 
-            for idx, cell in enumerate(data.get("cells", [])):
-                if "cell_type" not in cell or "source" not in cell:
-                    print(f"  [ERROR] Malformed cell {idx} in {nb_path.name}.")
-                    return False
+            # Headless execution of all code cells in an isolated namespace
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+            plt.ioff()
+            plt.close("all")
+            plt.show = lambda *args, **kwargs: None
 
-            print(f"  [PASS] Verified structural integrity of {nb_path.name} ({len(data['cells'])} cells)")
+            nb_namespace = {
+                "__name__": "__main__",
+                "matplotlib": matplotlib,
+                "plt": plt
+            }
+            code_cell_count = 0
+            for idx, cell in enumerate(data.get("cells", [])):
+                if cell.get("cell_type") == "code":
+                    code_cell_count += 1
+                    source_lines = "".join(cell.get("source", []))
+                    try:
+                        exec(source_lines, nb_namespace)
+                    except Exception as exec_err:
+                        print(f"  [FAIL] Execution exception in {nb_path.name} (Cell {idx}): {exec_err}")
+                        return False
+
+            elapsed_nb = time.perf_counter() - nb_start
+            print(f"  [PASS] Executed {code_cell_count} code cells in {nb_path.name} with 0 errors ({elapsed_nb:.3f}s)")
 
         return True
 
