@@ -228,3 +228,11 @@ A tiny burn of $\Delta v_t = 0.05\text{ m/s}$ alters the semi-major axis by $\ap
 - The $J_2$ oblateness torque generates a $-4.71^\circ/\text{day}$ westward nodal drift on Shell 1, which SpaceX transforms into an orbital insertion tool.
 - Walker Delta $53^\circ: 72/22/1$ geometry ensures continuous 3-to-5 satellite geometric overlap across mid-latitude regions.
 - Automated collision algorithms execute over 40,000 avoidance maneuvers annually, maintaining zero self-generated debris incidents across seven years of operations.
+
+---
+
+## 6. Computational Models & Reproducible Tooling
+
+All astrodynamic equations, SGP4 propagation logic, and Foster collision probability integrals derived in this whitepaper are available as an interactive Jupyter Notebook:
+- **[Interactive Astrodynamics Notebook (`01_orbit_sgp4_propagation.ipynb`)](../../notebooks/01_orbit_sgp4_propagation.ipynb)**
+

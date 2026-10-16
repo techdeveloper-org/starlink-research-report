@@ -170,3 +170,38 @@ When pointing micro-vibrations or brief solar blinding cause an optical laser di
 1. **Spacecraft Hijack via In-Orbit Physical Capture:** If an adversary docks with a satellite and extracts flight computer RAM, forward secrecy guarantees that past recorded optical laser traffic cannot be decrypted. The master key $MS$ is erased immediately after sub-keys are derived.
 2. **Replay Attacks on Resumption Tickets:** Every resumption request MUST contain a client random and a strictly increasing sequence counter stored in non-volatile satellite registers. Duplicate tickets MUST be dropped and logged as security anomalies.
 3. **Laser Dazzling / Blinding:** If an adversary targets the optical terminal with a high-power ground laser, physical MEMS shutters close in $<50\text{ ns}$ upon photodiode overload detection, triggering an automated `ISL_TEARDOWN_ALERT` over backup Ku/Ka RF telemetry.
+
+---
+
+## 9. Dual-Tier Line-Rate Fast-Path vs. Cryptographic Offload Architecture
+
+To sustain 100 Gbps line-rate optical crosslinks without packet buffer overflows or OS interrupt storms, StarSec mandates a strict dual-tier ingress architecture:
+
+```mermaid
+graph TD
+    NIC[Laser Link NIC / Transceiver Ingress] --> XDP{Tier 1: In-Kernel eBPF/XDP Fast-Path<br>Driver Ring Buffer &lt;15 ns}
+    XDP -->|Magic Check Fails| DropMagic[Drop: BAD_MAGIC]
+    XDP -->|Truncated Header| DropLen[Drop: BAD_LEN]
+    XDP -->|Not in authorized_satellites_map| DropAuth[Drop: UNAUTHORIZED_NODE]
+    XDP -->|Seq &lt;= last_seq or Drift &gt;200ms| DropReplay[Drop: REPLAY_OR_DRIFT]
+    XDP -->|Passes All Fast Checks| AFXDP[Tier 2: Zero-Copy AF_XDP Ring Buffer<br>Userspace / Hardware Crypto Engine]
+    AFXDP --> ChaChaKey[RFC 8439 Section 2.6 ChaCha20 Block 0<br>Derive Ephemeral One-Time Poly1305 Key]
+    ChaChaKey --> PolyAuth{Poly1305 128-bit MAC Verification<br>Constant-Time Match}
+    PolyAuth -->|Forged Tag| DropCrypto[Drop: INVALID_AUTH]
+    PolyAuth -->|Valid Tag| DecryptPayload[Authenticated Payload to FSW Routing Core]
+```
+
+### 9.1 Tier 1: In-Kernel eBPF/XDP Fast-Path (<15 ns)
+- Executed directly at the network interface card (NIC) driver layer prior to Linux `sk_buff` allocation.
+- Enforces wire-speed packet boundary validation, magic identifier matching (`STARSEC_ISL_MAGIC`), authorized peer node validation via BPF hash map (`authorized_satellites_map`), and anti-replay state tracking via `isl_replay_filter_map`.
+- Updates per-CPU lockless telemetry counters (`isl_telemetry_map`).
+- **Rationale for Boundary:** Standard Linux eBPF verifiers strictly prohibit unbounded loops, dynamic jumps, and arbitrary 130-bit multi-limb big-integer arithmetic required for Poly1305 polynomial modular reduction ($2^{130}-5$) directly inside XDP without specialized hardware kfuncs.
+
+### 9.2 Tier 2: Cryptographic Offload & One-Time Keying (RFC 8439)
+- Packets passing Tier 1 are dispatched via zero-copy AF_XDP sockets to cryptographic acceleration hardware or flight software worker threads.
+- **Unique One-Time Key Derivation:** To strictly prevent Poly1305 key reuse, every frame derives an ephemeral, single-use 32-byte key $(r, s)$ using ChaCha20 block 0:
+  $$\text{Nonce}_{96} = \text{src\_id}_{16} \parallel \text{dst\_id}_{16} \parallel \text{sequence\_number}_{32} \parallel \text{tx\_epoch\_ms\_low}_{32}$$
+  $$K_{\text{one-time}} = \text{ChaCha20}_{\text{block}}(K_{\text{master}}, \, \text{counter}=0, \, \text{Nonce}_{96})[0..31]$$
+- Poly1305 evaluates the polynomial accumulator over the frame and compares against `hdr->auth_tag` in constant time.
+- The ephemeral key $K_{\text{one-time}}$ is securely zeroized from volatile memory immediately upon completion.
+

@@ -1,252 +1,443 @@
-# 🛡️ 10/10 Master Orchestration & Rules-Enforced Implementation Plan
-# "StarSec" — Constellation Security Framework (CSF v1.0)
+# 🛡️ 10/10 Deep-Level Multi-Agent Orchestration & Systems Architecture Plan
+# "StarSec" — Hardened One-Time Keying, Full eBPF Kernel Filter, Reproducible Jupyter Notebooks & Constellation Visualizations
 
 > **Repository:** `techdeveloper-org/starlink-research-report`  
-> **Target Standard:** Global Open-Source Aerospace Cybersecurity Standard for Mega-Constellations  
-> **Framework Codename:** **StarSec** (Constellation Security Framework / CSF v1.0)  
-> **Orchestration Source:** Claude Global Library Master Orchestration (`claude-global-library`)  
-> **Complete Rules Adherence:** 19 Applicable Claude Global Rules from `C:\Users\techd\.claude\rules\`  
-> **Status:** PENDING USER APPROVAL (Plan Mode Active — 10/10 Perfectionist Rules Edition)
+> **Standard:** StarSec Constellation Security Framework (CSF v1.0) & RFC 8439  
+> **Orchestration Source:** Claude Global Library (`claude-global-library`)  
+> **Governance:** Strict Level 2.2 Docstrings-Only (`12-docstrings-only.md`), Triad Testing Matrix (`35`, `36`, `37`, `40`), Zero Cloud Costs  
+> **Status:** PENDING USER APPROVAL (Plan Mode Active — Mandatory Gate)
 
 ---
 
-## 1. Executive Problem Statement & Gap Analysis
+## 1. Executive Summary & Root Cause Analysis
 
-The repository currently provides extensive theoretical documentation in `07-security-risks.md`, `16-security-countermeasures-and-mitigations.md`, and `docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md`. However, the space sector currently suffers from a critical gap:
-- **Aerospace Corporation SPARTA** is a descriptive taxonomy of attacks, not an actionable normative implementation standard.
-- **NIST SP 800-207 (Zero Trust Architecture)** was designed for terrestrial enterprise networks with continuous low-latency links and centralized Identity Providers, failing to address intermittent laser crosslinks, radiation-induced bitflips, or physical terminal capture.
-- **CCSDS (Consultative Committee for Space Data Systems)** security blue books focus on single deep-space probes or traditional GEO spacecraft, not 10,000+ node dynamic LEO optical mesh networks.
+Two comprehensive external reviews evaluated the repository:
 
-**The Mission:** Elevate `starlink-research-report` from theoretical research to the definitive, peer-reviewed, open-source standard for mega-constellation cybersecurity: **StarSec (Constellation Security Framework - CSF v1.0)**.
+### Review 1: Monograph Quality, Visualizations & Reproducible Hands-On Tooling
+1. **Language Consistency:** Recommends ensuring primary technical documentation is standardized into publication-grade English while preserving `README.hi.md` as the localized Hindi companion.
+2. **Visualizations & Artifacts:** Deep astrodynamics (Walker Delta 72-plane constellation geometry, $J_2$ secular nodal precession) and RF link budgets (cascaded EIRP, FSPL, rain attenuation waterfall curves) require direct visual aids and architecture block diagrams.
+3. **Executable Code / Notebooks:** Hands-on reproducible Jupyter notebooks (`.ipynb`) enabling researchers to interactively simulate SGP4 satellite orbital propagation, phased array AESA beamforming ($AF(\theta,\phi)$), and decibel link budgets.
 
+### Review 2: Hardened System & Kernel Security (Follow-up to Commit `b9a1d2b`)
+1. **Issue A: Poly1305 One-Time Key Reuse:**
+   - *Vulnerability:* In `xdp_orbital_filter.c`, `xdp_generate_isl_auth_tag` and `xdp_verify_isl_auth_tag` used the static `config->isl_shared_key` directly as the 32-byte key for Poly1305 across all packets.
+   - *Cryptographic Impact:* Poly1305 evaluates a secret polynomial $A(r) + s \pmod{2^{130}-5}$. If the same key $(r, s)$ is reused across different messages, an adversary can subtract the authenticators: $Tag_1 - Tag_2 \equiv (M_1 - M_2)(r) \pmod{2^{130}-5}$. This allows recovering the evaluation key $r$ and forging arbitrary authenticators.
+   - *Remediation:* Enforce RFC 8439 Section 2.6: generate a unique one-time Poly1305 key per packet via ChaCha20 block 0 (`poly1305_key_gen(master_key, nonce)`), using a 96-bit unique nonce constructed from `src_satellite_id`, `dst_satellite_id`, `sequence_number`, and `tx_epoch_ms`.
+2. **Issue B: Incomplete eBPF Kernel Filter Path:**
+   - *Deficiency:* `xdp_isl_kern.c` declared BPF maps (`authorized_satellites_map`, `isl_peer_keys_map`, `isl_telemetry_map`), but `starsec_isl_xdp_filter` only checked magic and length before returning `XDP_PASS`. It never looked up maps, checked drift, checked sequence replay, or recorded telemetry. Furthermore, the test runner did not validate kernel path logic.
+   - *Remediation:*
+     1. Upgrade `xdp_isl_kern.c` to consult `authorized_satellites_map` via `bpf_map_lookup_elem`, enforce an anti-replay sequence tracking map (`isl_replay_filter_map`), drop expired/out-of-order packets, and record drop reasons in per-CPU telemetry maps.
+     2. Formally document the dual-tier security boundary: Tier 1 eBPF/XDP line-rate fast path in NIC driver (<15 ns) vs Tier 2 Cryptographic validation in userspace zero-copy AF_XDP ring buffer / hardware crypto offload (documenting verifier constraints on 130-bit limb arithmetic).
+     3. Build a standalone C kernel simulation test harness with full Triad coverage (positive, negative unauthorized, negative replay, edge drift) and wire into `tools/run_all_tests.py`.
+
+---
+
+## 2. Claude Global Library Multi-Agent Orchestration Matrix
+
+Every phase of this implementation is assigned to specialized agents and mandatory skills from `C:\Users\techd\Documents\workspace-spring-tool-suite-4-4.27.0-new\claude-global-library`:
+
+| Agent Slug | Discipline & Domain | Mandatory Skills Loaded | Specific Implementation Responsibility |
+| :--- | :--- | :--- | :--- |
+| **`crypto-security-specialist`** | Cryptography & Security | `cryptography-core`<br>`certified-rng-cryptography-core`<br>`post-quantum-cryptography-core` | Implementation of clean-room constant-time RFC 8439 ChaCha20 20-round block function, one-time Poly1305 subkey derivation, and official KAT vectors. |
+| **`cryptographic-protocols-mathematics-expert`** | Mathematical Cryptanalysis | `cryptography-core`<br>`lwe-rlwe-lattice-cryptography-core` | Polynomial algebra verification modulo $2^{130}-5$, proof of key uniqueness, nonce bit-packing analysis, and constant-time memory wiping. |
+| **`kernel-driver-engineer`** | Linux Kernel Systems | `kernel-driver-development-core`<br>`kernel-level-logic`<br>`embedded-linux-core` | Realization of `xdp_isl_kern.c`, BPF map lookups (`authorized_satellites_map`, `isl_replay_filter_map`), verifier safety, and per-CPU array counters. |
+| **`kernel-level-operator`** | Low-Level OS Integration | `embedded-linux-core`<br>`linux-shell-scripting` | eBPF mock verification harness in userspace, packet descriptor bounds assertions, and line-rate performance profiling. |
+| **`security-defense-architect`** | Constellation Architecture | `threat-modeling-core`<br>`threat-intelligence-core` | Architecture definition of Tier-1 (eBPF NIC driver fast-path) vs Tier-2 (AF_XDP userspace crypto) boundary in `HARDWARE-TRUST-SPEC.md` and `RFC-001`. |
+| **`spacecraft-orbital-mechanics-engineer`** | Aerospace Astrodynamics | `orbital-mechanics-core`<br>`keplerian-orbit-dynamics-core`<br>`orbital-maneuver-transfer-core` | SGP4 interactive Jupyter notebook (`01_orbit_sgp4_propagation.ipynb`), Walker Delta $53^\circ:72/22/1$ geometry diagrams, $J_2$ secular precession equations. |
+| **`radio-frequency-specialist`** | RF Electromagnetics | `telecom-fraud-detection-core`<br>`hardware-interface-core` | Phased array AESA interactive notebook (`02_phased_array_beamforming.ipynb`), 2D $AF(\theta,\phi)$ plots, Capon MVDR spatial null steering (>45 dB cancellation). |
+| **`telecom-mathematics-expert`** | Telecommunications Math | `telecom-fraud-detection-core`<br>`power-analysis-math` | RF decibel link budget interactive notebook (`03_rf_link_budget_analysis.ipynb`), ITU-R P.618 rain attenuation modeling, and cascaded gain waterfall charts. |
+| **`qa-testing-agent`** | Quality Assurance & Testing | `unit-testing-core`<br>`integration-testing-core`<br>`contract-testing-core`<br>`test-automation-architecture-core` | Universal Triad Test Matrix (Positive, Negative, Edge-Case) for ChaCha20, Poly1305 unique keys, eBPF kernel ingress filter, and Python simulations. |
+| **`harness-engineering-architect`** | Test Harness & Benchmarking | `eval-harness-design-core`<br>`agent-regression-harness-core`<br>`hardware-performance-counters-core` | Zero-cloud local test runner (`tools/run_all_tests.py`), high-resolution RDTSC/QPC cycle benchmarking, and automated regression guards. |
+| **`context-engineering-agent`** | Context Optimization | `context-window-optimization-core`<br>`multi-agent-context-isolation-core` | Context budgeting, strict modularity between drivers, specifications, and notebooks. |
+| **`loop-engineering-architect`** | Convergence & Safety | `loop-engineering-core`<br>`loop-termination-safety-core`<br>`multi-agent-loop-orchestration-core` | Verified loop termination, unrolled ChaCha20 rounds, bounded polynomial accumulators, and verifier loop limits. |
+| **`uml-diagram-mathematics-expert`** | Architecture Visualizations | `code-quality-math-foundations-core` | Mermaid sequence diagrams, constellation orbital topology, and laser crosslink mesh data flow models. |
+
+---
+
+## 3. Detailed Data Structures, Functions, Structs & Variables
+
+### 3.1 New Cryptographic Module: `system/include/starsec_chacha20.h` & `system/src/starsec_chacha20.c`
+
+#### Constants & Macros
+```c
+#define STARSEC_CHACHA20_KEY_BYTES      32U    /* 256-bit symmetric master secret */
+#define STARSEC_CHACHA20_NONCE_BYTES    12U    /* 96-bit standard IETF RFC 8439 nonce */
+#define STARSEC_CHACHA20_BLOCK_BYTES    64U    /* 512-bit state output block */
+#define STARSEC_ONE_TIME_KEY_BYTES      32U    /* 256-bit derived Poly1305 key (r, s) */
 ```
-═════════════════════════════════════════════════════════════════════════════════════════════════════
-                         STARSEC / CSF 4-LAYER DEFENSIVE ARCHITECTURE
-═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-  [ LAYER 1: HARDWARE & PHYSICAL TRUST LAYER (Spacecraft Bus & User Terminal) ]
-  • Glitch-detection circuits (<250 ps analog voltage crowbar clamps)
-  • Dual-Core Lockstep (DCLS) microcontrollers with 2-clock-cycle phase skew
-  • SRAM & Butterfly Physically Unclonable Functions (PUF) with BCH(255, 71, 29) helper data
-  • Active tamper-sensing mesh enclosure with sub-10 ns BBRAM key zeroization
-
-  [ LAYER 2: RF & PHY-LAYER RESILIENCY (Uplink, Downlink & Array Electromagnetics) ]
-  • Active Electronically Scanned Array (AESA) Capon MVDR adaptive spatial null-steering (>45 dB cancellation)
-  • Cognitive Frequency Hopping Spread Spectrum (CFHSS >10,000 hops/sec)
-  • Trajectory & Doppler profile cross-correlation spoofing detection matrix
-  • Angle-of-Arrival (AoA) phase interferometry RF anomaly verification
-
-  [ LAYER 3: ORBITAL MESH & INTER-SATELLITE NETWORK (ISL) LAYER (Laser Crosslinks & Mesh) ]
-  • Zero Trust In-Space (ZTIS) mutual TLS over Free-Space Optical (FSO) laser links
-  • Post-Quantum Cryptography: NIST FIPS 203 (ML-KEM-1024) & FIPS 204 (ML-DSA-87)
-  • Dynamic ISL Mesh BGP / RPKI route poisoning defense & Byzantine node isolation
-  • Laser beam-break fast session resumption with forward secrecy & anti-replay tickets
-
-  [ LAYER 4: GROUND SEGMENT, SOVEREIGN & TELECOMMAND (TT&C) QUORUM (Orbital Safety & Governance) ]
-  • Multi-Party Computation (MPC) Telecommand Quorum via Shamir (t, n) Secret Sharing over F_{2^256}
-  • Flexible Round-Optimized Schnorr Threshold (FROST) multisignatures for de-orbit & station-keeping
-  • Sovereign telemetry compliance gateways with Zero-Knowledge verification isolating subscriber payloads
-═════════════════════════════════════════════════════════════════════════════════════════════════════
+#### Structs & Typedefs
+```c
+/**
+ * @brief Internal 512-bit ChaCha20 state matrix consisting of 16 32-bit words.
+ *
+ * Words 0-3:   Constants ("expand 32-byte k" -> 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574)
+ * Words 4-11:  Master Key (8 words = 256 bits)
+ * Word 12:     Block Counter (32 bits, 0 for Poly1305 keygen)
+ * Words 13-15: Nonce (3 words = 96 bits)
+ */
+typedef struct {
+    uint32_t state[16];
+} starsec_chacha20_state_t;
 ```
 
----
+#### Function Signatures
+```c
+/**
+ * @brief Core 20-round ChaCha20 block function generating 64 keystream bytes.
+ * @param out Pointer to output buffer receiving 64 bytes.
+ * @param key Pointer to 32-byte master key.
+ * @param counter 32-bit block counter.
+ * @param nonce Pointer to 12-byte (96-bit) nonce buffer.
+ */
+void starsec_chacha20_block(
+    uint8_t        out[STARSEC_CHACHA20_BLOCK_BYTES],
+    const uint8_t  key[STARSEC_CHACHA20_KEY_BYTES],
+    uint32_t       counter,
+    const uint8_t  nonce[STARSEC_CHACHA20_NONCE_BYTES]
+);
 
-## 2. Claude Global Rules Enforcement Matrix (19 Rules Mapped)
-
-Every single applicable rule from `C:\Users\techd\.claude\rules\` is systematically mapped, audited, and applied across the StarSec framework:
-
-| # | Rule File | Level & Priority | Specific Rule Requirement | StarSec Framework Implementation Application |
-| :- | :--- | :--- | :--- | :--- |
-| **1** | `01-common-standards.md` | Level 2.1 Critical | Naming conventions, UTF-8 strict without BOM, file structure, zero hardcoded local paths. | All new files written in UTF-8 without BOM. Python variables use `snake_case`, classes use `PascalCase`, constants use `UPPER_SNAKE_CASE`. |
-| **2** | `05-security-standards.md` | Level 2.1 Critical | Defense-in-depth, zero trust boundaries, cryptographic hygiene, constant-time execution. | Zero Trust In-Space (ZTIS) architecture; constant-time operations for PQC polynomial reduction and Shamir share evaluations. |
-| **3** | `11-documentation-files.md` | Level 2.2 High | Publication-grade markdown, clear hierarchy, link integrity, no marketing fluff, academic rigor. | Every document in `/framework/`, `/spec/`, and `/threat-matrix/` adheres to formal RFC structure with peer-reviewed equations and citations. |
-| **4** | `12-docstrings-only.md` | Level 2.2 High | **Strict Level 2.2 Docstrings-Only:** Contract docstrings on every function/class. **BANNED:** Inline comments narrating "what". Comments strictly for "why". | 100% compliance in `threat_score_calculator.py`, `mpc_quorum_telecommand.py`, and `test_simulations.py`. Zero inline narrative comments. |
-| **5** | `22-common-library-design.md` | Level 2.2 High | Reusable components, low coupling, high cohesion, immutability. | Shared data models defined as `@dataclass(frozen=True)` (e.g., `SpaceThreatVector`, `QuorumSignatureShare`, `ManeuverCommand`). |
-| **6** | `24-constants-organization.md` | Level 2.2 High | Centralized constants in `UPPER_SNAKE_CASE`, zero scattered magic numbers or hardcoded literals. | All physical, mathematical, and cryptographic constants (finite field prime $p$, Kyber moduli $q=3329$, speed of light $c$) centralized at module tops. |
-| **7** | `28-test-coverage-enforcement.md` | Level 2.2 Critical | 100% test verification across all branches, classes, and methods; zero skipped tests. | Python unittest suite expanded to cover 100% of simulator code branches with zero regressions against existing 10 tests. |
-| **8** | `31-security-authentication.md` | Level 2.1 Critical | Mutual TLS, cryptographic challenge-response, ephemeral session derivation, token replay protection. | RFC-001 specifies mTLS over optical laser links with ephemeral ML-KEM-1024 key encapsulation and monotonic counter replay prevention. |
-| **9** | `33-test-case-roadmap.md` | Level 2.3 High | Explicit traceability between security controls, threat vectors, and test cases. | Traceability matrix in `test_simulations.py` linking unit tests to StarSec RFC requirements (`CTRL-HW`, `CTRL-RF`, `CTRL-ISL`, `CTRL-TTC`). |
-| **10**| `35-positive-testing-standards.md` | Level 2.3 High | Triad Testing: Happy-path validation for valid inputs and nominal conditions. | Verifies valid Shamir $t$-of-$n$ signature quorum passes, valid Capon MVDR beamformer produces $>45\text{ dB}$ null, nominal CVSS vector calculates properly. |
-| **11**| `36-negative-testing-standards.md` | Level 2.3 High | Triad Testing: Explicit negative testing for invalid inputs, corrupted signatures, unauthorized actors. | Verifies insufficient shares ($<t$) rejected, corrupted polynomial shares raise `CryptoVerificationError`, invalid angle coordinates raise `ValueError`. |
-| **12**| `37-edge-case-testing-standards.md` | Level 2.3 High | Triad Testing: Boundary condition validation (min, max, zero, empty, saturated). | Verifies boundary cases: $t=1$ (single signer), $t=n$ (unanimous quorum), jammer at broadside ($\theta=0^\circ$), empty vector list, maximum field prime values. |
-| **13**| `38-test-mocking-strategy.md` | Level 2.3 High | Deterministic fixtures, zero external network dependency, fast execution ($<0.5\text{ s}$). | Pure standard library and NumPy/SciPy deterministic calculations; no external API calls or random flakiness. |
-| **14**| `39-cross-cutting-test-patterns.md`| Level 2.3 High | Performance constraints, timing bounds, memory limits. | Verifies execution time of quorum reconstruction and threat calculation completes in $<5\text{ ms}$ per operation. |
-| **15**| `40-universal-test-patterns-abstract.md`| Level 2.3 High | Abstract Triad Testing Pattern (Positive + Negative + Edge Case). | Every new function in `threat_score_calculator.py` and `mpc_quorum_telecommand.py` tested via the complete Triad pattern. |
-| **16**| `41-testing-standards-python-fastapi.md`| Level 2.3 High | Strict Python typing, dataclasses, unittest fixtures, PEP 8 compliance. | Full Python 3.10+ typing annotations (`dataclass`, `Tuple`, `List`, `Dict`, `Optional`), standard `unittest.TestCase` harnesses. |
-| **17**| `44-srs-lifecycle.md` | Level 2.3 High | Requirements traceability: Functional (FR) and Non-Functional (NFR) requirements specification. | All RFC documents structured with formal FR and NFR numbered clauses (e.g., `FR-ISL-01`, `NFR-HW-02`). |
-| **18**| `45-uml-diagram-lifecycle.md` | Level 2.3 High | Supported Mermaid diagrams only (`flowchart`, `sequenceDiagram`, `stateDiagram`), quoted labels, no HTML tags. | All architectural diagrams in `/framework/` and `/framework/spec/` use valid Mermaid syntax (`sequenceDiagram` for handshakes, `flowchart TD` for quorums). |
-| **19**| `46-architecture-documentation.md`| Level 2.3 High | Architecture documentation lifecycle: RFC format, ADRs, component boundaries. | Formal RFC specification format (RFC 2119 keywords `MUST`, `SHOULD`, `MAY`, Wire Formats, Threat Models, Security Considerations). |
-
----
-
-## 3. Claude Global Library Master Orchestration
-
-### 3.1 The 7 Knowledge Graph Domains
-1. **Domain 5 (`cybersecurity`):** Zero Trust architecture, threat modeling, attack surface mitigation, cryptanalysis defense.
-2. **Domain 95 (`aerospace-avionics-flight-space-engineering`):** Satellite avionics, orbital mechanics, station-keeping safety, de-orbit interlocks.
-3. **Domain 4 (`telecom-5g`):** RF engineering, AESA phased array beamforming, electronic warfare (EW) countermeasures, Doppler tracking.
-4. **Domain 98 (`advanced-cryptographic-protocols-zk-fhe-mpc-engineering`):** Shamir secret sharing, threshold signature schemes, zero-knowledge proofs.
-5. **Domain 96 (`quantum-computing`):** Post-quantum lattice cryptography (MLWE/MSIS), quantum threat modeling, hybrid PQC.
-6. **Domain 94 (`silicon-architecture`):** SRAM-PUF error correction, fault injection defenses, dual-core lockstep CPUs, hardware root of trust.
-7. **Domain 54 (`security-governance`):** Compliance tiers, SPARTA / MITRE ATT&CK mapping, CVSS v4 scoring profiles.
-
-### 3.2 Multi-Disciplinary Specialist Squad
-- **`security-defense-architect` (Lead Architecture Authority, Domain 5):** Owns framework taxonomy, 4-layer architecture, and CSF-L1/L2/L3 compliance tiers.
-- **`secure-boot-engineer` (Hardware RoT Authority, Domain 94/5):** Owns `RFC-002-UT-Hardware-Hardening.md` (PUF enrollment, DCLS, voltage glitching defense, BBRAM zeroization).
-- **`radio-frequency-specialist` (RF & EW Authority, Domain 4/5):** Owns `RFC-003-RF-PHY-Jamming-Defense.md` (Capon MVDR beamforming, Doppler verification, CFHSS).
-- **`post-quantum-security-engineer` (PQC Authority, Domain 96/5):** Owns `RFC-001-ISL-Mutual-Auth.md` (ML-KEM-1024, ML-DSA-87, laser handshake, beam-break session resumption).
-- **`cryptographic-protocols-mathematics-expert` (MPC/Quorum Authority, Domain 98):** Owns `RFC-004-TTC-Multi-Party-Quorum.md` (Shamir $(t, n)$ secret sharing over $\mathbb{F}_{2^{256}}$, FROST threshold signatures).
-- **`spacecraft-orbital-mechanics-engineer` (Orbital Dynamics Authority, Domain 95):** Grounding orbital safety, conjunction assessment, and thruster command interlocks in astrodynamics.
-- **`threat-modeling-specialist` (Space Threat Matrix Authority, Domain 5):** Owns `constellation-threat-matrix.md` and `cvss-v4-space-profile.md` (SPARTA / MITRE ATT&CK mapping).
-- **`qa-testing-agent` (Verification Authority):** Owns Python simulation unit tests, test coverage, and test harness execution.
-
-### 3.3 Opus Math Masters (Mathematical Proofs & Derivations)
-- **`cyber-mathematics-expert`:** Fault injection probability bounds ($P_{glitch} < 10^{-11}$) and clock jitter entropy models.
-- **`cryptographic-protocols-mathematics-expert`:** Shamir $(t, n)$ Lagrange interpolation over finite fields $\mathbb{F}_p$, FROST threshold unforgeability proofs.
-- **`telecom-mathematics-expert`:** Capon MVDR spatial covariance optimization:
-  $$\min_{\mathbf{w}} \mathbf{w}^H \mathbf{R}_{xx} \mathbf{w} \quad \text{subject to} \quad \mathbf{w}^H \mathbf{a}(\theta_0, \phi_0) = 1 \implies \mathbf{w}_{opt} = \frac{\mathbf{R}_{xx}^{-1} \mathbf{a}(\theta_0, \phi_0)}{\mathbf{a}^H(\theta_0, \phi_0) \mathbf{R}_{xx}^{-1} \mathbf{a}(\theta_0, \phi_0)}$$
-- **`silicon-mathematics-expert`:** SRAM-PUF Gaussian Hamming distance separation ($d_{intra} \approx 3\%$, $d_{inter} \approx 50\%$) and BCH $(255, 71, 29)$ decoding error rates.
-- **`aerospace-flight-mathematics-expert`:** Foster & Estes (1992) B-plane conjunction collision probability integral $P_c$.
-
-### 3.4 The 5 Engineering Disciplines
-1. **Context Engineering (D80 `context-engineering-agent`):** Strict directory and file boundaries (`framework/`, `framework/spec/`, `framework/threat-matrix/`, `tools/`, `simulations/`). Eliminates token bloat while ensuring high density of technical substance.
-2. **Prompt Engineering (D47 `prompt-generation-expert`):** RFC specifications strictly follow IETF RFC 2119 requirement levels (`MUST`, `MUST NOT`, `SHOULD`, `RECOMMENDED`, `MAY`), complete with ASCII wire-format layouts and state machines.
-3. **Graph Engineering (D102 `graph-engineering-agent`):** Directed Acyclic Graph (DAG) for parallel execution:
-   - Root Node: Orchestration & Plan Validation
-   - Layer 1 DAG: Architecture Blueprint (`framework/README.md`)
-   - Layer 2 DAG (Parallel): 4 RFC Specifications (`RFC-001` through `RFC-004`)
-   - Layer 3 DAG (Parallel): Threat Matrix & Space CVSS v4 Profile
-   - Layer 4 DAG: Executable Python Simulation Tooling (`threat_score_calculator.py`, `mpc_quorum_telecommand.py`)
-   - Layer 5 DAG: Comprehensive Unit Test Suite (`test_simulations.py`, 100% pass)
-   - Layer 6 DAG: Cross-Linking & Monograph Elevation (`README.md`, `README.hi.md`, Chapter docs)
-4. **Loop Engineering (D51 `loop-engineering-architect`):** Automated validation loops verifying Python execution, docstrings-only compliance, and mathematical invariants before merging.
-5. **Harness Engineering (D50 `harness-engineering-architect`):** Automated test harness executing with 0 regressions against existing astrodynamics and RF link budget tests.
-
----
-
-## 4. Directory Layout & Artifact Mapping
-
-```
-starlink-research-report/
-├── framework/                                          # [NEW DIRECTORY] StarSec Framework Core
-│   ├── README.md                                      # [NEW] StarSec Architecture, Taxonomy, Principles & Compliance Tiers
-│   ├── spec/                                          # [NEW DIRECTORY] Formal RFC-Style Specifications
-│   │   ├── RFC-001-ISL-Mutual-Auth.md                 # [NEW] Optical ISL Mutual Authentication & Quantum-Safe Rekeying
-│   │   ├── RFC-002-UT-Hardware-Hardening.md           # [NEW] User Terminal Silicon Fault Injection, SRAM-PUF & Zeroization
-│   │   ├── RFC-003-RF-PHY-Jamming-Defense.md          # [NEW] Phased Array Capon MVDR Null-Steering & Doppler Anti-Spoofing
-│   │   └── RFC-004-TTC-Multi-Party-Quorum.md          # [NEW] Sovereign (t, n) Multi-Party Threshold Quorum for Telecommands
-│   └── threat-matrix/                                 # [NEW DIRECTORY] Space Threat Matrix
-│       ├── README.md                                  # [NEW] Threat Taxonomy & Assessment Methodology
-│       ├── constellation-threat-matrix.md             # [NEW] SPARTA & ATT&CK Matrix (30+ Vectors, Mitigations, Controls)
-│       └── cvss-v4-space-profile.md                   # [NEW] CVSS v4 Space Profile (Orbital, Life-Safety & Telemetry Metrics)
-├── tools/                                              # [NEW DIRECTORY] Tooling & CLI Manuals
-│   └── README.md                                      # [NEW] Execution guide for all 6 scientific tools & simulators
-├── simulations/                                        # Python Simulation Suite
-│   ├── threat_score_calculator.py                     # [NEW] Automated Python CLI for CVSS v4 Space & SPARTA Scoring
-│   ├── mpc_quorum_telecommand.py                      # [NEW] Python Simulator for Shamir (t, n) Telecommand Quorum Verification
-│   ├── phased_array_beamforming.py                    # [EXISTING] AESA Capon MVDR Null-Steering Simulator
-│   ├── pqc_kem_benchmark.py                           # [EXISTING] NIST FIPS 203 ML-KEM-1024 Laser Mesh Benchmark
-│   ├── stride_fault_injection_sim.py                  # [EXISTING] BootROM Glitching & DCLS Defense Simulator
-│   ├── orbit_sgp4_propagator.py                       # [EXISTING] SGP4 / J2 Astrodynamics & Conjunction Assessment
-│   ├── rf_link_budget_calculator.py                   # [EXISTING] Decibel Link Budget & Rain Attenuation Calculator
-│   └── test_simulations.py                            # [MODIFY] Unit tests expanded to cover new tools (100% pass)
-├── 07-security-risks.md                               # [MODIFY] Add direct references to StarSec Threat Matrix & RFCs
-├── 16-security-countermeasures-and-mitigations.md     # [MODIFY] Anchor mitigations in StarSec RFC specifications
-├── docs/rnd/07-zero-trust-satellite-architecture...   # [MODIFY] Position ZTSA whitepaper as the theoretical root of StarSec
-├── README.md                                          # [MODIFY] Add StarSec feature section, badges, architecture diagram
-└── README.hi.md                                       # [MODIFY] Add Hindi overview of StarSec framework & tools
+/**
+ * @brief Derives a cryptographically unique 32-byte one-time Poly1305 key using ChaCha20 block 0.
+ *
+ * Implements RFC 8439 Section 2.6:
+ * block = chacha20_block(key, counter=0, nonce)
+ * one_time_key = block[0..31]  (first 16 bytes: r, last 16 bytes: s)
+ *
+ * @param master_key Pointer to 32-byte shared ISL master secret.
+ * @param nonce Pointer to 12-byte unique packet nonce.
+ * @param one_time_key Output buffer receiving 32-byte one-time key (zeroized after use).
+ */
+void starsec_chacha20_poly1305_key_gen(
+    const uint8_t master_key[STARSEC_CHACHA20_KEY_BYTES],
+    const uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES],
+    uint8_t       one_time_key[STARSEC_ONE_TIME_KEY_BYTES]
+);
 ```
 
 ---
 
-## 5. Phase-by-Phase Implementation Execution Plan
+### 3.2 Hardened In-Orbit ISL Packet Header & Filter: `system/include/xdp_orbital.h` & `system/src/xdp_orbital_filter.c`
 
-### Phase 1: Core Framework Architecture & Governance (`/framework/README.md`)
-- Author the comprehensive architecture overview of **StarSec / Constellation Security Framework (CSF v1.0)**.
-- Define the 4 Defense Layers, Zero Trust in Space (ZTIS) principles, and three formal compliance tiers:
-  - **CSF-L1 (Commercial Baseline):** Standard AES-256-GCM, hardware secure boot, firmware integrity verification (`dm-verity`), basic telemetry HMAC.
-  - **CSF-L2 (Critical Infrastructure):** AESA digital null-steering (>45 dB cancellation), Dual-Core Lockstep (DCLS) microcontrollers, mTLS over laser crosslinks, RPKI-in-space BGP route validation.
-  - **CSF-L3 (National Security / Sovereign Defense):** Full Post-Quantum Cryptography (NIST FIPS 203 ML-KEM-1024, FIPS 204 ML-DSA-87), SRAM-PUF hardware fingerprints, $(t, n)$ Shamir/FROST telecommand quorum, active enclosure tamper mesh with sub-10 ns BBRAM zeroization.
-- Embed compliant Mermaid diagrams (`flowchart TD` for trust zones, `sequenceDiagram` for crosslink verification) adhering strictly to `45-uml-diagram-lifecycle.md`.
+#### Nonce Construction Specification (96-Bit Unique Nonce)
+```text
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       src_satellite_id        |       dst_satellite_id        |  (Bytes 0-3)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       sequence_number                         |  (Bytes 4-7)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                     tx_epoch_ms (low 32-bit)                  |  (Bytes 8-11)
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+Every packet transmitted across an optical laser crosslink possesses a unique combination of `(src_id, dst_id, sequence_number, tx_epoch_ms)`. Even if millions of packets are authenticated under the same master ISL secret, each packet's Poly1305 key `(r, s)` is uniquely generated, completely eliminating key reuse.
 
-### Phase 2: Formal RFC Specifications (`/framework/spec/`)
-1. **`RFC-001-ISL-Mutual-Auth.md`:**
-   - Adheres to `46-architecture-documentation.md` (RFC 2119 keywords, Wire Format, Security Considerations).
-   - Optical inter-satellite laser link protocol, NIST FIPS 203 (ML-KEM-1024) key encapsulation, NIST FIPS 204 (ML-DSA-87) node identity signatures.
-   - Handshake sequence diagram, beam break fast resumption protocol (ephemeral ticket replay prevention), forward secrecy.
-2. **`RFC-002-UT-Hardware-Hardening.md`:**
-   - Physical attack models (voltage/clock glitching, EM fault injection, side-channel analysis).
-   - Dual-Core Lockstep (DCLS) microcontrollers with 2-clock-cycle delay registers, sub-250 ps analog voltage crowbar clamps.
-   - SRAM Physically Unclonable Functions (PUF) with BCH $(255, 71, 29)$ error correction helper data.
-   - Active tamper enclosure mesh with instant Battery-Backed RAM (BBRAM) and master key zeroization (<10 ns).
-3. **`RFC-003-RF-PHY-Jamming-Defense.md`:**
-   - Active Electronically Scanned Array (AESA) digital beamforming and spatial covariance matrix calculation.
-   - Capon MVDR algorithm achieving $>45\text{ dB}$ spatial null attenuation on directional jammers.
-   - Doppler profile verification and trajectory cross-correlation algorithms to detect GNSS/RF spoofing.
-   - Cognitive Frequency Hopping Spread Spectrum (CFHSS) scheduling.
-4. **`RFC-004-TTC-Multi-Party-Quorum.md`:**
-   - Shamir $(t, n)$ Secret Sharing over finite field $\mathbb{F}_{2^{256}}$ and Flexible Round-Optimized Schnorr Threshold (FROST) signatures for TT&C.
-   - Quorum verification logic on satellite bus: orbital maneuvering, firmware overwrites, and de-orbit commands require $t$-of-$n$ valid cryptographic ground signatures.
-   - Sovereign telemetry verification gateway architecture protecting subscriber data privacy.
+#### New Functions in `xdp_orbital.h`
+```c
+/**
+ * @brief Constructs a deterministic 96-bit (12-byte) nonce from packet header fields.
+ * @param hdr Pointer to StarSec packet header.
+ * @param nonce Output buffer receiving 12-byte nonce.
+ */
+void xdp_derive_isl_nonce(
+    const starsec_isl_header_t *hdr,
+    uint8_t                     nonce[12]
+);
+```
 
-### Phase 3: Constellation Threat Matrix & Space CVSS v4 Profile (`/framework/threat-matrix/`)
-1. **`constellation-threat-matrix.md`:**
-   - Map 30+ constellation-specific threat vectors across 6 operational domains: Physical/Terminal, RF/PHY, Optical ISL Mesh, Spacecraft Bus/Avionics, Ground Station/TT&C, and Geopolitical/Supply Chain.
-   - Align each vector with Aerospace Corp **SPARTA** technique IDs (e.g., REC-0001, EX-0005, DEF-0012) and **MITRE ATT&CK for Space**.
-   - Prescribe specific StarSec CSF countermeasure controls for every vector.
-2. **`cvss-v4-space-profile.md`:**
-   - Space-domain extension to Common Vulnerability Scoring System (CVSS v4.0).
-   - Incorporate Space Vector Metrics: Orbital Altitude / Conjunction Impact, De-orbit Risk, RF Propagation Radius, Life-Safety Impact (ISS/Tiangong proximity), and Telemetry Blackout Window.
-   - Include scoring matrices and formulas.
+#### Updated Authentication Signatures in `xdp_orbital.h` & `xdp_orbital_filter.c`
+```c
+/**
+ * @brief Generates an authentic RFC 8439 Poly1305 MAC using a derived one-time key.
+ * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ */
+void xdp_generate_isl_auth_tag(
+    starsec_isl_header_t *hdr,
+    const uint8_t        *payload,
+    size_t                payload_len,
+    const uint8_t        *master_key_32
+);
 
-### Phase 4: Executable Tooling & Scientific Simulation Suite (`/simulations/` & `/tools/`)
-1. **`simulations/threat_score_calculator.py`:**
-   - Implements `12-docstrings-only.md`, `24-constants-organization.md`, and `41-testing-standards-python-fastapi.md`.
-   - Executable Python CLI tool calculating CVSS v4 Space Profile and SPARTA risk metrics.
-   - Built-in database of space threat vectors (e.g., `UT-GLITCH-001`, `RF-JAM-002`, `ISL-SPOOF-003`, `TTC-ROGUE-004`).
-   - Generates formatted terminal reports and JSON export.
-2. **`simulations/mpc_quorum_telecommand.py`:**
-   - Implements Shamir $(t, n)$ polynomial secret sharing and quorum verification over finite field $\mathbb{F}_p$.
-   - Simulates satellite command validation: verifies that an orbital de-orbit maneuver is rejected if $< t$ signatures are presented and accepted only when the quorum threshold is satisfied.
-3. **`tools/README.md`:**
-   - Central tooling entry point providing quickstart guides, CLI arguments, and execution examples for all 6 tools in the repository.
-4. **`simulations/test_simulations.py`:**
-   - Enforces `28-test-coverage-enforcement.md`, `35-positive-testing-standards.md`, `36-negative-testing-standards.md`, `37-edge-case-testing-standards.md`, and `40-universal-test-patterns-abstract.md`.
-   - Complete Triad testing: Positive, Negative, and Edge Case scenarios for all tools.
-   - Zero regression across all existing 10 tests.
+/**
+ * @brief Validates 128-bit RFC 8439 Poly1305 authentication tag using derived one-time key.
+ * @param hdr Pointer to StarSec packet header.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return true if authentication tag matches in constant time, false otherwise.
+ */
+bool xdp_verify_isl_auth_tag(
+    const starsec_isl_header_t *hdr,
+    const uint8_t              *payload,
+    size_t                      payload_len,
+    const uint8_t              *master_key_32
+);
+```
 
-### Phase 5: Repository Cross-Linking & Bilingual Elevation
-- Update `README.md` with StarSec badges, architecture overview, and tool links.
-- Update `README.hi.md` with complete Hindi technical overview.
-- Cross-link in `07-security-risks.md`, `16-security-countermeasures-and-mitigations.md`, and `docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md`.
+---
+
+### 3.3 Authentic Linux eBPF/XDP Kernel Filter: `system/src/xdp_isl_kern.c`
+
+#### BPF Maps Specification
+```c
+/**
+ * @brief Map 1: Authorized Satellite Peers (BPF_MAP_TYPE_HASH)
+ * Key:   uint16_t (satellite_id)
+ * Value: uint32_t (authorization_status_flags: bit 0 = ISL active, bit 1 = admin authorized)
+ * Max Entries: 256
+ */
+struct bpf_map_def SEC("maps") authorized_satellites_map = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(uint16_t),
+    .value_size = sizeof(uint32_t),
+    .max_entries = 256,
+    .map_flags = 0,
+};
+
+/**
+ * @brief Map 2: Anti-Replay Monotonic Tracking State (BPF_MAP_TYPE_HASH)
+ * Key:   uint16_t (src_satellite_id)
+ * Value: struct isl_anti_replay_state (last seen sequence number and timestamp)
+ * Max Entries: 256
+ */
+typedef struct {
+    uint32_t last_sequence_number; /**< Monotonic sequence number */
+    uint64_t last_epoch_ms;        /**< Timestamp in milliseconds */
+} isl_anti_replay_state_t;
+
+struct bpf_map_def SEC("maps") isl_replay_filter_map = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(uint16_t),
+    .value_size = sizeof(isl_anti_replay_state_t),
+    .max_entries = 256,
+    .map_flags = 0,
+};
+
+/**
+ * @brief Map 3: Per-CPU High-Performance Diagnostic Counters (BPF_MAP_TYPE_PERCPU_ARRAY)
+ * Key:   uint32_t (Metric Index: 0=PASS, 1=BAD_MAGIC, 2=BAD_LEN, 3=UNAUTHORIZED, 4=REPLAY, 5=EPOCH_DRIFT)
+ * Value: uint64_t (Packet counter)
+ * Max Entries: 8
+ */
+enum isl_telemetry_metric {
+    STARSEC_TELEM_PASSED_FRAMES          = 0,
+    STARSEC_TELEM_DROPPED_BAD_MAGIC      = 1,
+    STARSEC_TELEM_DROPPED_BAD_LEN        = 2,
+    STARSEC_TELEM_DROPPED_UNAUTHORIZED   = 3,
+    STARSEC_TELEM_DROPPED_REPLAY_SEQ     = 4,
+    STARSEC_TELEM_DROPPED_EPOCH_DRIFT    = 5
+};
+
+struct bpf_map_def SEC("maps") isl_telemetry_map = {
+    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
+    .key_size = sizeof(uint32_t),
+    .value_size = sizeof(uint64_t),
+    .max_entries = 8,
+    .map_flags = 0,
+};
+```
+
+#### Kernel Ingress Hook Logic (`SEC("xdp") int starsec_isl_xdp_filter`)
+1. **Bounds Validation:** `(data + sizeof(starsec_isl_header_t) > data_end)` -> Drop (`STARSEC_TELEM_DROPPED_BAD_LEN`).
+2. **Magic Validation:** `(hdr->magic != STARSEC_ISL_MAGIC)` -> Drop (`STARSEC_TELEM_DROPPED_BAD_MAGIC`).
+3. **Payload Bounds Check:** `(data + sizeof(starsec_isl_header_t) + hdr->payload_len > data_end)` -> Drop (`STARSEC_TELEM_DROPPED_BAD_LEN`).
+4. **Authorized Satellite Lookup:** `bpf_map_lookup_elem(&authorized_satellites_map, &hdr->src_satellite_id)`. If NULL or inactive -> Drop (`STARSEC_TELEM_DROPPED_UNAUTHORIZED`).
+5. **Anti-Replay & Temporal Monotonicity Check:**
+   - `bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id)`.
+   - If present:
+     - Check `hdr->sequence_number <= state->last_sequence_number` -> Drop (`STARSEC_TELEM_DROPPED_REPLAY_SEQ`).
+     - Check temporal drift between `hdr->tx_epoch_ms` and `state->last_epoch_ms` or reference clock. If >200 ms -> Drop (`STARSEC_TELEM_DROPPED_EPOCH_DRIFT`).
+     - Update state: `state->last_sequence_number = hdr->sequence_number; state->last_epoch_ms = hdr->tx_epoch_ms;`.
+   - If not present: insert initial state into `isl_replay_filter_map`.
+6. **Pass Counter Increment:** Increment `STARSEC_TELEM_PASSED_FRAMES`.
+7. **Action:** Return `XDP_PASS` to stream frame directly into userspace zero-copy AF_XDP ring buffer for ChaCha20-Poly1305 MAC validation!
+
+---
+
+### 3.4 Standalone Kernel Simulation & Verifier Test Harness: `system/src/main_system_test.c`
+
+To ensure full testability on any platform (Windows, Linux, macOS, RTEMS), `main_system_test.c` implements mock BPF map storage and executes the exact kernel ingress logic with negative test vectors:
+- **`test_chacha20_triad()`**:
+  - `TC-CHACHA-POS-01`: Official RFC 8439 Section 2.6.2 Known Answer Test.
+  - `TC-CHACHA-NEG-01`: 1-bit flip in master key completely mutates one-time key output.
+  - `TC-CHACHA-NEG-02`: 1-bit flip in nonce completely mutates one-time key output.
+  - `TC-CHACHA-EDGE-01`: Boundary counter values and all-zero nonce.
+- **`test_poly1305_unique_key_triad()`**:
+  - `TC-POLY-KEY-POS-01`: Sequential messages with incrementing sequence numbers receive distinct one-time keys and authenticate successfully.
+  - `TC-POLY-KEY-NEG-01`: Nonce alteration causes tag verification failure.
+  - `TC-POLY-KEY-EDGE-01`: Zero-length payload message with derived key.
+- **`test_ebpf_kernel_ingress_triad()`**:
+  - `TC-EBPF-POS-01`: Valid frame from authorized node with ascending sequence number -> `XDP_PASS`.
+  - `TC-EBPF-NEG-01`: Packet from unauthorized node ID (not in BPF map) -> `XDP_DROP`.
+  - `TC-EBPF-NEG-02`: Packet with duplicate/replayed sequence number -> `XDP_DROP`.
+  - `TC-EBPF-NEG-03`: Packet with temporal drift exceeding 200 ms -> `XDP_DROP`.
+  - `TC-EBPF-NEG-04`: Packet with corrupted magic (0xDEADBEEF) -> `XDP_DROP`.
+  - `TC-EBPF-NEG-05`: Truncated packet smaller than header size -> `XDP_DROP`.
+  - `TC-EBPF-EDGE-01`: Boundary 200 ms propagation delay passes, 201 ms delay drops.
+
+---
+
+### 3.5 Interactive Reproducible Jupyter Notebooks Suite in `notebooks/`
+
+#### 1. `notebooks/01_orbit_sgp4_propagation.ipynb`
+- **Lead Discipline:** `spacecraft-orbital-mechanics-engineer` & `aerospace-flight-mathematics-expert`
+- **Core Models & Math:**
+  - SGP4 orbital propagation using Two-Line Element (TLE) ephemeris sets.
+  - $J_2$ secular nodal precession rate:
+    $$\dot{\Omega} = -\frac{3}{2} J_2 \left(\frac{R_E}{p}\right)^2 n \cos(i) = -4.49^\circ/\text{day}$$
+  - Keplerian to Cartesian state vector conversion ($\vec{r}, \vec{v}$).
+  - Walker Delta $53^\circ:72/22/1$ geometry simulation across 72 orbital planes.
+  - Ground track coordinate plotting and Doppler shift profile calculation ($\pm 325\text{ kHz}$).
+- **Interactive Outputs:**
+  - Visual ground track latitude vs longitude map.
+  - Orbital altitude decay vs thermospheric drag plot.
+  - Relative velocity and contact duration distribution.
+
+#### 2. `notebooks/02_phased_array_beamforming.ipynb`
+- **Lead Discipline:** `radio-frequency-specialist` & `telecom-mathematics-expert`
+- **Core Models & Math:**
+  - 1,280-element Ku-band User Terminal Active Electronically Scanned Array (AESA).
+  - 2D Array Factor computation:
+    $$AF(\theta, \phi) = \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} w_{mn} e^{j k (m d_x \sin\theta\cos\phi + n d_y \sin\theta\sin\phi)}$$
+  - True Time Delay (TTD) squint-free phase steering vectors.
+  - Capon Minimum Variance Distortionless Response (MVDR) adaptive beamforming:
+    $$\vec{w}_{opt} = \frac{\mathbf{R}_{xx}^{-1} \vec{a}(\theta_0)}{\vec{a}^H(\theta_0) \mathbf{R}_{xx}^{-1} \vec{a}(\theta_0)}$$
+- **Interactive Outputs:**
+  - 2D and 3D radiation pattern plots ($\theta \in [-90^\circ, +90^\circ]$).
+  - Main lobe gain ($+34.2\text{ dBi}$) and Half-Power Beamwidth ($HPBW \approx 2.5^\circ$).
+  - Spatial null steering deep notch ($>45\text{ dB}$ attenuation) directly focused on EW jamming azimuth.
+
+#### 3. `notebooks/03_rf_link_budget_analysis.ipynb`
+- **Lead Discipline:** `telecom-mathematics-expert` & `radio-frequency-specialist`
+- **Core Models & Math:**
+  - Complete downlink Ku-band ($12\text{ GHz}$) and uplink Ka/V-band decibel budgets.
+  - Free Space Path Loss:
+    $$FSPL(\text{dB}) = 20\log_{10}(d) + 20\log_{10}(f) + 92.45 \approx 171.2\text{ dB}$$
+  - Atmospheric gaseous absorption and ITU-R P.618 rain attenuation modeling.
+  - Receiver Figure of Merit ($G/T$):
+    $$G/T = G_{rx} - 10\log_{10}(T_{sys}) \approx +13.5\text{ dB/K}$$
+  - Carrier-to-Noise Ratio ($C/N_0$) and Eb/N0 margin for adaptive DVB-S2X modulation.
+- **Interactive Outputs:**
+  - Cascaded Power Level Waterfall Chart (Transmitter -> Free Space -> Rain -> Dishy LNA).
+  - Downlink SNR vs Elevation Angle curve ($25^\circ$ to $90^\circ$).
+  - Rain fade availability margin breakdown ($99.9\%$ uptime).
+
+#### 4. `notebooks/README.md`
+- Environment setup guide, required dependencies (`numpy`, `scipy`, `matplotlib`, `skyfield`), and local execution instructions.
+
+---
+
+### 3.6 Visual Diagrams & Architectural Artifacts in Markdown Chapters
+
+1. **`04-satellite-constellation.md`:**
+   - Mermaid diagram: 72-plane Walker Delta constellation structure with orbital shell altitudes ($550\text{ km}$ Shell 1, $540\text{ km}$ Shell 4), inclination angles, and plane spacing.
+   - ASCII visual: Orbital nodal precession geometric cone.
+2. **`06-network-technology.md`:**
+   - Mermaid diagram: 4-optical head Laser ISL topology (2 intra-plane crosslinks + 2 inter-plane crosslinks forming a toroidal mesh).
+   - Sequence diagram: Dual-tier XDP-to-AF_XDP packet ingress processing pipeline.
+3. **`docs/rnd/01-astrodynamics-and-orbital-mechanics.md`:**
+   - Mermaid flowchart: Multi-body perturbation integration ($J_2$, solar radiation pressure, atmospheric drag).
+4. **`docs/rnd/02-rf-engineering-and-phased-arrays.md`:**
+   - ASCII cascaded link budget waterfall chart illustrating signal gain and attenuation from satellite TWT amplifier to user terminal demodulator.
+5. **`framework/spec/RFC-001-ISL-Mutual-Auth.md` & `framework/system-architecture/HARDWARE-TRUST-SPEC.md`:**
+   - Formal specification of Tier-1 (eBPF Ingress Fast-Path <15 ns in NIC driver) vs Tier-2 (AF_XDP Userspace Crypto) architectural boundary.
+
+---
+
+## 4. Claude Global Rules Compliance Matrix
+
+| Rule File in `~/.claude/rules/` | Level & Requirement | Enforcement in This Implementation |
+| :--- | :--- | :--- |
+| **`01-common-standards.md`** | Critical: UTF-8 strict without BOM; naming conventions; zero hardcoded local paths. | All new files written in UTF-8 without BOM. Python variables use `snake_case`, classes use `PascalCase`, constants use `UPPER_SNAKE_CASE`. C functions use `snake_case` with `starsec_` / `xdp_` prefixes. |
+| **`05-security-standards.md`** | High: Nonce uniqueness; constant-time operations; cryptographic zeroization. | Every packet derives a unique one-time Poly1305 key via ChaCha20 block 0 using a 96-bit nonce. One-time keys zeroized immediately after MAC generation/verification. Constant-time byte comparisons used for tag matching. |
+| **`11-documentation-files.md`** | High: Canonical root documentation governance. | Only permitted files at root (`README.md`, `README.hi.md`, `CITATION.cff`, `.zenodo.json`, `.gitignore`). New code organized strictly in `system/`, `notebooks/`, `simulations/`, `framework/`, and `tools/`. |
+| **`12-docstrings-only.md`** | Critical: Strict Level 2.2 Docstrings-Only; zero inline explanatory narration comments. | Complete Doxygen contract docstrings on all C headers and functions; zero inline explanatory comments narrating code execution (`// block until...`). Python functions equipped with comprehensive PEP 257 docstrings. |
+| **`28-test-coverage-enforcement.md`** | High: 100% test pass rate locally with zero cloud dependencies. | `tools/run_all_tests.py` verifies native C test harness and Python test suite with zero cloud costs in under 8 seconds. |
+| **`33-test-case-roadmap.md`** | Standard: Systematic test case naming and traceability. | Formal test IDs: `TC-CHACHA-POS-01`, `TC-CHACHA-NEG-01`, `TC-EBPF-POS-01`, `TC-EBPF-NEG-01`, etc. |
+| **`35-positive-testing-standards.md`** | High: Nominal operating path validation. | Positive verification of RFC 8439 KAT, unique one-time key derivation, authorized eBPF frame ingress pass. |
+| **`36-negative-testing-standards.md`** | High: Hostile inputs, tamper detection, and error paths. | Rejection of tampered keys, unauthorized node IDs, replayed sequence numbers, temporal drift, and malformed magic. |
+| **`37-edge-case-testing-standards.md`** | High: Boundary values, maximum allowable drift, zero-length messages. | Verification of 200 ms boundary pass vs 201 ms drop, zero-length message tags, and maximum packet payloads. |
+| **`40-universal-test-patterns-abstract.md`** | High: Universal Triad testing pattern (POS, NEG, EDGE). | Applied across all cryptographic drivers, eBPF kernel ingress routines, and simulation modules. |
+
+---
+
+## 5. Ordered Phase-Based Implementation Roadmap
+
+```mermaid
+graph TD
+    Phase1["Phase 1: RFC 8439 ChaCha20 One-Time Key Gen (Fix Issue A)"] --> Phase2["Phase 2: Complete eBPF Kernel Ingress Filter & Replay Map (Fix Issue B)"]
+    Phase2 --> Phase3["Phase 3: Formalize Dual-Tier Security Boundary Architecture"]
+    Phase3 --> Phase4["Phase 4: Expand C Triad Test Harness & Benchmarks"]
+    Phase4 --> Phase5["Phase 5: Reproducible Scientific Jupyter Notebooks Suite (01-03)"]
+    Phase5 --> Phase6["Phase 6: Rich Visualizations in Astrodynamics & RF Chapters"]
+    Phase6 --> Phase7["Phase 7: Zero-Cloud Test Runner & Language Consistency Audit"]
+```
+
+### Phase 1: Cryptographic RFC 8439 ChaCha20 One-Time Key Generator (`crypto-security-specialist`)
+- Create `system/include/starsec_chacha20.h` with Doxygen contract docstrings.
+- Create `system/src/starsec_chacha20.c` implementing constant-time 20-round ChaCha20 block function and `starsec_chacha20_poly1305_key_gen()`.
+- Update `system/include/xdp_orbital.h` and `system/src/xdp_orbital_filter.c` to construct 96-bit nonces and derive one-time Poly1305 keys for every packet, zeroizing them immediately after use.
+- Comply with Rule 12 (Docstrings-Only, zero inline comments).
+
+### Phase 2: Complete eBPF Kernel Ingress Filter & Replay Protection (`kernel-driver-engineer`)
+- Upgrade `system/src/xdp_isl_kern.c`:
+  - Consult `authorized_satellites_map` using `bpf_map_lookup_elem`: drop unauthorized satellite nodes (`XDP_DROP`).
+  - Declare and consult `isl_replay_filter_map` (`BPF_MAP_TYPE_HASH`): store and validate `last_sequence_number` and `last_epoch_ms` per peer node.
+  - Drop replayed/out-of-order sequence numbers (`XDP_DROP`).
+  - Drop frames exceeding 200 ms temporal drift (`XDP_DROP`).
+  - Increment diagnostic telemetry counters in `isl_telemetry_map` (`BPF_MAP_TYPE_PERCPU_ARRAY`).
+  - Return `XDP_PASS` only on legitimate frames.
+
+### Phase 3: Formalize Dual-Tier Security Boundary Architecture (`security-defense-architect`)
+- Update `framework/spec/RFC-001-ISL-Mutual-Auth.md` and `framework/system-architecture/HARDWARE-TRUST-SPEC.md`:
+  - Define Tier-1 (eBPF/XDP Kernel Ingress Fast-Path <15 ns in NIC driver) vs Tier-2 (AF_XDP Userspace / Hardware Crypto Coprocessor).
+  - Formally document eBPF verifier limitations regarding 130-bit big-integer arithmetic and explain the architectural necessity of the dual-tier design.
+
+### Phase 4: Expand C Triad Test Harness & Benchmarks (`qa-testing-agent` & `harness-engineering-architect`)
+- Update `system/src/main_system_test.c`:
+  - Add `test_chacha20_triad()` with official RFC 8439 Section 2.6.2 KAT and key/nonce mutation tests.
+  - Update `test_xdp_orbital_filter_triad()` to verify unique one-time key derivation across sequential packets.
+  - Add `test_ebpf_kernel_ingress_triad()` with positive, unauthorized, replay, temporal drift, and malformed header test cases.
+
+### Phase 5: Reproducible Scientific Jupyter Notebooks Suite (`spacecraft-orbital-mechanics-engineer` & `radio-frequency-specialist`)
+- Create `notebooks/`:
+  - `notebooks/01_orbit_sgp4_propagation.ipynb` (SGP4 propagation, $J_2$ precession, ground tracks).
+  - `notebooks/02_phased_array_beamforming.ipynb` (AESA 2D array factor, Capon MVDR spatial null steering).
+  - `notebooks/03_rf_link_budget_analysis.ipynb` (Ku/Ka link budget calculator, ITU-R P.618 rain attenuation).
+  - `notebooks/README.md` (Setup and execution guide).
+
+### Phase 6: Deep Visualizations & Architecture Diagrams (`uml-diagram-mathematics-expert`)
+- Update markdown chapters with rich Mermaid diagrams and ASCII plots:
+  - `04-satellite-constellation.md` (Walker Delta orbital shells).
+  - `06-network-technology.md` (4-head laser ISL mesh & dual-tier packet pipeline).
+  - `docs/rnd/01-astrodynamics-and-orbital-mechanics.md` (Nodal precession geometry).
+  - `docs/rnd/02-rf-engineering-and-phased-arrays.md` (Cascaded link budget waterfall).
+  - `README.md` and `README.hi.md` (Architecture diagrams and notebook links).
+
+### Phase 7: Local Zero-Cloud Verification Runner & Language Consistency Audit (`harness-engineering-architect`)
+- Update `tools/run_all_tests.py`:
+  - Compile all C drivers including `starsec_chacha20.c`.
+  - Validate Python simulation tests and Jupyter notebook JSON structure.
+  - Run full test suite locally in <8 seconds with zero cloud costs.
+- Ensure all primary documentation is standardized in technical English with `README.hi.md` referenced as localized companion.
 
 ---
 
 ## 6. Concrete Verification Plan
 
-### Automated Verification Commands:
-```powershell
-# 1. Run the entire unit test suite across all simulation & tooling modules
-python -m unittest simulations.test_simulations
-
-# 2. Verify Phased Array Capon MVDR Null-Steering Simulation (>45 dB cancellation)
-python simulations/phased_array_beamforming.py
-
-# 3. Verify Threat Score Calculator CLI with demo space threat vectors
-python simulations/threat_score_calculator.py --demo
-
-# 4. Verify Multi-Party Telecommand Quorum Simulator (Shamir 3-of-5 threshold)
-python simulations/mpc_quorum_telecommand.py --demo
-
-# 5. Verify Post-Quantum Cryptography benchmark
-python simulations/pqc_kem_benchmark.py
-
-# 6. Verify Hardware Fault Injection Simulator
-python simulations/stride_fault_injection_sim.py
-```
-
-### Quality & Governance Verification:
-- **Encoding:** UTF-8 without BOM confirmed on all files (`01-common-standards.md`).
-- **Docstrings:** Zero inline narrative comments, complete PEP-257 docstrings on every function/class (`12-docstrings-only.md`).
-- **Triad Testing:** Positive, Negative, and Edge-Case tests validated (`35`, `36`, `37`, `40`).
-- **Diagrams:** Valid Mermaid syntax without HTML or raw brackets (`45-uml-diagram-lifecycle.md`).
+1. **Automated Compilation & Test Execution:**
+   ```powershell
+   python tools/run_all_tests.py
+   ```
+   - Target: 100% C driver tests pass (Tamper zeroize, SRAM-PUF, DCLS, RFC 8439 ChaCha20 KAT, Poly1305 unique-keying, eBPF kernel ingress filter simulation).
+   - Target: 100% Python simulation tests pass (23 tests).
+   - Target: All Jupyter notebooks validated.
+   - Target: Total local execution time <8 seconds.
+2. **Manual Architecture Inspection:**
+   - Verify zero inline explanatory narration comments across all C source files.
+   - Verify Mermaid diagrams render cleanly in Markdown preview.
+   - Verify English/Hindi separation across `README.md` and `README.hi.md`.

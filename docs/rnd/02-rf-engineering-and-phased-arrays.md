@@ -190,3 +190,12 @@ Divided across active user terminals within a single spot beam cell, each termin
 - Starlink's AESA antennas utilize sub-array True Time Delay architectures to eliminate wideband beam squint across 250 MHz carriers.
 - Doppler shifts of $\pm 325\text{ kHz}$ with acceleration rates of $-4.93\text{ kHz/s}$ are neutralized via orbit ephemeris feedforward aiding into 3rd-order tracking loops.
 - Link budgets confirm a healthy $+29.7\text{ dB}$ downlink SNR in clear sky and $+20.9\text{ dB}$ uplink SNR, preserving high-order QAM throughput even during moderate rain fade.
+
+---
+
+## 6. Interactive Engineering Notebooks
+
+The mathematical models and algorithms derived in this whitepaper are accompanied by interactive Jupyter Notebooks:
+- **[Interactive AESA Beamforming Notebook (`02_phased_array_beamforming.ipynb`)](../../notebooks/02_phased_array_beamforming.ipynb):** 1,280-element array factor simulation, main beam steering, and Capon MVDR spatial null steering.
+- **[Interactive RF Link Budget Notebook (`03_rf_link_budget_analysis.ipynb`)](../../notebooks/03_rf_link_budget_analysis.ipynb):** Decibel power waterfall budgets, FSPL, and ITU-R P.618 rain attenuation.
+

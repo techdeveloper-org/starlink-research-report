@@ -101,6 +101,31 @@ Claude Global Library ke specialist subagents dwara develop kiye gaye 7 graduate
 
 ---
 
+## 📓 Interactive Reproducible Jupyter Notebooks Suite (`notebooks/`)
+
+Engineering simulation aur mathematical validation ke liye graduate-level interactive notebooks:
+
+```text
+notebooks/
+├── 01_orbit_sgp4_propagation.ipynb    # SGP4 orbit propagator, J2 precession & Foster Pc solver
+├── 02_phased_array_beamforming.ipynb   # 1,280-element Ku AESA simulation & Capon MVDR spatial nulling
+├── 03_rf_link_budget_analysis.ipynb   # Decibel link budget waterfall, FSPL & rain attenuation
+└── README.md                          # Notebook execution aur setup guide
+```
+
+| Notebook | Focus & Interactive Capabilities |
+| :--- | :--- |
+| 🛰️ **[`01_orbit_sgp4_propagation.ipynb`](./notebooks/01_orbit_sgp4_propagation.ipynb)** | SGP4 satellite propagation, $J_2$ Earth oblateness secular nodal precession ($-4.49^\circ/\text{day}$), Walker Delta $53^\circ:72/22/1$ geometry, 3D spatial orbit mesh, aur Foster collision probability integral. |
+| 📡 **[`02_phased_array_beamforming.ipynb`](./notebooks/02_phased_array_beamforming.ipynb)** | 1,280-element Ku-band User Terminal (Dishy) AESA antenna, 2D Array Factor $AF(\theta, \phi)$, main lobe steering, aur Capon MVDR spatial null-steering ($>45\text{ dB}$ jammer cancellation). |
+| 📶 **[`03_rf_link_budget_analysis.ipynb`](./notebooks/03_rf_link_budget_analysis.ipynb)** | End-to-end decibel link budgets, Free-Space Path Loss ($FSPL \approx 171\text{ dB}$), atmospheric aur ITU-R P.618 rain attenuation, Receiver $G/T$, aur cascaded power waterfall plots. |
+
+Local machine par run karne ke liye:
+```bash
+jupyter notebook notebooks/
+```
+
+---
+
 ## 📚 General Topic Reports Index
 
 Broad overview aur contextual reports repository root par available hain:
@@ -154,7 +179,7 @@ Broad overview aur contextual reports repository root par available hain:
 - **Hardware Glitching & EW Jamming** → [Threat Model Whitepaper](./docs/rnd/05-quantitative-stride-threat-model.md) | [Fault Injection Simulation](./simulations/stride_fault_injection_sim.py) | [RFC-002 UT Hardening](./framework/spec/RFC-002-UT-Hardware-Hardening.md)
 - **Kessler Syndrome & Space Debris** → [Environmental Whitepaper](./docs/rnd/06-space-environmental-kessler-modeling.md)
 - **Zero Trust Architecture & Cyber Defense** → [Zero Trust Whitepaper](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) | [StarSec Framework](./framework/README.md) | [Threat Matrix](./framework/threat-matrix/constellation-threat-matrix.md) | [Threat Score Tool](./simulations/threat_score_calculator.py) | [TT&C Quorum Tool](./simulations/mpc_quorum_telecommand.py)
-- **Deep System Architecture & Hardware C Drivers** → [Hardware Trust Spec](./framework/system-architecture/HARDWARE-TRUST-SPEC.md) | [In-Orbit Routing Engine](./framework/system-architecture/IN-ORBIT-ROUTING-ENGINE.md) | [Tamper Zeroize Driver](./system/src/tamper_zeroize_driver.c) | [SRAM-PUF Fuzzy Extractor](./system/src/sram_puf_fuzzy_extractor.c) | [DCLS Fault Monitor](./system/src/dcls_fault_monitor.c) | [RFC 8439 Poly1305 MAC](./system/src/starsec_poly1305.c) | [XDP Laser Filter](./system/src/xdp_orbital_filter.c) | [Linux eBPF Kernel Filter](./system/src/xdp_isl_kern.c) | [Cycle Benchmark Suite](./system/include/starsec_bench.h) | [Zero-Cost Test Runner](./tools/run_all_tests.py)
+- **Deep System Architecture & Hardware C Drivers** → [Hardware Trust Spec](./framework/system-architecture/HARDWARE-TRUST-SPEC.md) | [In-Orbit Routing Engine](./framework/system-architecture/IN-ORBIT-ROUTING-ENGINE.md) | [Tamper Zeroize Driver](./system/src/tamper_zeroize_driver.c) | [SRAM-PUF Fuzzy Extractor](./system/src/sram_puf_fuzzy_extractor.c) | [DCLS Fault Monitor](./system/src/dcls_fault_monitor.c) | [RFC 8439 ChaCha20 One-Time Key Gen](./system/src/starsec_chacha20.c) | [RFC 8439 Poly1305 MAC](./system/src/starsec_poly1305.c) | [XDP Laser Filter](./system/src/xdp_orbital_filter.c) | [Linux eBPF Kernel Filter](./system/src/xdp_isl_kern.c) | [Cycle Benchmark Suite](./system/include/starsec_bench.h) | [Zero-Cost Test Runner](./tools/run_all_tests.py)
 
 ---
 

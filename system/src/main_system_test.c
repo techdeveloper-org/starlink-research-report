@@ -21,6 +21,7 @@
 #include "sram_puf.h"
 #include "dcls_monitor.h"
 #include "starsec_poly1305.h"
+#include "starsec_chacha20.h"
 #include "xdp_orbital.h"
 #include "starsec_bench.h"
 
@@ -197,6 +198,59 @@ static bool test_dcls_monitor_triad(void) {
 }
 
 /**
+ * @brief Executes TC-CHACHA-POS-01, TC-CHACHA-NEG-01, TC-CHACHA-NEG-02, and TC-CHACHA-EDGE-01.
+ * @return true if all ChaCha20 and RFC 8439 Section 2.6.2 tests pass, false otherwise.
+ */
+static bool test_chacha20_triad(void) {
+    printf("[TEST] Running RFC 8439 ChaCha20 Block Cipher & One-Time Key Triad...\n");
+
+    const uint8_t kat_key[32] = {
+        0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+        0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+        0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+        0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f
+    };
+    const uint8_t kat_nonce[12] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03,
+        0x04, 0x05, 0x06, 0x07
+    };
+    const uint8_t expected_one_time_key[32] = {
+        0x8a, 0xd5, 0xa0, 0x8b, 0x90, 0x5f, 0x81, 0xcc,
+        0x81, 0x50, 0x40, 0x27, 0x4a, 0xb2, 0x94, 0x71,
+        0xa8, 0x33, 0xb6, 0x37, 0xe3, 0xfd, 0x0d, 0xa5,
+        0x08, 0xdb, 0xb8, 0xe2, 0xfd, 0xd1, 0xa6, 0x46
+    };
+
+    uint8_t derived_key[32];
+    starsec_chacha20_poly1305_key_gen(kat_key, kat_nonce, derived_key);
+    STARSEC_ASSERT(memcmp(derived_key, expected_one_time_key, 32) == 0,
+                   "TC-CHACHA-POS-01: RFC 8439 Section 2.6.2 KAT mismatch");
+
+    uint8_t mutated_key[32];
+    memcpy(mutated_key, kat_key, 32);
+    mutated_key[0] ^= 0x01;
+    uint8_t mutated_key_out[32];
+    starsec_chacha20_poly1305_key_gen(mutated_key, kat_nonce, mutated_key_out);
+    STARSEC_ASSERT(memcmp(mutated_key_out, expected_one_time_key, 32) != 0,
+                   "TC-CHACHA-NEG-01: 1-bit key change failed avalanche property");
+
+    uint8_t mutated_nonce[12];
+    memcpy(mutated_nonce, kat_nonce, 12);
+    mutated_nonce[11] ^= 0x01;
+    uint8_t mutated_nonce_out[32];
+    starsec_chacha20_poly1305_key_gen(kat_key, mutated_nonce, mutated_nonce_out);
+    STARSEC_ASSERT(memcmp(mutated_nonce_out, expected_one_time_key, 32) != 0,
+                   "TC-CHACHA-NEG-02: 1-bit nonce change failed avalanche property");
+
+    starsec_chacha20_poly1305_key_gen(NULL, kat_nonce, derived_key);
+    starsec_chacha20_poly1305_key_gen(kat_key, NULL, derived_key);
+    starsec_chacha20_poly1305_key_gen(kat_key, kat_nonce, NULL);
+
+    printf("  [PASS] RFC 8439 ChaCha20 Block Cipher & One-Time Key Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Executes TC-POLY-POS-01, TC-POLY-POS-02, TC-POLY-NEG-01, TC-POLY-NEG-02, and TC-POLY-EDGE-01.
  * @return true if all RFC 8439 Poly1305 test cases pass, false otherwise.
  */
@@ -260,11 +314,11 @@ static bool test_poly1305_triad(void) {
 }
 
 /**
- * @brief Executes TC-XDP-POS-01, TC-XDP-NEG-01, TC-XDP-NEG-02, and TC-XDP-EDGE-01 with Poly1305 authentication.
- * @return true if all XDP filter test cases pass, false otherwise.
+ * @brief Executes TC-XDP-POS-01, TC-XDP-POS-02, TC-XDP-NEG-01, TC-XDP-NEG-02, and TC-XDP-EDGE-01.
+ * @return true if all XDP filter and unique one-time keying tests pass, false otherwise.
  */
 static bool test_xdp_orbital_filter_triad(void) {
-    printf("[TEST] Running In-Orbit XDP Laser Filter Triad with RFC 8439 Poly1305...\n");
+    printf("[TEST] Running In-Orbit XDP Filter Triad with Unique One-Time Poly1305 Keys...\n");
 
     xdp_filter_config_t config;
     config.authorized_count = 2;
@@ -280,51 +334,255 @@ static bool test_xdp_orbital_filter_triad(void) {
 
     uint8_t payload[16] = "TELECOMMAND_OK";
     size_t frame_len = sizeof(starsec_isl_header_t) + sizeof(payload);
-    uint8_t *valid_frame = (uint8_t *)malloc(frame_len);
-    STARSEC_ASSERT(valid_frame != NULL, "TC-XDP-POS-01: Memory allocation failed");
+    uint8_t *frame1 = (uint8_t *)malloc(frame_len);
+    STARSEC_ASSERT(frame1 != NULL, "TC-XDP-POS-01: Memory allocation failed");
 
-    starsec_isl_header_t *hdr = (starsec_isl_header_t *)valid_frame;
+    starsec_isl_header_t *hdr1 = (starsec_isl_header_t *)frame1;
+    hdr1->magic = STARSEC_ISL_MAGIC;
+    hdr1->protocol_type = STARSEC_PROTO_TELECOMMAND;
+    hdr1->flags = 0;
+    hdr1->src_satellite_id = 101;
+    hdr1->dst_satellite_id = 202;
+    hdr1->sequence_number = 1001;
+    hdr1->tx_epoch_ms = config.local_clock_epoch_ms - 25;
+    hdr1->payload_len = sizeof(payload);
+    memcpy(frame1 + sizeof(starsec_isl_header_t), payload, sizeof(payload));
+
+    xdp_generate_isl_auth_tag(hdr1, payload, sizeof(payload), config.isl_shared_key);
+
+    int action_pos1 = xdp_starsec_filter_frame(frame1, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_pos1 == STARSEC_XDP_PASS, "TC-XDP-POS-01: Valid frame 1 unexpectedly dropped");
+    STARSEC_ASSERT(stats.passed_frames == 1, "TC-XDP-POS-01: passed_frames counter mismatch");
+
+    uint8_t *frame2 = (uint8_t *)malloc(frame_len);
+    STARSEC_ASSERT(frame2 != NULL, "TC-XDP-POS-02: Memory allocation failed");
+    memcpy(frame2, frame1, frame_len);
+    starsec_isl_header_t *hdr2 = (starsec_isl_header_t *)frame2;
+    hdr2->sequence_number = 1002;
+    hdr2->tx_epoch_ms = config.local_clock_epoch_ms - 20;
+
+    xdp_generate_isl_auth_tag(hdr2, payload, sizeof(payload), config.isl_shared_key);
+    STARSEC_ASSERT(memcmp(hdr1->auth_tag, hdr2->auth_tag, 16) != 0,
+                   "TC-XDP-POS-02: Different packets produced identical auth tags (Key Reuse Detected!)");
+
+    int action_pos2 = xdp_starsec_filter_frame(frame2, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_pos2 == STARSEC_XDP_PASS, "TC-XDP-POS-02: Valid frame 2 unexpectedly dropped");
+    STARSEC_ASSERT(stats.passed_frames == 2, "TC-XDP-POS-02: passed_frames counter mismatch");
+
+    hdr1->sequence_number = 9999;
+    bool nonce_tampered_verify = xdp_verify_isl_auth_tag(hdr1, payload, sizeof(payload), config.isl_shared_key);
+    STARSEC_ASSERT(nonce_tampered_verify == false,
+                   "TC-XDP-NEG-01: Nonce modification was not detected by one-time key derivation");
+    hdr1->sequence_number = 1001;
+
+    hdr1->magic = 0xDEADBEEFUL;
+    int action_bad_magic = xdp_starsec_filter_frame(frame1, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_bad_magic == STARSEC_XDP_DROP, "TC-XDP-NEG-02: Bad magic frame not dropped");
+    STARSEC_ASSERT(stats.dropped_bad_magic == 1, "TC-XDP-NEG-02: dropped_bad_magic mismatch");
+    hdr1->magic = STARSEC_ISL_MAGIC;
+
+    hdr1->auth_tag[0] ^= 0xFF;
+    int action_bad_auth = xdp_starsec_filter_frame(frame1, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_bad_auth == STARSEC_XDP_DROP, "TC-XDP-NEG-03: Forged auth frame not dropped");
+    STARSEC_ASSERT(stats.dropped_invalid_auth == 1, "TC-XDP-NEG-03: dropped_invalid_auth mismatch");
+    hdr1->auth_tag[0] ^= 0xFF;
+
+    hdr1->tx_epoch_ms = config.local_clock_epoch_ms - 200ULL;
+    xdp_generate_isl_auth_tag(hdr1, payload, sizeof(payload), config.isl_shared_key);
+    int action_edge_pass = xdp_starsec_filter_frame(frame1, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_edge_pass == STARSEC_XDP_PASS, "TC-XDP-EDGE-01: Boundary 200 ms frame dropped");
+
+    hdr1->tx_epoch_ms = config.local_clock_epoch_ms - 201ULL;
+    xdp_generate_isl_auth_tag(hdr1, payload, sizeof(payload), config.isl_shared_key);
+    int action_edge_drop = xdp_starsec_filter_frame(frame1, frame_len, &config, &stats);
+    STARSEC_ASSERT(action_edge_drop == STARSEC_XDP_DROP, "TC-XDP-EDGE-01: 201 ms expired frame not dropped");
+    STARSEC_ASSERT(stats.dropped_epoch_drift == 1, "TC-XDP-EDGE-01: dropped_epoch_drift mismatch");
+
+    free(frame1);
+    free(frame2);
+    printf("  [PASS] In-Orbit XDP Filter Triad with Unique One-Time Poly1305 Keys Successful.\n");
+    return true;
+}
+
+/**
+ * @brief Mock environment simulating Linux eBPF maps and kernel verifier state.
+ */
+typedef struct {
+    uint16_t authorized_satellites[256];
+    uint32_t auth_flags[256];
+    size_t   auth_count;
+    uint16_t replay_nodes[256];
+    uint32_t replay_last_seq[256];
+    uint64_t replay_last_epoch[256];
+    size_t   replay_count;
+    uint64_t telemetry[8];
+} mock_ebpf_env_t;
+
+/**
+ * @brief Simulates kernel-space eBPF ingress filter logic with mock BPF maps.
+ * @param frame_bytes Pointer to raw packet memory.
+ * @param frame_len Total length of packet in bytes.
+ * @param env Pointer to mock eBPF environment containing maps and telemetry.
+ * @return STARSEC_XDP_PASS (0) or STARSEC_XDP_DROP (1).
+ */
+static int mock_kernel_starsec_isl_xdp_filter(
+    const uint8_t   *frame_bytes,
+    size_t           frame_len,
+    mock_ebpf_env_t *env
+) {
+    if (frame_bytes == NULL || env == NULL) {
+        if (env != NULL) {
+            env->telemetry[2]++;
+        }
+        return 1;
+    }
+
+    if (frame_len < sizeof(starsec_isl_header_t)) {
+        env->telemetry[2]++;
+        return 1;
+    }
+
+    const starsec_isl_header_t *hdr = (const starsec_isl_header_t *)frame_bytes;
+
+    if (hdr->magic != STARSEC_ISL_MAGIC) {
+        env->telemetry[1]++;
+        return 1;
+    }
+
+    if ((sizeof(starsec_isl_header_t) + hdr->payload_len) > frame_len) {
+        env->telemetry[2]++;
+        return 1;
+    }
+
+    bool is_authorized = false;
+    for (size_t i = 0; i < env->auth_count; i++) {
+        if (env->authorized_satellites[i] == hdr->src_satellite_id && env->auth_flags[i] != 0) {
+            is_authorized = true;
+            break;
+        }
+    }
+    if (!is_authorized) {
+        env->telemetry[3]++;
+        return 1;
+    }
+
+    ssize_t replay_idx = -1;
+    for (size_t i = 0; i < env->replay_count; i++) {
+        if (env->replay_nodes[i] == hdr->src_satellite_id) {
+            replay_idx = (ssize_t)i;
+            break;
+        }
+    }
+
+    if (replay_idx >= 0) {
+        if (hdr->sequence_number <= env->replay_last_seq[replay_idx]) {
+            env->telemetry[4]++;
+            return 1;
+        }
+
+        uint64_t drift = (hdr->tx_epoch_ms > env->replay_last_epoch[replay_idx]) ?
+                         (hdr->tx_epoch_ms - env->replay_last_epoch[replay_idx]) :
+                         (env->replay_last_epoch[replay_idx] - hdr->tx_epoch_ms);
+
+        if (drift > STARSEC_MAX_PROPAGATION_DRIFT_MS) {
+            env->telemetry[5]++;
+            return 1;
+        }
+
+        env->replay_last_seq[replay_idx] = hdr->sequence_number;
+        env->replay_last_epoch[replay_idx] = hdr->tx_epoch_ms;
+    } else {
+        if (env->replay_count < 256) {
+            size_t idx = env->replay_count++;
+            env->replay_nodes[idx] = hdr->src_satellite_id;
+            env->replay_last_seq[idx] = hdr->sequence_number;
+            env->replay_last_epoch[idx] = hdr->tx_epoch_ms;
+        }
+    }
+
+    env->telemetry[0]++;
+    return 0;
+}
+
+/**
+ * @brief Executes TC-EBPF-POS-01, TC-EBPF-NEG-01..05, and TC-EBPF-EDGE-01.
+ * @return true if all eBPF kernel ingress filter simulation tests pass, false otherwise.
+ */
+static bool test_ebpf_kernel_ingress_triad(void) {
+    printf("[TEST] Running Linux eBPF/XDP Kernel Ingress Filter Triad & Map Simulation...\n");
+
+    mock_ebpf_env_t env;
+    memset(&env, 0, sizeof(env));
+    env.auth_count = 2;
+    env.authorized_satellites[0] = 101;
+    env.auth_flags[0] = 1;
+    env.authorized_satellites[1] = 102;
+    env.auth_flags[1] = 1;
+
+    uint8_t payload[16] = "ORBITAL_DATA_01";
+    size_t frame_len = sizeof(starsec_isl_header_t) + sizeof(payload);
+    uint8_t *frame = (uint8_t *)malloc(frame_len);
+    STARSEC_ASSERT(frame != NULL, "TC-EBPF-POS-01: Memory allocation failed");
+
+    starsec_isl_header_t *hdr = (starsec_isl_header_t *)frame;
     hdr->magic = STARSEC_ISL_MAGIC;
-    hdr->protocol_type = STARSEC_PROTO_TELECOMMAND;
+    hdr->protocol_type = STARSEC_PROTO_INTER_SATELLITE_DATA;
     hdr->flags = 0;
     hdr->src_satellite_id = 101;
     hdr->dst_satellite_id = 202;
-    hdr->sequence_number = 1001;
-    hdr->tx_epoch_ms = config.local_clock_epoch_ms - 25;
+    hdr->sequence_number = 5001;
+    hdr->tx_epoch_ms = 1770000000000ULL;
     hdr->payload_len = sizeof(payload);
-    memcpy(valid_frame + sizeof(starsec_isl_header_t), payload, sizeof(payload));
+    memcpy(frame + sizeof(starsec_isl_header_t), payload, sizeof(payload));
 
-    xdp_generate_isl_auth_tag(hdr, payload, sizeof(payload), config.isl_shared_key);
+    int res1 = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res1 == 0, "TC-EBPF-POS-01: Ingress packet 1 rejected by kernel filter");
+    STARSEC_ASSERT(env.telemetry[0] == 1, "TC-EBPF-POS-01: Passed counter mismatch");
 
-    int action_pos = xdp_starsec_filter_frame(valid_frame, frame_len, &config, &stats);
-    STARSEC_ASSERT(action_pos == STARSEC_XDP_PASS, "TC-XDP-POS-01: Valid frame was unexpectedly dropped");
-    STARSEC_ASSERT(stats.passed_frames == 1, "TC-XDP-POS-01: passed_frames counter not incremented");
+    hdr->sequence_number = 5002;
+    hdr->tx_epoch_ms = 1770000000025ULL;
+    int res2 = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res2 == 0, "TC-EBPF-POS-02: Sequential packet 2 rejected by kernel filter");
+    STARSEC_ASSERT(env.telemetry[0] == 2, "TC-EBPF-POS-02: Passed counter mismatch");
 
+    hdr->sequence_number = 5001;
+    hdr->tx_epoch_ms = 1770000000030ULL;
+    int res_replay = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_replay == 1, "TC-EBPF-NEG-01: Replayed sequence number not dropped");
+    STARSEC_ASSERT(env.telemetry[4] == 1, "TC-EBPF-NEG-01: Replay counter mismatch");
+
+    hdr->src_satellite_id = 999;
+    hdr->sequence_number = 6000;
+    int res_unauth = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_unauth == 1, "TC-EBPF-NEG-02: Unauthorized satellite ID not dropped");
+    STARSEC_ASSERT(env.telemetry[3] == 1, "TC-EBPF-NEG-02: Unauthorized counter mismatch");
+    hdr->src_satellite_id = 101;
+
+    hdr->sequence_number = 5003;
+    hdr->tx_epoch_ms = 1770000000025ULL + 201ULL;
+    int res_drift = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_drift == 1, "TC-EBPF-NEG-03: Stale timestamp drift not dropped");
+    STARSEC_ASSERT(env.telemetry[5] == 1, "TC-EBPF-NEG-03: Drift counter mismatch");
+
+    hdr->sequence_number = 5004;
+    hdr->tx_epoch_ms = 1770000000025ULL + 50ULL;
     hdr->magic = 0xDEADBEEFUL;
-    int action_bad_magic = xdp_starsec_filter_frame(valid_frame, frame_len, &config, &stats);
-    STARSEC_ASSERT(action_bad_magic == STARSEC_XDP_DROP, "TC-XDP-NEG-01: Bad magic frame was not dropped");
-    STARSEC_ASSERT(stats.dropped_bad_magic == 1, "TC-XDP-NEG-01: dropped_bad_magic counter not incremented");
+    int res_bad_magic = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_bad_magic == 1, "TC-EBPF-NEG-04: Bad magic packet not dropped");
+    STARSEC_ASSERT(env.telemetry[1] == 1, "TC-EBPF-NEG-04: Bad magic counter mismatch");
     hdr->magic = STARSEC_ISL_MAGIC;
 
-    hdr->auth_tag[0] ^= 0xFF;
-    int action_bad_auth = xdp_starsec_filter_frame(valid_frame, frame_len, &config, &stats);
-    STARSEC_ASSERT(action_bad_auth == STARSEC_XDP_DROP, "TC-XDP-NEG-02: Forged auth frame was not dropped");
-    STARSEC_ASSERT(stats.dropped_invalid_auth == 1, "TC-XDP-NEG-02: dropped_invalid_auth counter not incremented");
-    hdr->auth_tag[0] ^= 0xFF;
+    int res_trunc = mock_kernel_starsec_isl_xdp_filter(frame, sizeof(starsec_isl_header_t) - 5, &env);
+    STARSEC_ASSERT(res_trunc == 1, "TC-EBPF-NEG-05: Truncated frame not dropped");
+    STARSEC_ASSERT(env.telemetry[2] == 1, "TC-EBPF-NEG-05: Truncated counter mismatch");
 
-    hdr->tx_epoch_ms = config.local_clock_epoch_ms - 200ULL;
-    xdp_generate_isl_auth_tag(hdr, payload, sizeof(payload), config.isl_shared_key);
-    int action_edge_pass = xdp_starsec_filter_frame(valid_frame, frame_len, &config, &stats);
-    STARSEC_ASSERT(action_edge_pass == STARSEC_XDP_PASS, "TC-XDP-EDGE-01: Boundary 200 ms frame dropped");
+    hdr->sequence_number = 5005;
+    hdr->tx_epoch_ms = 1770000000025ULL + 200ULL;
+    int res_edge_pass = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_edge_pass == 0, "TC-EBPF-EDGE-01: Boundary 200 ms packet dropped");
 
-    hdr->tx_epoch_ms = config.local_clock_epoch_ms - 201ULL;
-    xdp_generate_isl_auth_tag(hdr, payload, sizeof(payload), config.isl_shared_key);
-    int action_edge_drop = xdp_starsec_filter_frame(valid_frame, frame_len, &config, &stats);
-    STARSEC_ASSERT(action_edge_drop == STARSEC_XDP_DROP, "TC-XDP-EDGE-01: 201 ms expired frame not dropped");
-    STARSEC_ASSERT(stats.dropped_epoch_drift == 1, "TC-XDP-EDGE-01: dropped_epoch_drift counter not incremented");
-
-    free(valid_frame);
-    printf("  [PASS] In-Orbit XDP Laser Filter Triad Successful.\n");
+    free(frame);
+    printf("  [PASS] Linux eBPF/XDP Kernel Ingress Filter Triad & Map Simulation Successful.\n");
     return true;
 }
 
@@ -342,8 +600,10 @@ int main(void) {
     all_passed &= test_tamper_zeroize_triad();
     all_passed &= test_sram_puf_triad();
     all_passed &= test_dcls_monitor_triad();
+    all_passed &= test_chacha20_triad();
     all_passed &= test_poly1305_triad();
     all_passed &= test_xdp_orbital_filter_triad();
+    all_passed &= test_ebpf_kernel_ingress_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {

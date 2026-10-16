@@ -202,3 +202,32 @@ A terminal or spacecraft implementation must satisfy:
 1. **Zeroization Assurance:** 100% of BBRAM bits must reach logical `0` within $10\text{ ns}$ of an asserted tamper strobe.
 2. **Compiler Optimization Immunity:** Zeroization code must use `volatile` qualifiers and hardware memory barriers (`dsb sy` / `isb`) to prevent dead-store elimination.
 3. **Memory Boundary Testing:** Normal World software attempting access to TDC/BBRAM MMIO space must be immediately aborted by hardware with zero leakage.
+
+---
+
+## 7. Dual-Tier Network Ingress & Cryptographic Processing Boundary
+
+```
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                      DUAL-TIER INGRESS & CRYPTOGRAPHIC PROCESSING ARCHITECTURE
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  [ TIER 1: IN-KERNEL eBPF/XDP INGRESS FAST-PATH (<15 ns) ]
+  • Executed in NIC driver ring buffer before sk_buff memory allocation
+  • Validates STARSEC_ISL_MAGIC (0x53545345) and packet length limits
+  • Consults authorized_satellites_map (BPF_MAP_TYPE_HASH) for whitelisted satellite IDs
+  • Enforces anti-replay monotonic sequence tracking via isl_replay_filter_map
+  • Enforces GPS UTC temporal drift limits (STARSEC_MAX_PROPAGATION_DRIFT_MS <= 200 ms)
+  • Updates per-CPU diagnostic telemetry counters (isl_telemetry_map) with zero lock contention
+  • DROPS unauthorized, replayed, or malformed packets at wire speed with sub-15 ns latency
+
+  [ TIER 2: CRYPTOGRAPHIC VERIFICATION VIA AF_XDP ZERO-COPY / HARDWARE CRYPTO ]
+  • Receives validated ingress frames through zero-copy AF_XDP ring buffers
+  • Derives ephemeral 32-byte one-time Poly1305 key via RFC 8439 Section 2.6 ChaCha20 block 0
+  • Nonce: 96 bits derived from (src_sat_id, dst_sat_id, sequence_number, tx_epoch_ms_low)
+  • Eliminates Poly1305 key reuse vulnerability by ensuring distinct (r, s) per packet
+  • Evaluates 128-bit Poly1305 MAC over packet header and payload in constant time
+  • Immediately zeroizes one-time key material from volatile memory
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+```
+

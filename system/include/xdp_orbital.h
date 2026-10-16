@@ -16,6 +16,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "starsec_poly1305.h"
+#include "starsec_chacha20.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,32 +105,58 @@ int xdp_starsec_filter_frame(
 bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_drift_ms);
 
 /**
- * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC for an ISL frame.
+ * @brief Constructs a deterministic 96-bit (12-byte) nonce from packet header fields.
+ *
+ * Byte layout:
+ * - Bytes 0..1:   src_satellite_id (little-endian)
+ * - Bytes 2..3:   dst_satellite_id (little-endian)
+ * - Bytes 4..7:   sequence_number (little-endian)
+ * - Bytes 8..11:  tx_epoch_ms lower 32 bits (little-endian)
+ *
+ * @param hdr Pointer to StarSec packet header.
+ * @param nonce Output buffer of at least 12 bytes receiving the nonce.
+ */
+void xdp_derive_isl_nonce(
+    const starsec_isl_header_t *hdr,
+    uint8_t                     nonce[STARSEC_CHACHA20_NONCE_BYTES]
+);
+
+/**
+ * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC using a derived one-time key.
+ *
+ * Employs RFC 8439 Section 2.6 ChaCha20 block 0 key derivation to produce an
+ * ephemeral, single-use 32-byte subkey from master_key_32 and the packet's
+ * unique 96-bit transmission nonce. The one-time subkey is zeroized immediately.
+ *
  * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
- * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
  */
 void xdp_generate_isl_auth_tag(
     starsec_isl_header_t *hdr,
     const uint8_t        *payload,
     size_t                payload_len,
-    const uint8_t        *key_32
+    const uint8_t        *master_key_32
 );
 
 /**
- * @brief Computes and validates 128-bit RFC 8439 Poly1305 authentication tag.
+ * @brief Validates 128-bit RFC 8439 Poly1305 authentication tag using derived one-time key.
+ *
+ * Derives the unique single-use 32-byte Poly1305 key via ChaCha20 block 0 and
+ * executes constant-time tag verification. Ephemeral key material is wiped immediately.
+ *
  * @param hdr Pointer to StarSec packet header.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
- * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
  * @return true if authentication tag matches in constant time, false otherwise.
  */
 bool xdp_verify_isl_auth_tag(
     const starsec_isl_header_t *hdr,
     const uint8_t              *payload,
     size_t                      payload_len,
-    const uint8_t              *key_32
+    const uint8_t              *master_key_32
 );
 
 /**

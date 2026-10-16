@@ -262,4 +262,11 @@ AUTONOMOUS COLLISION MITIGATION PROTOCOL:
 
 ---
 
+## 6. Interactive Astrodynamics Notebook
+
+Simulate Starlink orbital mechanics and collision avoidance directly in Python:
+- **[Interactive Astrodynamics Notebook (`01_orbit_sgp4_propagation.ipynb`)](./notebooks/01_orbit_sgp4_propagation.ipynb):** SGP4 orbital propagation, J2 secular nodal drift ($-4.49^\circ/\text{day}$), Walker Delta $53^\circ:72/22/1$ geometry, and Foster collision probability ($P_c$).
+
+---
+
 *Previous: [Solution Architecture ←](./03-solution-architecture.md) | Next: [Ground Segment →](./05-ground-segment.md)*

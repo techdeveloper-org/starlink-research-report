@@ -153,4 +153,66 @@ IP ROUTING & ADDRESS ASSIGNMENT SPECIFICATIONS:
 
 ---
 
+## 6. Optical Laser Crosslinks (ISL) & Dual-Tier eBPF Packet Filtering
+
+Modern Starlink spacecraft (V1.5, V2 Mini, and V2/V3) deploy four optical inter-satellite laser heads per satellite: two dedicated to **intra-plane** neighbors (fore and aft along the orbital velocity vector) and two dynamically tracking **inter-plane** neighbors in adjacent orbital planes.
+
+```mermaid
+graph TD
+    subgraph OrbitalPlaneK ["Orbital Plane K (550 km, 53°)"]
+        SatK_Ahead["Sat (K, n-1)"]
+        SatK_Curr["Sat (K, n)<br>StarSec Flight Node"]
+        SatK_Behind["Sat (K, n+1)"]
+        SatK_Ahead <==>|Intra-Plane Laser Link<br>100 Gbps, Fixed Distance| SatK_Curr
+        SatK_Curr <==>|Intra-Plane Laser Link<br>100 Gbps, Fixed Distance| SatK_Behind
+    end
+
+    subgraph OrbitalPlaneAdj ["Adjacent Orbital Plane K+1"]
+        SatAdj_West["Sat (K+1, m)"]
+        SatAdj_East["Sat (K+1, m+1)"]
+    end
+
+    SatK_Curr <==>|Inter-Plane Laser Link<br>Dynamic PAT Tracking| SatAdj_West
+    SatK_Curr <==>|Inter-Plane Laser Link<br>Dynamic PAT Tracking| SatAdj_East
+```
+
+### 6.1 Dual-Tier Ingress Security Pipeline
+To handle 100 Gbps optical line rates without CPU saturation, optical frame processing employs the StarSec Dual-Tier Architecture:
+- **Tier 1 (In-Kernel eBPF/XDP):** Sub-15 ns fast-path in the NIC driver ring buffer. Drops malformed packets, unverified satellite IDs (`authorized_satellites_map`), and replayed/drifted sequence numbers (`isl_replay_filter_map`) prior to memory allocation.
+- **Tier 2 (Userspace AF_XDP Zero-Copy):** Authenticates legitimate frames via RFC 8439 ChaCha20 block 0 one-time key derivation and 128-bit Poly1305 MAC validation, guaranteeing zero key reuse.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant NIC as Optical Transceiver (1550 nm)
+    participant XDP as eBPF / XDP Driver Fast-Path (<15 ns)
+    participant Maps as BPF Maps (Node Auth & Anti-Replay)
+    participant AFXDP as Zero-Copy AF_XDP Ring Buffer
+    participant Crypto as ChaCha20-Poly1305 One-Time Engine
+    participant Routing as Orbital BGP Routing Daemon
+
+    NIC->>XDP: Ingress 100 Gbps Optical Frame
+    XDP->>Maps: Lookup src_satellite_id & sequence_number
+    alt Unauthorized Node or Replayed Sequence
+        Maps-->>XDP: Drop Flag Asserted
+        XDP-->>NIC: XDP_DROP (Drop at Driver Layer with Zero CPU Overhead)
+    else Authorized & Monotonic Sequence
+        Maps-->>XDP: Entry Validated & State Updated
+        XDP->>AFXDP: XDP_PASS (Stream into Zero-Copy Ring)
+        AFXDP->>Crypto: Derive Ephemeral One-Time Poly1305 Key via ChaCha20
+        Crypto->>Crypto: Verify 128-bit MAC in Constant Time & Zeroize Key
+        Crypto->>Routing: Forward Authenticated Payload to L3 Mesh
+    end
+```
+
+---
+
+## 7. Interactive Engineering Notebooks
+
+Explore and execute the computational models interactively:
+- **[Interactive AESA Beamforming Notebook (`02_phased_array_beamforming.ipynb`)](./notebooks/02_phased_array_beamforming.ipynb):** 1,280-element Array Factor simulation & Capon MVDR spatial null steering.
+- **[Interactive RF Link Budget Notebook (`03_rf_link_budget_analysis.ipynb`)](./notebooks/03_rf_link_budget_analysis.ipynb):** Decibel power waterfall budgets, FSPL, and ITU-R P.618 rain attenuation.
+
+---
+
 *Previous: [Ground Segment ←](./05-ground-segment.md) | Next: [Security Risks →](./07-security-risks.md)*

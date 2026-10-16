@@ -40,24 +40,60 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
 }
 
 /**
- * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC for an ISL frame.
+ * @brief Constructs a deterministic 96-bit (12-byte) nonce from packet header fields.
+ * @param hdr Pointer to StarSec packet header.
+ * @param nonce Output buffer of at least 12 bytes receiving the nonce.
+ */
+void xdp_derive_isl_nonce(
+    const starsec_isl_header_t *hdr,
+    uint8_t                     nonce[STARSEC_CHACHA20_NONCE_BYTES]
+) {
+    if (hdr == NULL || nonce == NULL) {
+        return;
+    }
+
+    nonce[0] = (uint8_t)(hdr->src_satellite_id & 0xFFU);
+    nonce[1] = (uint8_t)((hdr->src_satellite_id >> 8) & 0xFFU);
+    nonce[2] = (uint8_t)(hdr->dst_satellite_id & 0xFFU);
+    nonce[3] = (uint8_t)((hdr->dst_satellite_id >> 8) & 0xFFU);
+
+    nonce[4] = (uint8_t)(hdr->sequence_number & 0xFFU);
+    nonce[5] = (uint8_t)((hdr->sequence_number >> 8) & 0xFFU);
+    nonce[6] = (uint8_t)((hdr->sequence_number >> 16) & 0xFFU);
+    nonce[7] = (uint8_t)((hdr->sequence_number >> 24) & 0xFFU);
+
+    uint32_t epoch_low32 = (uint32_t)(hdr->tx_epoch_ms & 0xFFFFFFFFULL);
+    nonce[8]  = (uint8_t)(epoch_low32 & 0xFFU);
+    nonce[9]  = (uint8_t)((epoch_low32 >> 8) & 0xFFU);
+    nonce[10] = (uint8_t)((epoch_low32 >> 16) & 0xFFU);
+    nonce[11] = (uint8_t)((epoch_low32 >> 24) & 0xFFU);
+}
+
+/**
+ * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC using a derived one-time key.
  * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
- * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
  */
 void xdp_generate_isl_auth_tag(
     starsec_isl_header_t *hdr,
     const uint8_t        *payload,
     size_t                payload_len,
-    const uint8_t        *key_32
+    const uint8_t        *master_key_32
 ) {
-    if (hdr == NULL || key_32 == NULL) {
+    if (hdr == NULL || master_key_32 == NULL) {
         return;
     }
 
+    uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
+    uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
+
+    xdp_derive_isl_nonce(hdr, nonce);
+    starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
+
     starsec_poly1305_ctx_t ctx;
-    starsec_poly1305_init(&ctx, key_32);
+    starsec_poly1305_init(&ctx, one_time_key);
 
     starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
     starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
@@ -67,30 +103,41 @@ void xdp_generate_isl_auth_tag(
     }
 
     starsec_poly1305_finish(&ctx, hdr->auth_tag);
+
+    volatile uint8_t *p_key = (volatile uint8_t *)one_time_key;
+    for (size_t i = 0; i < STARSEC_ONE_TIME_KEY_BYTES; i++) {
+        p_key[i] = 0;
+    }
 }
 
 /**
- * @brief Computes and validates 128-bit RFC 8439 Poly1305 authentication tag.
+ * @brief Validates 128-bit RFC 8439 Poly1305 authentication tag using derived one-time key.
  * @param hdr Pointer to StarSec packet header.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
- * @param key_32 Pointer to 32-byte shared optical link secret.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
  * @return true if authentication tag matches in constant time, false otherwise.
  */
 bool xdp_verify_isl_auth_tag(
     const starsec_isl_header_t *hdr,
     const uint8_t              *payload,
     size_t                      payload_len,
-    const uint8_t              *key_32
+    const uint8_t              *master_key_32
 ) {
-    if (hdr == NULL || key_32 == NULL) {
+    if (hdr == NULL || master_key_32 == NULL) {
         return false;
     }
+
+    uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
+    uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
+
+    xdp_derive_isl_nonce(hdr, nonce);
+    starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
 
     starsec_poly1305_ctx_t ctx;
     uint8_t calculated_tag[16];
 
-    starsec_poly1305_init(&ctx, key_32);
+    starsec_poly1305_init(&ctx, one_time_key);
     starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
     starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
 
@@ -99,6 +146,11 @@ bool xdp_verify_isl_auth_tag(
     }
 
     starsec_poly1305_finish(&ctx, calculated_tag);
+
+    volatile uint8_t *p_key = (volatile uint8_t *)one_time_key;
+    for (size_t i = 0; i < STARSEC_ONE_TIME_KEY_BYTES; i++) {
+        p_key[i] = 0;
+    }
 
     volatile uint8_t diff = 0;
     for (size_t i = 0; i < 16; i++) {
