@@ -278,9 +278,12 @@ SINGLE-ENTITY CONTROL & SOVEREIGN RISK:
 ## 9. Monograph Defense Solutions & Cross-References
 
 This research monograph derives full formal engineering and mathematical solutions for every vulnerability identified above:
+- 🛡️ **Constellation Security Framework (StarSec):** [StarSec CSF v1.0 Overview](./framework/README.md) — 4-layer open standard, normative RFC specifications, and compliance tiers.
+- 🎯 **SPARTA & ATT&CK Threat Matrix:** [Constellation Threat Matrix (32 Vectors)](./framework/threat-matrix/constellation-threat-matrix.md) & [CVSS v4 Space Profile](./framework/threat-matrix/cvss-v4-space-profile.md) — Exhaustive threat catalog and scoring.
 - 🛡️ **Comprehensive Engineering Blueprint:** [Chapter 16: Security Countermeasures & Mitigations](./16-security-countermeasures-and-mitigations.md) — Detailed silicon hardening, adaptive spatial null-steering, post-quantum cryptography, and sovereign escrow governance.
 - 📐 **Mathematical Threat Model:** [Whitepaper 05: Quantitative STRIDE Threat Model](./docs/rnd/05-quantitative-stride-threat-model.md) — Level-2 DFD trust boundary models, Lennert Wouters fault-injection equations, and electronic warfare J/S link budgets.
 - 🔬 **Publication-Grade Research Paper:** [Whitepaper 07: Zero Trust Satellite Architecture (ZTSA)](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) — NIST SP 800-207 space adaptation, MVDR null-steering proofs, NIST FIPS 203/204 PQC, BBM92 QKD, and Shamir (3,5) MPC quorum protocols.
+- 💻 **Interactive Tooling & Simulations:** [Threat Score Calculator](./simulations/threat_score_calculator.py) | [MPC TT&C Quorum](./simulations/mpc_quorum_telecommand.py) | [Tooling Guide](./tools/README.md).
 
 ---
 

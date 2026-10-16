@@ -309,13 +309,22 @@ Starlink uses Carrier-Grade NAT (CGNAT / RFC 6598 `100.64.0.0/10`), pooling mill
 
 ---
 
-## 11. Conclusion
+## 11. Conclusion & StarSec Constellation Security Framework (CSF v1.0)
 
-The vulnerabilities inherent in commercial mega-constellations are vast, but they are not insurmountable. By moving beyond naive perimeter assumptions and implementing **Zero Trust Satellite Architecture (ZTSA)**, the aerospace industry can establish a resilient, self-healing, and democratically governed telecommunications infrastructure.
+The vulnerabilities inherent in commercial mega-constellations are vast, but they are not insurmountable. By moving beyond naive perimeter assumptions and formalizing **Zero Trust Satellite Architecture (ZTSA)** into an open-source engineering standard, this repository establishes **StarSec (Constellation Security Framework / CSF v1.0)**:
 
-Through the unified deployment of hardware root-of-trust silicon, adaptive phased array null-steering, post-quantum cryptography, Byzantine fault-tolerant distributed routing, and sovereign multi-party threshold quorums, Starlink can transcend commercial vulnerabilities to become the undisputed gold standard for secure global communications well into the 21st century.
+- 🛡️ **[StarSec CSF v1.0 Core Specification](./framework/README.md):** 4-layer architecture and CSF-L1 to CSF-L3 compliance profiles.
+- 📡 **[RFC-001: Optical ISL Mutual Auth](./framework/spec/RFC-001-ISL-Mutual-Auth.md):** NIST FIPS 203 (ML-KEM-1024) and FIPS 204 (ML-DSA-87) over laser crosslinks.
+- 💻 **[RFC-002: User Terminal Silicon Hardening](./framework/spec/RFC-002-UT-Hardware-Hardening.md):** Dual-Core Lockstep, SRAM-PUF identity, and sub-10 ns BBRAM zeroization.
+- 📡 **[RFC-003: Phased Array RF Resiliency](./framework/spec/RFC-003-RF-PHY-Jamming-Defense.md):** Capon MVDR spatial null-steering (>45 dB cancellation) and Doppler anti-spoofing.
+- 🔐 **[RFC-004: TT&C Multi-Party Quorum](./framework/spec/RFC-004-TTC-Multi-Party-Quorum.md):** Shamir $(t, n)$ threshold secret sharing preventing unilateral rogue de-orbit commands.
+- 🎯 **[Constellation Threat Matrix](./framework/threat-matrix/constellation-threat-matrix.md):** 32 threat vectors mapped to Aerospace SPARTA and MITRE ATT&CK for Space.
+- 🧮 **[CVSS v4 Space Profile](./framework/threat-matrix/cvss-v4-space-profile.md):** Dedicated space domain risk calculator with automated CLI tool.
+
+Through the unified deployment of hardware root-of-trust silicon, adaptive phased array null-steering, post-quantum cryptography, Byzantine fault-tolerant distributed routing, and sovereign multi-party threshold quorums, mega-constellations can transcend commercial vulnerabilities to become the undisputed gold standard for secure global communications well into the 21st century.
 
 ---
 
 *Previous: [Conclusions & Recommendations ←](./15-conclusions.md) | Next: [R&D Whitepapers Index →](./README.md#deep-rd-engineering-whitepapers-docsrnd)*  
-*Deep Engineering Reference: [Whitepaper 05: Quantitative Threat Model](./docs/rnd/05-quantitative-stride-threat-model.md) | [Whitepaper 07: Zero Trust Architecture](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md)*
+*Deep Engineering Reference: [Whitepaper 05: Quantitative Threat Model](./docs/rnd/05-quantitative-stride-threat-model.md) | [Whitepaper 07: Zero Trust Architecture](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md)*  
+*Executable Tooling: [Threat Score Calculator](./simulations/threat_score_calculator.py) | [MPC Quorum Simulator](./simulations/mpc_quorum_telecommand.py) | [Tools Guide](./tools/README.md)*

@@ -1,14 +1,18 @@
-"""Comprehensive unit test harness for the Starlink simulation suite.
+"""Comprehensive unit test harness for the Starlink & StarSec simulation suite.
 
-This module executes automated unit test assertions across all five scientific simulation modules:
+This module executes automated unit test assertions across all scientific simulation modules:
 1. orbit_sgp4_propagator: Keplerian period, velocity, J2 nodal precession, and Foster Pc.
 2. phased_array_beamforming: 2D array factor, broadside gain, and Capon MVDR null depth.
 3. rf_link_budget_calculator: EIRP, FSPL, received power, G/T, and positive operating margins.
 4. pqc_kem_benchmark: ML-KEM polynomial ring operations, byte lengths, and key agreement.
 5. stride_fault_injection_sim: CMOS delay expansion, timing violations, and crowbar clamp trips.
+6. threat_score_calculator: CVSS v4 Space Profile calculations, SPARTA mappings, and bounds.
+7. mpc_quorum_telecommand: Shamir (t, n) threshold secret sharing and telecommand verification.
 """
 
+import hashlib
 import math
+import secrets
 import unittest
 import numpy as np
 
@@ -37,6 +41,23 @@ from simulations.stride_fault_injection_sim import (
     GlitchTransientProfile,
     DefenseConfiguration,
     VoltageGlitchSimulator,
+)
+from simulations.threat_score_calculator import (
+    CONSTELLATION_CATALOG,
+    OrbitalConjunctionImpact,
+    LifeSafetyRisk,
+    TelemetryBlackoutWindow,
+    DeorbitHazard,
+    SpaceVectorModifiers,
+    evaluate_custom_space_vector,
+)
+from simulations.mpc_quorum_telecommand import (
+    PRIME_256,
+    CommandCriticality,
+    SecretShare,
+    TelecommandPayload,
+    ShamirThresholdEngine,
+    SatelliteFlightComputer,
 )
 
 
@@ -180,7 +201,7 @@ class TestPQCKEMBenchmark(unittest.TestCase):
             quantum_bit_security=256,
         )
         sim = MLKEMSimulator(cfg)
-        k_a, k_b, ciphertext, latency = sim.execute_handshake_simulation()
+        k_a, k_b, ciphertext, _ = sim.execute_handshake_simulation()
         self.assertEqual(k_a, k_b)
         self.assertEqual(len(k_a), 32)
         self.assertEqual(len(ciphertext), 1568)
@@ -235,6 +256,179 @@ class TestVoltageGlitchSimulator(unittest.TestCase):
         res = sim.evaluate_timing_fault(self.glitch, ztsa)
         self.assertTrue(res["crowbar_triggered"])
         self.assertFalse(res["exploit_successful"])
+
+
+class TestThreatScoreCalculator(unittest.TestCase):
+    """Triad test suite (Positive, Negative, Edge-Case) for Space CVSS v4 calculator."""
+
+    def test_positive_catalog_scoring(self) -> None:
+        """Positive test: validates scoring and severity for known catalog vectors."""
+        rogue_vector = CONSTELLATION_CATALOG["TTC-ROGUE-001"]
+        self.assertEqual(rogue_vector.calculate_space_score(), 10.0)
+        self.assertEqual(rogue_vector.severity_label, "CRITICAL")
+        self.assertEqual(rogue_vector.sparta_id, "IMP-0006")
+
+        glitch_vector = CONSTELLATION_CATALOG["UT-GLITCH-001"]
+        self.assertEqual(glitch_vector.calculate_space_score(), 6.2)
+        self.assertEqual(glitch_vector.severity_label, "MEDIUM")
+
+    def test_positive_custom_vector(self) -> None:
+        """Positive test: calculates space score with custom valid modifiers."""
+        multiplier, score, label = evaluate_custom_space_vector(
+            base_score=7.0,
+            oci="L",
+            lsr="N",
+            tbw="T",
+            dh="N",
+        )
+        self.assertAlmostEqual(multiplier, 1.10, delta=0.01)
+        self.assertEqual(score, 7.7)
+        self.assertEqual(label, "HIGH")
+
+    def test_negative_invalid_base_score(self) -> None:
+        """Negative test: asserts ValueError raised when base score exceeds boundaries."""
+        with self.assertRaises(ValueError):
+            evaluate_custom_space_vector(11.5, "N", "N", "N", "N")
+        with self.assertRaises(ValueError):
+            evaluate_custom_space_vector(-1.0, "N", "N", "N", "N")
+
+    def test_negative_invalid_modifier_enum(self) -> None:
+        """Negative test: asserts ValueError raised when unknown enum string is provided."""
+        with self.assertRaises(ValueError):
+            evaluate_custom_space_vector(5.0, "INVALID", "N", "N", "N")
+
+    def test_edge_case_score_boundaries(self) -> None:
+        """Edge-case test: verifies minimum zero score and maximum score clamping at 10.0."""
+        _, min_score, min_label = evaluate_custom_space_vector(0.0, "N", "N", "N", "N")
+        self.assertEqual(min_score, 0.0)
+        self.assertEqual(min_label, "LOW")
+
+        _, max_score, max_label = evaluate_custom_space_vector(10.0, "C", "H", "P", "U")
+        self.assertEqual(max_score, 10.0)
+        self.assertEqual(max_label, "CRITICAL")
+
+
+class TestShamirThresholdTelecommand(unittest.TestCase):
+    """Triad test suite (Positive, Negative, Edge-Case) for TT&C Multi-Party Quorum."""
+
+    def setUp(self) -> None:
+        """Sets up baseline polynomial secret and flight computer."""
+        self.secret: int = secrets.randbelow(PRIME_256)
+        secret_bytes: bytes = self.secret.to_bytes(32, byteorder="big")
+        self.expected_hash: str = hashlib.sha256(secret_bytes).hexdigest()
+
+        self.sat_id: int = 1042
+        self.engine = ShamirThresholdEngine(prime=PRIME_256)
+        self.shares = self.engine.generate_polynomial_shares(
+            secret=self.secret,
+            threshold_t=3,
+            signers_n=5,
+        )
+        self.flight_computer = SatelliteFlightComputer(
+            satellite_id=self.sat_id,
+            authorized_quorum_secret_hash=self.expected_hash,
+            threshold_t=3,
+        )
+
+    def test_positive_secret_reconstruction(self) -> None:
+        """Positive test: verifies exact secret reconstruction from any t distinct shares."""
+        reconstructed = self.engine.reconstruct_secret_at_zero(
+            [self.shares[0], self.shares[2], self.shares[4]]
+        )
+        self.assertEqual(reconstructed, self.secret)
+
+    def test_positive_class_c_telecommand_execution(self) -> None:
+        """Positive test: verifies Class C de-orbit authorized with valid t=3 quorum."""
+        cmd = TelecommandPayload(
+            command_id="CMD-DEORBIT-01",
+            target_satellite_id=self.sat_id,
+            criticality=CommandCriticality.CLASS_C_FLIGHT_CRITICAL,
+            action_name="De-orbit Burn",
+            delta_v_vector_mps=(-30.0, 0.0, -15.0),
+        )
+        res = self.flight_computer.verify_and_execute_command(
+            command=cmd,
+            shares=[self.shares[1], self.shares[3], self.shares[4]],
+        )
+        self.assertTrue(res.is_authorized)
+        self.assertEqual(res.reconstructed_secret_hash, self.expected_hash)
+        self.assertIsNone(res.rejection_reason)
+
+    def test_positive_autonomous_collision_avoidance(self) -> None:
+        """Positive test: verifies Class A autonomous maneuver executes without ground shares."""
+        cmd = TelecommandPayload(
+            command_id="CMD-AVOID-01",
+            target_satellite_id=self.sat_id,
+            criticality=CommandCriticality.CLASS_A_AUTONOMOUS,
+            action_name="Autonomous Conjunction Burn",
+            delta_v_vector_mps=(0.1, 0.0, 0.0),
+        )
+        res = self.flight_computer.verify_and_execute_command(command=cmd, shares=[])
+        self.assertTrue(res.is_authorized)
+        self.assertEqual(res.required_threshold, 0)
+
+    def test_negative_sub_threshold_rejection(self) -> None:
+        """Negative test: asserts Class C command rejected when presenting fewer than t shares."""
+        cmd = TelecommandPayload(
+            command_id="CMD-DEORBIT-02",
+            target_satellite_id=self.sat_id,
+            criticality=CommandCriticality.CLASS_C_FLIGHT_CRITICAL,
+            action_name="Rogue De-orbit Attempt",
+            delta_v_vector_mps=(-30.0, 0.0, -15.0),
+        )
+        res = self.flight_computer.verify_and_execute_command(
+            command=cmd,
+            shares=self.shares[:2],
+        )
+        self.assertFalse(res.is_authorized)
+        self.assertIn("Sub-threshold presentation", str(res.rejection_reason))
+
+    def test_negative_corrupted_share_rejection(self) -> None:
+        """Negative test: asserts Class C command rejected when a share value is tampered."""
+        corrupted_share = SecretShare(index_x=self.shares[0].index_x, value_y=(self.shares[0].value_y + 1) % PRIME_256)
+        cmd = TelecommandPayload(
+            command_id="CMD-DEORBIT-03",
+            target_satellite_id=self.sat_id,
+            criticality=CommandCriticality.CLASS_C_FLIGHT_CRITICAL,
+            action_name="Tampered De-orbit",
+            delta_v_vector_mps=(-30.0, 0.0, -15.0),
+        )
+        res = self.flight_computer.verify_and_execute_command(
+            command=cmd,
+            shares=[corrupted_share, self.shares[1], self.shares[2]],
+        )
+        self.assertFalse(res.is_authorized)
+        self.assertIn("Cryptographic signature mismatch", str(res.rejection_reason))
+
+    def test_negative_satellite_id_mismatch(self) -> None:
+        """Negative test: asserts command rejected if target satellite ID does not match bus."""
+        cmd = TelecommandPayload(
+            command_id="CMD-DEORBIT-04",
+            target_satellite_id=9999,
+            criticality=CommandCriticality.CLASS_C_FLIGHT_CRITICAL,
+            action_name="Wrong Target ID",
+            delta_v_vector_mps=(-30.0, 0.0, -15.0),
+        )
+        res = self.flight_computer.verify_and_execute_command(command=cmd, shares=self.shares[:3])
+        self.assertFalse(res.is_authorized)
+        self.assertIn("Target mismatch", str(res.rejection_reason))
+
+    def test_edge_case_unanimous_quorum(self) -> None:
+        """Edge-case test: verifies (5, 5) unanimous threshold quorum where t == n."""
+        engine_unanimous = ShamirThresholdEngine()
+        shares_unanimous = engine_unanimous.generate_polynomial_shares(
+            secret=self.secret,
+            threshold_t=5,
+            signers_n=5,
+        )
+        reconstructed = engine_unanimous.reconstruct_secret_at_zero(shares_unanimous)
+        self.assertEqual(reconstructed, self.secret)
+
+    def test_edge_case_duplicate_indices_rejected(self) -> None:
+        """Edge-case test: asserts ValueError raised if duplicate share indices are supplied."""
+        duplicate_shares = [self.shares[0], self.shares[0], self.shares[1]]
+        with self.assertRaises(ValueError):
+            self.engine.reconstruct_secret_at_zero(duplicate_shares)
 
 
 if __name__ == "__main__":

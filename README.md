@@ -1,20 +1,22 @@
 # 🛰️ Starlink: Architectural, Astrodynamic, and Cryptographic Engineering of a Low Earth Orbit Mega-Constellation
+## Featuring StarSec: The Open-Source Constellation Security Framework (CSF v1.0)
 
-> **An Open-Source Technical Monograph on SpaceX's Global Satellite Telecommunications Infrastructure**
+> **An Open-Source Technical Monograph and Aerospace Cybersecurity Standard for Mega-Constellations**
 
 > 🌐 **Language / भाषा:** **[English (Primary Technical Monograph)](./README.md)** | [हिंदी / Hinglish (Localized Edition)](./README.hi.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Research: Monograph](https://img.shields.io/badge/Type-Technical%20Monograph-blue.svg)]()
+[![Framework: StarSec CSF v1.0](https://img.shields.io/badge/Security%20Framework-StarSec%20CSF%20v1.0-blueviolet.svg)](./framework/README.md)
+[![Threat Matrix: SPARTA Aligned](https://img.shields.io/badge/Threat%20Matrix-SPARTA%20%2F%20ATT%26CK-red.svg)](./framework/threat-matrix/constellation-threat-matrix.md)
+[![Tests: 23 Passed](https://img.shields.io/badge/Unit%20Tests-23%20Passed-brightgreen.svg)](./simulations/test_simulations.py)
 [![Orchestration: Claude Global Library](https://img.shields.io/badge/Orchestrated%20By-Claude%20Global%20Library-purple.svg)]()
-[![Status: Production](https://img.shields.io/badge/Status-Peer--Reviewed%20Standard-green.svg)]()
-[![Updated: October 2026](https://img.shields.io/badge/Updated-October%202026-orange.svg)]()
+[![Status: Peer-Reviewed](https://img.shields.io/badge/Status-Peer--Reviewed%20Standard-green.svg)]()
 
 ---
 
 ## 📖 Executive Abstract
 
-This repository constitutes a graduate-level technical monograph and comprehensive engineering assessment of SpaceX's **Starlink** mega-constellation. Spanning 16 modular analytical chapters, 7 deep R&D whitepapers, and a verified scientific simulation suite, this work analyzes the physical, electromagnetic, astrodynamic, and cryptographic foundations that govern over 11,000 active Low Earth Orbit (LEO) satellites serving over 12 million global endpoints.
+This repository constitutes a graduate-level technical monograph, an open-source aerospace cybersecurity standard (**StarSec**), and a comprehensive engineering assessment of SpaceX's **Starlink** mega-constellation. Spanning 16 modular analytical chapters, 7 deep R&D whitepapers, 4 formal RFC security specifications, an Aerospace SPARTA-aligned threat matrix, and a verified scientific simulation suite, this work analyzes the physical, electromagnetic, astrodynamic, and cryptographic foundations governing over 11,000 active Low Earth Orbit (LEO) satellites serving over 12 million global endpoints.
 
 ```mermaid
 graph TD
@@ -44,9 +46,33 @@ graph TD
     SatB -.->|Ka/V-Band Feeder<br>dm-verity SUIT OTA| Gateway
 ```
 
-**Research Scope:** First-principles astrodynamics ($J_2$ nodal regression, Walker Delta constellations), Active Electronically Scanned Array (AESA) electromagnetics, Free-Space Optical (FSO) laser crosslinks, krypton/argon Hall-effect plasma propulsion, quantitative threat modeling (STRIDE/PASTA), and Zero Trust Satellite Architecture (ZTSA).  
+**Research Scope:** First-principles astrodynamics ($J_2$ nodal regression, Walker Delta constellations), Active Electronically Scanned Array (AESA) electromagnetics, Free-Space Optical (FSO) laser crosslinks, krypton/argon Hall-effect plasma propulsion, quantitative threat modeling (STRIDE/PASTA), and the **StarSec Constellation Security Framework (CSF)**.  
 **Orchestration Engine:** Built using the **Claude Global Library** across 7 Knowledge Graph domains, 10 specialist subagents, and 6 Opus Math Masters.  
 **Data Provenance:** SpaceX FCC and ITU filings, NASA/USSPACECOM Conjunction Data Messages (CDMs), peer-reviewed IEEE/AIAA literature, and verified empirical telemetry (2019–2026).
+
+---
+
+## 🛡️ StarSec: Constellation Security Framework (CSF v1.0)
+
+Moving beyond theoretical analysis, this repository hosts **StarSec (CSF v1.0)**—a normative open-source cybersecurity standard tailored specifically for mega-constellations across commercial, dual-use, and sovereign defense missions:
+
+```text
+framework/
+├── README.md                                  # StarSec Taxonomy, Principles & Compliance Tiers (CSF-L1/L2/L3)
+├── spec/                                      # Formal Normative RFC Specifications
+│   ├── RFC-001-ISL-Mutual-Auth.md             # Layer 3: Optical ISL Mutual Auth & PQC Key Exchange (ML-KEM-1024)
+│   ├── RFC-002-UT-Hardware-Hardening.md       # Layer 1: Silicon Fault Injection, SRAM-PUF & Sub-10ns Zeroization
+│   ├── RFC-003-RF-PHY-Jamming-Defense.md      # Layer 2: Capon MVDR Null-Steering (>45dB) & Doppler Anti-Spoofing
+│   └── RFC-004-TTC-Multi-Party-Quorum.md      # Layer 4: Sovereign (t, n) Threshold Quorum for Critical Commands
+└── threat-matrix/                             # Constellation Threat Intelligence & Scoring
+    ├── README.md                              # Threat Methodology & Taxonomy Guide
+    ├── constellation-threat-matrix.md         # 32 Space Vectors Mapped to Aerospace SPARTA & MITRE ATT&CK
+    └── cvss-v4-space-profile.md               # CVSS v4 Space Domain Extension (Orbital Risk & Conjunction Impact)
+```
+
+- **[Explore StarSec Core Framework Specification](./framework/README.md)**
+- **[Review Constellation Threat Matrix (32 Vectors)](./framework/threat-matrix/constellation-threat-matrix.md)**
+- **[View CVSS v4 Space Profile Methodology](./framework/threat-matrix/cvss-v4-space-profile.md)**
 
 ---
 
@@ -66,25 +92,41 @@ Seven publication-grade technical whitepapers deriving the core mathematics, lin
 
 ---
 
-## 💻 Reproducible Scientific Simulation Suite (`simulations/`)
+## 💻 Reproducible Scientific Simulation Suite (`simulations/` & `tools/`)
 
-A verified, standalone Python 3.10+ simulation suite implementing the equations and algorithms of the monograph:
+A verified, standalone Python 3.10+ simulation and evaluation suite implementing the equations and algorithms of the framework:
 
 ```text
 simulations/
+├── threat_score_calculator.py     # CVSS v4 Space Profile & SPARTA risk calculator CLI
+├── mpc_quorum_telecommand.py      # Shamir (t, n) threshold secret sharing & telecommand quorum
 ├── orbit_sgp4_propagator.py       # Keplerian dynamics, J2 precession & Foster Pc solver
-├── phased_array_beamforming.py    # AESA 2D Array Factor & Capon MVDR spatial nulling
+├── phased_array_beamforming.py    # AESA 2D Array Factor & Capon MVDR spatial nulling (>80 dB)
 ├── rf_link_budget_calculator.py   # Ku/Ka-band decibel link budget engine
 ├── pqc_kem_benchmark.py           # NIST FIPS 203 ML-KEM-1024 polynomial ring simulator
 ├── stride_fault_injection_sim.py  # CMOS delay expansion & crowbar clamp model
-├── test_simulations.py            # Automated 10-test unit verification harness
-└── requirements.txt               # Lightweight dependencies (NumPy, SciPy)
+├── test_simulations.py            # Automated 23-test Triad unit verification harness (100% pass)
+└── requirements.txt               # Lightweight scientific dependencies (NumPy, SciPy)
 ```
 
-**Run Simulation Suite Tests:**
+**Execute the Automated Unit Test Suite (23 Tests in <0.2s):**
 ```bash
 python -m unittest simulations.test_simulations
 ```
+
+**Quick Tool Demonstrations:**
+```bash
+# 1. Evaluate Space CVSS v4 score for rogue de-orbit command
+python simulations/threat_score_calculator.py --vector TTC-ROGUE-001
+
+# 2. Simulate Shamir (3, 5) threshold quorum on satellite flight computer
+python simulations/mpc_quorum_telecommand.py --demo
+
+# 3. Simulate Capon MVDR spatial null-steering (>45 dB jammer cancellation)
+python simulations/phased_array_beamforming.py
+```
+
+See **[`tools/README.md`](./tools/README.md)** for detailed CLI arguments and examples.
 
 ---
 
@@ -135,10 +177,10 @@ Comprehensive architectural, economic, and geopolitical analyses covering the co
 
 ### By Engineering Domain:
 - **Astrodynamics & Orbit Propagation:** [Whitepaper 01](./docs/rnd/01-astrodynamics-and-orbital-mechanics.md) | [Simulation: SGP4 Propagator](./simulations/orbit_sgp4_propagator.py)
-- **AESA Phased Arrays & RF Link Budgets:** [Whitepaper 02](./docs/rnd/02-rf-engineering-and-phased-arrays.md) | [Simulation: Beamformer](./simulations/phased_array_beamforming.py) | [Simulation: Link Budget](./simulations/rf_link_budget_calculator.py)
-- **Optical Laser Crosslinks (OISL):** [Whitepaper 03](./docs/rnd/03-optical-inter-satellite-laser-links.md) | [Simulation: PQC KEM](./simulations/pqc_kem_benchmark.py)
+- **AESA Phased Arrays & RF Link Budgets:** [Whitepaper 02](./docs/rnd/02-rf-engineering-and-phased-arrays.md) | [Simulation: Beamformer](./simulations/phased_array_beamforming.py) | [Simulation: Link Budget](./simulations/rf_link_budget_calculator.py) | [RFC-003: RF Resiliency](./framework/spec/RFC-003-RF-PHY-Jamming-Defense.md)
+- **Optical Laser Crosslinks (OISL):** [Whitepaper 03](./docs/rnd/03-optical-inter-satellite-laser-links.md) | [Simulation: PQC KEM](./simulations/pqc_kem_benchmark.py) | [RFC-001: ISL Mutual Auth](./framework/spec/RFC-001-ISL-Mutual-Auth.md)
 - **Propulsion & Thermospheric Drag:** [Whitepaper 04](./docs/rnd/04-propulsion-mass-budget-and-lifecycle.md)
-- **Cybersecurity & Threat Modeling:** [Chapter 07](./07-security-risks.md) | [Chapter 16](./16-security-countermeasures-and-mitigations.md) | [Whitepaper 05](./docs/rnd/05-quantitative-stride-threat-model.md) | [Whitepaper 07](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) | [Simulation: Fault Injection](./simulations/stride_fault_injection_sim.py)
+- **Cybersecurity & Threat Modeling:** [StarSec Framework](./framework/README.md) | [Threat Matrix](./framework/threat-matrix/constellation-threat-matrix.md) | [CVSS Space Profile](./framework/threat-matrix/cvss-v4-space-profile.md) | [Chapter 07](./07-security-risks.md) | [Chapter 16](./16-security-countermeasures-and-mitigations.md) | [Whitepaper 05](./docs/rnd/05-quantitative-stride-threat-model.md) | [Whitepaper 07](./docs/rnd/07-zero-trust-satellite-architecture-and-cyber-defense.md) | [Tool: Threat Calculator](./simulations/threat_score_calculator.py) | [Tool: TT&C Quorum](./simulations/mpc_quorum_telecommand.py)
 - **Space Environmental Stewardship:** [Chapter 09](./09-environmental-concerns.md) | [Whitepaper 06](./docs/rnd/06-space-environmental-kessler-modeling.md)
 
 ---
