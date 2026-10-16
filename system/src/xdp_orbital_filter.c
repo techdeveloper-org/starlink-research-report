@@ -13,6 +13,26 @@
 #include <string.h>
 
 /**
+ * @brief Zeroizes memory using a volatile pointer and compiler optimization barrier.
+ *
+ * Prevents Dead-Store Elimination (DSE) optimizations across all optimization levels
+ * (-O2, -O3, -flto) to ensure cryptographic keys and sensitive nonces are wiped.
+ *
+ * @param v Pointer to memory buffer to zeroize.
+ * @param n Size of buffer in bytes.
+ */
+static inline void starsec_secure_zero(void *v, size_t n) {
+    if (v == NULL) {
+        return;
+    }
+    volatile uint8_t *p = (volatile uint8_t *)v;
+    while (n--) {
+        *p++ = 0;
+    }
+    __asm__ __volatile__("" : : "r"(v) : "memory");
+}
+
+/**
  * @brief Resets all diagnostic telemetry counters to zero.
  * @param stats Pointer to telemetry statistics structure.
  */
@@ -24,26 +44,38 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats) {
     stats->dropped_epoch_drift = 0;
     stats->dropped_unauthorized_node = 0;
     stats->dropped_invalid_auth = 0;
+    stats->dropped_clock_unavailable = 0;
+    stats->dropped_stale_session = 0;
     stats->passed_frames = 0;
 }
 
 /**
  * @brief Stage 1 (Read-Only Pre-Filter): Speculatively verifies packet sequence against window.
  *
- * Checks if sequence number is eligible for Tier 2 crypto verification without
- * advancing the window base or mutating the bitmap. Prevents unauthenticated
+ * Checks if session ID and sequence number are eligible for Tier 2 crypto verification
+ * without advancing the window base or mutating the bitmap. Prevents unauthenticated
  * spoofed frames from poisoning the sliding window state.
  *
  * @param state Pointer to current anti-replay state for peer node.
+ * @param session_id Ingress packet session identifier.
  * @param seq_num Ingress packet sequence number.
  * @return true if packet is within or ahead of window and not a duplicate, false if obsolete/duplicate.
  */
 bool xdp_check_replay_window_speculative(
     const isl_anti_replay_state_t *state,
+    uint32_t                       session_id,
     uint64_t                       seq_num
 ) {
     if (state == NULL) {
         return false;
+    }
+
+    if (state->session_id != 0 && session_id < state->session_id) {
+        return false;
+    }
+
+    if (session_id > state->session_id) {
+        return true;
     }
 
     if (state->window_base_seq == 0 && state->window_bitmap == 0) {
@@ -70,22 +102,29 @@ bool xdp_check_replay_window_speculative(
  * @brief Stage 2 (Post-Auth Commit): Commits authenticated sequence into sliding window.
  *
  * Invoked ONLY after RFC 8439 Poly1305 MAC verification succeeds in constant time.
- * Advances window_base_seq and shifts window_bitmap accordingly.
+ * Advances window_base_seq, updates session_id on rollover, and shifts window_bitmap accordingly.
  *
  * @param state Pointer to anti-replay state to update.
+ * @param session_id Authenticated packet session identifier.
  * @param seq_num Authenticated packet sequence number.
  */
 void xdp_commit_replay_window_authenticated(
     isl_anti_replay_state_t *state,
+    uint32_t                 session_id,
     uint64_t                 seq_num
 ) {
     if (state == NULL) {
         return;
     }
 
-    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
+    if (session_id > state->session_id || (state->window_base_seq == 0 && state->window_bitmap == 0)) {
+        state->session_id = session_id;
         state->window_base_seq = seq_num;
         state->window_bitmap = 1ULL;
+        return;
+    }
+
+    if (session_id < state->session_id) {
         return;
     }
 
@@ -106,6 +145,50 @@ void xdp_commit_replay_window_authenticated(
 }
 
 /**
+ * @brief Atomically commits authenticated sequence into sliding window state for multi-core SMP safety.
+ * @param state Pointer to 64-byte aligned anti-replay state.
+ * @param session_id Authenticated packet session identifier.
+ * @param seq_num Authenticated packet sequence number.
+ * @return true if state was committed atomically, false on conflict/failure.
+ */
+bool xdp_commit_replay_window_atomic(
+    isl_anti_replay_state_t *state,
+    uint32_t                 session_id,
+    uint64_t                 seq_num
+) {
+    if (state == NULL) {
+        return false;
+    }
+
+    isl_anti_replay_state_t current_state;
+    isl_anti_replay_state_t next_state;
+
+    do {
+        current_state.window_base_seq = __atomic_load_n(&state->window_base_seq, __ATOMIC_ACQUIRE);
+        current_state.window_bitmap   = __atomic_load_n(&state->window_bitmap, __ATOMIC_ACQUIRE);
+        current_state.session_id      = __atomic_load_n(&state->session_id, __ATOMIC_ACQUIRE);
+        current_state.reserved_padding = 0;
+
+        next_state = current_state;
+        xdp_commit_replay_window_authenticated(&next_state, session_id, seq_num);
+
+        if (next_state.window_base_seq == current_state.window_base_seq &&
+            next_state.window_bitmap == current_state.window_bitmap &&
+            next_state.session_id == current_state.session_id) {
+            return false;
+        }
+
+        if (__atomic_compare_exchange_n(&state->window_base_seq, &current_state.window_base_seq,
+                                        next_state.window_base_seq, false,
+                                        __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
+            __atomic_store_n(&state->window_bitmap, next_state.window_bitmap, __ATOMIC_RELEASE);
+            __atomic_store_n(&state->session_id, next_state.session_id, __ATOMIC_RELEASE);
+            return true;
+        }
+    } while (1);
+}
+
+/**
  * @brief Validates packet transmit timestamp against receiver's trusted local clock.
  *
  * Ensures packet was transmitted within [-max_past_drift_ms, +max_future_skew_ms]
@@ -119,16 +202,20 @@ bool xdp_validate_local_freshness(
     uint64_t                         tx_epoch_ms,
     const starsec_time_sync_state_t *clock_ref
 ) {
-    if (clock_ref == NULL) {
+    if (clock_ref == NULL || clock_ref->local_epoch_ms == 0) {
         return false;
     }
 
-    if (tx_epoch_ms + clock_ref->max_past_drift_ms < clock_ref->local_epoch_ms) {
-        return false;
-    }
-
-    if (tx_epoch_ms > clock_ref->local_epoch_ms + clock_ref->max_future_skew_ms) {
-        return false;
+    if (tx_epoch_ms > clock_ref->local_epoch_ms) {
+        uint64_t diff_future = tx_epoch_ms - clock_ref->local_epoch_ms;
+        if (diff_future > clock_ref->max_future_skew_ms) {
+            return false;
+        }
+    } else {
+        uint64_t diff_past = clock_ref->local_epoch_ms - tx_epoch_ms;
+        if (diff_past > clock_ref->max_past_drift_ms) {
+            return false;
+        }
     }
 
     return true;
@@ -155,39 +242,66 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
  *
  * @param hdr Pointer to StarSec packet header.
  * @param nonce Output buffer of at least 12 bytes receiving the nonce.
+ * @return STARSEC_CRYPTO_SUCCESS on success,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence_number >= STARSEC_MAX_PACKET_COUNTER_PER_KEY,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM if hdr or nonce is NULL.
  */
-void xdp_derive_isl_nonce(
+starsec_crypto_status_t xdp_derive_isl_nonce(
     const starsec_isl_header_t *hdr,
     uint8_t                     nonce[STARSEC_CHACHA20_NONCE_BYTES]
 ) {
     if (hdr == NULL || nonce == NULL) {
-        return;
+        if (nonce != NULL) {
+            starsec_secure_zero(nonce, STARSEC_CHACHA20_NONCE_BYTES);
+        }
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
     }
 
-    starsec_derive_nonce_v2(hdr->session_id, hdr->sequence_number, nonce);
+    starsec_crypto_status_t status = starsec_derive_nonce_v2(hdr->session_id, hdr->sequence_number, nonce);
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        starsec_secure_zero(nonce, STARSEC_CHACHA20_NONCE_BYTES);
+    }
+    return status;
 }
 
 /**
  * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC using a derived one-time key.
+ *
+ * Employs RFC 8439 Section 2.6 ChaCha20 block 0 key derivation to produce an
+ * ephemeral, single-use 32-byte subkey from master_key_32 and the packet's
+ * unique 96-bit transmission nonce. The one-time subkey is zeroized immediately.
+ *
  * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
  * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence ceiling is reached,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM on NULL inputs.
  */
-void xdp_generate_isl_auth_tag(
+starsec_crypto_status_t xdp_generate_isl_auth_tag(
     starsec_isl_header_t *hdr,
     const uint8_t        *payload,
     size_t                payload_len,
     const uint8_t        *master_key_32
 ) {
     if (hdr == NULL || master_key_32 == NULL) {
-        return;
+        if (hdr != NULL) {
+            starsec_secure_zero(hdr->auth_tag, sizeof(hdr->auth_tag));
+        }
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
     }
 
     uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
     uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
 
-    xdp_derive_isl_nonce(hdr, nonce);
+    starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        starsec_secure_zero(hdr->auth_tag, sizeof(hdr->auth_tag));
+        starsec_secure_zero(nonce, sizeof(nonce));
+        return status;
+    }
+
     starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
 
     starsec_poly1305_ctx_t ctx;
@@ -202,14 +316,19 @@ void xdp_generate_isl_auth_tag(
 
     starsec_poly1305_finish(&ctx, hdr->auth_tag);
 
-    volatile uint8_t *p_key = (volatile uint8_t *)one_time_key;
-    for (size_t i = 0; i < STARSEC_ONE_TIME_KEY_BYTES; i++) {
-        p_key[i] = 0;
-    }
+    starsec_secure_zero(one_time_key, sizeof(one_time_key));
+    starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(&ctx, sizeof(ctx));
+
+    return STARSEC_CRYPTO_SUCCESS;
 }
 
 /**
  * @brief Validates 128-bit RFC 8439 Poly1305 authentication tag using derived one-time key.
+ *
+ * Derives the unique single-use 32-byte Poly1305 key via ChaCha20 block 0 and
+ * executes constant-time tag verification. Ephemeral key material is wiped immediately.
+ *
  * @param hdr Pointer to StarSec packet header.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
@@ -229,7 +348,12 @@ bool xdp_verify_isl_auth_tag(
     uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
     uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
 
-    xdp_derive_isl_nonce(hdr, nonce);
+    starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        starsec_secure_zero(nonce, sizeof(nonce));
+        return false;
+    }
+
     starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
 
     starsec_poly1305_ctx_t ctx;
@@ -245,19 +369,16 @@ bool xdp_verify_isl_auth_tag(
 
     starsec_poly1305_finish(&ctx, calculated_tag);
 
-    volatile uint8_t *p_key = (volatile uint8_t *)one_time_key;
-    for (size_t i = 0; i < STARSEC_ONE_TIME_KEY_BYTES; i++) {
-        p_key[i] = 0;
-    }
+    starsec_secure_zero(one_time_key, sizeof(one_time_key));
+    starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(&ctx, sizeof(ctx));
 
     volatile uint8_t diff = 0;
     for (size_t i = 0; i < 16; i++) {
         diff |= (calculated_tag[i] ^ hdr->auth_tag[i]);
     }
 
-    for (size_t i = 0; i < 16; i++) {
-        calculated_tag[i] = 0;
-    }
+    starsec_secure_zero(calculated_tag, sizeof(calculated_tag));
 
     return (diff == 0);
 }
@@ -300,14 +421,12 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
-    bool fresh = false;
-    if (config->clock_ref.local_epoch_ms > 0) {
-        fresh = xdp_validate_local_freshness(hdr->tx_epoch_ms, &config->clock_ref);
-    } else {
-        fresh = true;
+    if (config->clock_ref.local_epoch_ms == 0) {
+        stats->dropped_clock_unavailable++;
+        return STARSEC_XDP_DROP;
     }
 
-    if (!fresh) {
+    if (!xdp_validate_local_freshness(hdr->tx_epoch_ms, &config->clock_ref)) {
         stats->dropped_epoch_drift++;
         return STARSEC_XDP_DROP;
     }
@@ -339,8 +458,12 @@ int xdp_starsec_filter_frame(
         replay_idx = config->replay_count++;
     }
 
-    if (!xdp_check_replay_window_speculative(&config->replay_states[replay_idx], hdr->sequence_number)) {
-        stats->dropped_epoch_drift++;
+    if (!xdp_check_replay_window_speculative(&config->replay_states[replay_idx], hdr->session_id, hdr->sequence_number)) {
+        if (hdr->session_id < config->replay_states[replay_idx].session_id) {
+            stats->dropped_stale_session++;
+        } else {
+            stats->dropped_epoch_drift++;
+        }
         return STARSEC_XDP_DROP;
     }
 
@@ -350,7 +473,7 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
-    xdp_commit_replay_window_authenticated(&config->replay_states[replay_idx], hdr->sequence_number);
+    xdp_commit_replay_window_authenticated(&config->replay_states[replay_idx], hdr->session_id, hdr->sequence_number);
 
     stats->passed_frames++;
     return STARSEC_XDP_PASS;

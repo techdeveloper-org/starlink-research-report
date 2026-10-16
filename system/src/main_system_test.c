@@ -516,9 +516,20 @@ static int mock_kernel_starsec_isl_xdp_filter(
         return 1;
     }
 
-    if (env->clock_ref.local_epoch_ms > 0) {
-        if (hdr->tx_epoch_ms + env->clock_ref.max_past_drift_ms < env->clock_ref.local_epoch_ms ||
-            hdr->tx_epoch_ms > env->clock_ref.local_epoch_ms + env->clock_ref.max_future_skew_ms) {
+    if (env->clock_ref.local_epoch_ms == 0) {
+        env->telemetry[6]++;
+        return 1;
+    }
+
+    if (hdr->tx_epoch_ms > env->clock_ref.local_epoch_ms) {
+        uint64_t diff_future = hdr->tx_epoch_ms - env->clock_ref.local_epoch_ms;
+        if (diff_future > env->clock_ref.max_future_skew_ms) {
+            env->telemetry[5]++;
+            return 1;
+        }
+    } else {
+        uint64_t diff_past = env->clock_ref.local_epoch_ms - hdr->tx_epoch_ms;
+        if (diff_past > env->clock_ref.max_past_drift_ms) {
             env->telemetry[5]++;
             return 1;
         }
@@ -546,12 +557,18 @@ static int mock_kernel_starsec_isl_xdp_filter(
 
     if (replay_idx >= 0) {
         isl_anti_replay_state_t *st = &env->replay_states[replay_idx];
-        if (st->window_base_seq != 0 || st->window_bitmap != 0) {
-            if (hdr->sequence_number <= st->window_base_seq) {
-                uint64_t diff = st->window_base_seq - hdr->sequence_number;
-                if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (st->window_bitmap & (1ULL << diff)) != 0) {
-                    env->telemetry[4]++;
-                    return 1;
+        if (st->window_base_seq != 0 || st->window_bitmap != 0 || st->session_id != 0) {
+            if (hdr->session_id < st->session_id) {
+                env->telemetry[7]++;
+                return 1;
+            }
+            if (hdr->session_id == st->session_id) {
+                if (hdr->sequence_number <= st->window_base_seq) {
+                    uint64_t diff = st->window_base_seq - hdr->sequence_number;
+                    if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (st->window_bitmap & (1ULL << diff)) != 0) {
+                        env->telemetry[4]++;
+                        return 1;
+                    }
                 }
             }
         }
@@ -562,7 +579,7 @@ static int mock_kernel_starsec_isl_xdp_filter(
 }
 
 /**
- * @brief Executes TC-EBPF-POS-01..02, TC-EBPF-NEG-01..05, TC-EBPF-POISON-01, and TC-EBPF-IDLE-01.
+ * @brief Executes TC-EBPF-POS-01..02, TC-EBPF-NEG-01..05, TC-EBPF-POISON-01, TC-EBPF-IDLE-01, TC-EBPF-CLOCK-01, and TC-EBPF-SESS-01.
  * @return true if all eBPF kernel ingress filter simulation tests pass, false otherwise.
  */
 static bool test_ebpf_kernel_ingress_triad(void) {
@@ -603,14 +620,14 @@ static bool test_ebpf_kernel_ingress_triad(void) {
     /* Tier 2 authenticated commit */
     env.replay_nodes[0] = 101;
     env.replay_count = 1;
-    xdp_commit_replay_window_authenticated(&env.replay_states[0], hdr->sequence_number);
+    xdp_commit_replay_window_authenticated(&env.replay_states[0], hdr->session_id, hdr->sequence_number);
 
     hdr->sequence_number = 5002;
     hdr->tx_epoch_ms = env.clock_ref.local_epoch_ms - 15;
     int res2 = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
     STARSEC_ASSERT(res2 == 0, "TC-EBPF-POS-02: Sequential packet 2 rejected by kernel filter");
     STARSEC_ASSERT(env.telemetry[0] == 2, "TC-EBPF-POS-02: Passed counter mismatch");
-    xdp_commit_replay_window_authenticated(&env.replay_states[0], hdr->sequence_number);
+    xdp_commit_replay_window_authenticated(&env.replay_states[0], hdr->session_id, hdr->sequence_number);
 
     /* Replay of 5001 must drop */
     hdr->sequence_number = 5001;
@@ -636,8 +653,152 @@ static bool test_ebpf_kernel_ingress_triad(void) {
     int res_idle = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
     STARSEC_ASSERT(res_idle == 0, "TC-EBPF-IDLE-01: Idle link packet falsely dropped by delta check!");
 
+    /* TC-EBPF-CLOCK-01: Test fail-closed behavior when clock is unavailable (epoch == 0) */
+    uint64_t saved_epoch = env.clock_ref.local_epoch_ms;
+    env.clock_ref.local_epoch_ms = 0;
+    int res_clock_unavail = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_clock_unavail == 1, "TC-EBPF-CLOCK-01: Packet accepted with zero clock epoch");
+    STARSEC_ASSERT(env.telemetry[6] == 1, "TC-EBPF-CLOCK-01: Clock unavailable telemetry mismatch");
+    env.clock_ref.local_epoch_ms = saved_epoch;
+
+    /* TC-EBPF-SESS-01: Test stale session rejection in eBPF */
+    hdr->session_id = 9;
+    hdr->sequence_number = 9000;
+    int res_stale_sess = mock_kernel_starsec_isl_xdp_filter(frame, frame_len, &env);
+    STARSEC_ASSERT(res_stale_sess == 1, "TC-EBPF-SESS-01: Stale session accepted by kernel filter");
+    STARSEC_ASSERT(env.telemetry[7] == 1, "TC-EBPF-SESS-01: Stale session telemetry mismatch");
+    hdr->session_id = 10;
+
     free(frame);
     printf("  [PASS] Linux eBPF/XDP Kernel Ingress Filter Triad & Two-Stage Pipeline Successful.\n");
+    return true;
+}
+
+/**
+ * @brief Executes TC-NONCE-ERR-PROPAGATE-01, TC-NONCE-MEM-SCRUB-01, TC-CLOCK-FAIL-CLOSED-01,
+ *        TC-CLOCK-OVERFLOW-01, TC-SESSION-REPLAY-01, TC-SESSION-ROLLOVER-01, and TC-CONCURRENT-COMMIT-01.
+ *
+ * Validates cryptographic error propagation, volatile secret scrubbing, fail-closed clock
+ * freshness arithmetic, session monotonicity, and atomic lock-free SMP state commits.
+ *
+ * @return true if all 7 hardened security and concurrency test cases pass, false otherwise.
+ */
+static bool test_hardened_security_and_concurrency_triad(void) {
+    printf("[TEST] Running Hardened Security, Session Monotonicity & SMP Atomic Commit Triad...\n");
+
+    /* TC-NONCE-ERR-PROPAGATE-01 & TC-NONCE-MEM-SCRUB-01 */
+    starsec_isl_header_t hdr_err;
+    memset(&hdr_err, 0x5A, sizeof(hdr_err));
+    hdr_err.session_id = 1;
+    hdr_err.sequence_number = STARSEC_MAX_PACKET_COUNTER_PER_KEY;
+
+    uint8_t nonce_buf[STARSEC_CHACHA20_NONCE_BYTES];
+    memset(nonce_buf, 0xEE, sizeof(nonce_buf));
+    starsec_crypto_status_t n_stat = xdp_derive_isl_nonce(&hdr_err, nonce_buf);
+    STARSEC_ASSERT(n_stat == STARSEC_CRYPTO_ERR_REKEY_REQUIRED,
+                   "TC-NONCE-ERR-PROPAGATE-01: Nonce derivation failed to report rekey error");
+    for (size_t i = 0; i < STARSEC_CHACHA20_NONCE_BYTES; i++) {
+        STARSEC_ASSERT(nonce_buf[i] == 0, "TC-NONCE-MEM-SCRUB-01: Nonce buffer not scrubbed to 0 on error");
+    }
+
+    uint8_t dummy_key[32];
+    memset(dummy_key, 0x42, sizeof(dummy_key));
+    starsec_crypto_status_t tag_stat = xdp_generate_isl_auth_tag(&hdr_err, NULL, 0, dummy_key);
+    STARSEC_ASSERT(tag_stat == STARSEC_CRYPTO_ERR_REKEY_REQUIRED,
+                   "TC-NONCE-ERR-PROPAGATE-01: Auth tag generation failed to propagate rekey error");
+    for (size_t i = 0; i < 16; i++) {
+        STARSEC_ASSERT(hdr_err.auth_tag[i] == 0,
+                       "TC-NONCE-MEM-SCRUB-01: Auth tag buffer not scrubbed to 0 on rekey error");
+    }
+
+    bool verify_stat = xdp_verify_isl_auth_tag(&hdr_err, NULL, 0, dummy_key);
+    STARSEC_ASSERT(verify_stat == false,
+                   "TC-NONCE-ERR-PROPAGATE-01: Verify tag unexpectedly accepted packet beyond rekey limit");
+
+    /* TC-CLOCK-FAIL-CLOSED-01: Local clock unavailable (local_epoch_ms == 0) */
+    starsec_time_sync_state_t unavail_clock;
+    memset(&unavail_clock, 0, sizeof(unavail_clock));
+    STARSEC_ASSERT(xdp_validate_local_freshness(1770000000000ULL, &unavail_clock) == false,
+                   "TC-CLOCK-FAIL-CLOSED-01: Freshness check falsely passed with zero clock epoch");
+
+    xdp_filter_config_t cfg_clock;
+    memset(&cfg_clock, 0, sizeof(cfg_clock));
+    cfg_clock.authorized_count = 1;
+    cfg_clock.authorized_nodes[0] = 501;
+    cfg_clock.clock_ref.local_epoch_ms = 0;
+
+    xdp_filter_stats_t clock_stats;
+    xdp_reset_filter_stats(&clock_stats);
+
+    starsec_isl_header_t clock_hdr;
+    memset(&clock_hdr, 0, sizeof(clock_hdr));
+    clock_hdr.magic = STARSEC_ISL_MAGIC;
+    clock_hdr.src_satellite_id = 501;
+    clock_hdr.dst_satellite_id = 502;
+    clock_hdr.session_id = 1;
+    clock_hdr.sequence_number = 10;
+    clock_hdr.tx_epoch_ms = 1770000000000ULL;
+    clock_hdr.payload_len = 0;
+
+    int clock_act = xdp_starsec_filter_frame((const uint8_t *)&clock_hdr, sizeof(clock_hdr), &cfg_clock, &clock_stats);
+    STARSEC_ASSERT(clock_act == STARSEC_XDP_DROP, "TC-CLOCK-FAIL-CLOSED-01: Frame passed when clock reference unavailable");
+    STARSEC_ASSERT(clock_stats.dropped_clock_unavailable == 1,
+                   "TC-CLOCK-FAIL-CLOSED-01: dropped_clock_unavailable counter was not incremented");
+
+    /* TC-CLOCK-OVERFLOW-01: Timestamp overflow resistance via directional subtraction */
+    cfg_clock.clock_ref.local_epoch_ms = 1770000000000ULL;
+    cfg_clock.clock_ref.max_past_drift_ms = 200ULL;
+    cfg_clock.clock_ref.max_future_skew_ms = 20ULL;
+    STARSEC_ASSERT(xdp_validate_local_freshness(UINT64_MAX, &cfg_clock.clock_ref) == false,
+                   "TC-CLOCK-OVERFLOW-01: UINT64_MAX timestamp bypassed freshness check via addition overflow");
+    STARSEC_ASSERT(xdp_validate_local_freshness(0, &cfg_clock.clock_ref) == false,
+                   "TC-CLOCK-OVERFLOW-01: Zero timestamp bypassed freshness check");
+
+    /* TC-SESSION-REPLAY-01: Stale session rejected */
+    isl_anti_replay_state_t session_state;
+    memset(&session_state, 0, sizeof(session_state));
+    session_state.session_id = 2;
+    session_state.window_base_seq = 100;
+    session_state.window_bitmap = 1ULL;
+
+    STARSEC_ASSERT(xdp_check_replay_window_speculative(&session_state, 1, 200) == false,
+                   "TC-SESSION-REPLAY-01: Stale session ID 1 was accepted against active session 2");
+    STARSEC_ASSERT(xdp_check_replay_window_speculative(&session_state, 2, 99) == true,
+                   "TC-SESSION-REPLAY-01: Speculative check rejected in-window sequence");
+
+    /* TC-SESSION-ROLLOVER-01: Monotonic session rollover resets sequence window */
+    xdp_commit_replay_window_authenticated(&session_state, 3, 1);
+    STARSEC_ASSERT(session_state.session_id == 3, "TC-SESSION-ROLLOVER-01: Session ID not updated to 3");
+    STARSEC_ASSERT(session_state.window_base_seq == 1, "TC-SESSION-ROLLOVER-01: Base sequence not reset to 1");
+    STARSEC_ASSERT(session_state.window_bitmap == 1ULL, "TC-SESSION-ROLLOVER-01: Window bitmap not initialized to 1");
+
+    STARSEC_ASSERT(xdp_check_replay_window_speculative(&session_state, 3, 2) == true,
+                   "TC-SESSION-ROLLOVER-01: Valid subsequent sequence in new session rejected");
+    xdp_commit_replay_window_authenticated(&session_state, 3, 2);
+    STARSEC_ASSERT(session_state.window_base_seq == 2, "TC-SESSION-ROLLOVER-01: Base sequence not advanced to 2");
+
+    /* TC-CONCURRENT-COMMIT-01: Multi-Core Atomic State Commits */
+    isl_anti_replay_state_t atomic_state;
+    memset(&atomic_state, 0, sizeof(atomic_state));
+    atomic_state.session_id = 10;
+    atomic_state.window_base_seq = 100;
+    atomic_state.window_bitmap = 1ULL;
+
+    const uint64_t commit_seqs[] = { 105, 102, 101, 104, 103 };
+    for (size_t s = 0; s < sizeof(commit_seqs)/sizeof(commit_seqs[0]); s++) {
+        bool commit_res = xdp_commit_replay_window_atomic(&atomic_state, 10, commit_seqs[s]);
+        STARSEC_ASSERT(commit_res == true, "TC-CONCURRENT-COMMIT-01: Atomic commit failed for valid sequence");
+    }
+
+    STARSEC_ASSERT(atomic_state.window_base_seq == 105, "TC-CONCURRENT-COMMIT-01: Base seq should be 105");
+    uint64_t expected_mask = (1ULL << 0) | (1ULL << 1) | (1ULL << 2) | (1ULL << 3) | (1ULL << 4) | (1ULL << 5);
+    STARSEC_ASSERT((atomic_state.window_bitmap & expected_mask) == expected_mask,
+                   "TC-CONCURRENT-COMMIT-01: Window bitmap missed expected committed bits");
+
+    bool dup_res = xdp_commit_replay_window_atomic(&atomic_state, 10, 102);
+    STARSEC_ASSERT(dup_res == false, "TC-CONCURRENT-COMMIT-01: Atomic commit permitted duplicate replay");
+
+    printf("  [PASS] Hardened Security, Session Monotonicity & SMP Atomic Commit Triad Successful.\n");
     return true;
 }
 
@@ -659,6 +820,7 @@ int main(void) {
     all_passed &= test_poly1305_triad();
     all_passed &= test_xdp_orbital_filter_triad();
     all_passed &= test_ebpf_kernel_ingress_triad();
+    all_passed &= test_hardened_security_and_concurrency_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {

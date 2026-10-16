@@ -66,11 +66,15 @@ typedef struct __attribute__((packed)) {
 
 /**
  * @brief Two-stage anti-replay state with RFC 6479 64-bit sliding window.
+ *
+ * Aligned to 64-byte hardware cache line boundary to prevent false sharing
+ * across multi-core SMP packet processing threads.
  */
-typedef struct {
+typedef struct __attribute__((aligned(64))) {
     uint64_t window_base_seq;            /**< Highest authenticated sequence committed to date */
     uint64_t window_bitmap;              /**< 64-bit bitmap of authenticated packets (bit 0 = base) */
     uint32_t session_id;                 /**< Active authenticated session identifier */
+    uint32_t reserved_padding;           /**< Padding for 64-bit word alignment */
 } isl_anti_replay_state_t;
 
 /**
@@ -90,6 +94,8 @@ typedef struct {
     uint64_t dropped_epoch_drift;
     uint64_t dropped_unauthorized_node;
     uint64_t dropped_invalid_auth;
+    uint64_t dropped_clock_unavailable;
+    uint64_t dropped_stale_session;
     uint64_t passed_frames;
 } xdp_filter_stats_t;
 
@@ -108,16 +114,18 @@ typedef struct {
 /**
  * @brief Stage 1 (Read-Only Pre-Filter): Speculatively verifies packet sequence against window.
  *
- * Checks if sequence number is eligible for Tier 2 crypto verification without
- * advancing the window base or mutating the bitmap. Prevents unauthenticated
+ * Checks if session ID and sequence number are eligible for Tier 2 crypto verification
+ * without advancing the window base or mutating the bitmap. Prevents unauthenticated
  * spoofed frames from poisoning the sliding window state.
  *
  * @param state Pointer to current anti-replay state for peer node.
+ * @param session_id Ingress packet session identifier.
  * @param seq_num Ingress packet sequence number.
  * @return true if packet is within or ahead of window and not a duplicate, false if obsolete/duplicate.
  */
 bool xdp_check_replay_window_speculative(
     const isl_anti_replay_state_t *state,
+    uint32_t                       session_id,
     uint64_t                       seq_num
 );
 
@@ -125,13 +133,28 @@ bool xdp_check_replay_window_speculative(
  * @brief Stage 2 (Post-Auth Commit): Commits authenticated sequence into sliding window.
  *
  * Invoked ONLY after RFC 8439 Poly1305 MAC verification succeeds in constant time.
- * Advances window_base_seq and shifts window_bitmap accordingly.
+ * Advances window_base_seq, updates session_id on rollover, and shifts window_bitmap accordingly.
  *
  * @param state Pointer to anti-replay state to update.
+ * @param session_id Authenticated packet session identifier.
  * @param seq_num Authenticated packet sequence number.
  */
 void xdp_commit_replay_window_authenticated(
     isl_anti_replay_state_t *state,
+    uint32_t                 session_id,
+    uint64_t                 seq_num
+);
+
+/**
+ * @brief Atomically commits authenticated sequence into sliding window state for multi-core SMP safety.
+ * @param state Pointer to 64-byte aligned anti-replay state.
+ * @param session_id Authenticated packet session identifier.
+ * @param seq_num Authenticated packet sequence number.
+ * @return true if state was committed atomically, false on conflict/failure.
+ */
+bool xdp_commit_replay_window_atomic(
+    isl_anti_replay_state_t *state,
+    uint32_t                 session_id,
     uint64_t                 seq_num
 );
 
@@ -183,8 +206,11 @@ bool xdp_validate_epoch_window(uint64_t tx_ms, uint64_t local_ms, uint64_t max_d
  *
  * @param hdr Pointer to StarSec packet header.
  * @param nonce Output buffer of at least 12 bytes receiving the nonce.
+ * @return STARSEC_CRYPTO_SUCCESS on success,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence_number >= STARSEC_MAX_PACKET_COUNTER_PER_KEY,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM if hdr or nonce is NULL.
  */
-void xdp_derive_isl_nonce(
+starsec_crypto_status_t xdp_derive_isl_nonce(
     const starsec_isl_header_t *hdr,
     uint8_t                     nonce[STARSEC_CHACHA20_NONCE_BYTES]
 );
@@ -200,8 +226,11 @@ void xdp_derive_isl_nonce(
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
  * @param payload_len Length of payload in bytes.
  * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence ceiling is reached,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM on NULL inputs.
  */
-void xdp_generate_isl_auth_tag(
+starsec_crypto_status_t xdp_generate_isl_auth_tag(
     starsec_isl_header_t *hdr,
     const uint8_t        *payload,
     size_t                payload_len,

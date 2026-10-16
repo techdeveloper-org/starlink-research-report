@@ -106,6 +106,7 @@ typedef struct {
     uint64_t window_base_seq;
     uint64_t window_bitmap;
     uint32_t session_id;
+    uint32_t reserved_padding;
 } isl_anti_replay_state_t;
 
 /**
@@ -121,12 +122,14 @@ typedef struct {
  * @brief Telemetry metric indices for per-CPU line-rate observability.
  */
 enum isl_telemetry_metric {
-    STARSEC_TELEM_PASSED_FRAMES          = 0,
-    STARSEC_TELEM_DROPPED_BAD_MAGIC      = 1,
-    STARSEC_TELEM_DROPPED_BAD_LEN        = 2,
-    STARSEC_TELEM_DROPPED_UNAUTHORIZED   = 3,
-    STARSEC_TELEM_DROPPED_REPLAY_SEQ     = 4,
-    STARSEC_TELEM_DROPPED_EPOCH_DRIFT    = 5
+    STARSEC_TELEM_PASSED_FRAMES              = 0,
+    STARSEC_TELEM_DROPPED_BAD_MAGIC          = 1,
+    STARSEC_TELEM_DROPPED_BAD_LEN            = 2,
+    STARSEC_TELEM_DROPPED_UNAUTHORIZED       = 3,
+    STARSEC_TELEM_DROPPED_REPLAY_SEQ         = 4,
+    STARSEC_TELEM_DROPPED_EPOCH_DRIFT        = 5,
+    STARSEC_TELEM_DROPPED_CLOCK_UNAVAILABLE  = 6,
+    STARSEC_TELEM_DROPPED_STALE_SESSION      = 7
 };
 
 /**
@@ -219,9 +222,20 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
 
     uint32_t time_key = 0;
     starsec_time_sync_state_t *time_ref = (starsec_time_sync_state_t *)bpf_map_lookup_elem(&time_sync_map, &time_key);
-    if (time_ref != NULL && time_ref->local_epoch_ms > 0) {
-        if (hdr->tx_epoch_ms + time_ref->max_past_drift_ms < time_ref->local_epoch_ms ||
-            hdr->tx_epoch_ms > time_ref->local_epoch_ms + time_ref->max_future_skew_ms) {
+    if (time_ref == NULL || time_ref->local_epoch_ms == 0) {
+        starsec_increment_telemetry(STARSEC_TELEM_DROPPED_CLOCK_UNAVAILABLE);
+        return XDP_DROP;
+    }
+
+    if (hdr->tx_epoch_ms > time_ref->local_epoch_ms) {
+        uint64_t diff_future = hdr->tx_epoch_ms - time_ref->local_epoch_ms;
+        if (diff_future > time_ref->max_future_skew_ms) {
+            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_EPOCH_DRIFT);
+            return XDP_DROP;
+        }
+    } else {
+        uint64_t diff_past = time_ref->local_epoch_ms - hdr->tx_epoch_ms;
+        if (diff_past > time_ref->max_past_drift_ms) {
             starsec_increment_telemetry(STARSEC_TELEM_DROPPED_EPOCH_DRIFT);
             return XDP_DROP;
         }
@@ -234,12 +248,18 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
     }
 
     isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id);
-    if (replay_state != NULL && (replay_state->window_base_seq != 0 || replay_state->window_bitmap != 0)) {
-        if (hdr->sequence_number <= replay_state->window_base_seq) {
-            uint64_t diff = replay_state->window_base_seq - hdr->sequence_number;
-            if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) {
-                starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
-                return XDP_DROP;
+    if (replay_state != NULL && (replay_state->window_base_seq != 0 || replay_state->window_bitmap != 0 || replay_state->session_id != 0)) {
+        if (hdr->session_id < replay_state->session_id) {
+            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
+            return XDP_DROP;
+        }
+        if (hdr->session_id == replay_state->session_id) {
+            if (hdr->sequence_number <= replay_state->window_base_seq) {
+                uint64_t diff = replay_state->window_base_seq - hdr->sequence_number;
+                if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) {
+                    starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
+                    return XDP_DROP;
+                }
             }
         }
     }
