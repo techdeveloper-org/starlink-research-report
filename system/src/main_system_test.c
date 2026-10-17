@@ -150,6 +150,83 @@ static STARSEC_THREAD_RET STARSEC_THREAD_CALL snapshot_reader_func(void *arg) {
 }
 
 /**
+ * @brief Thread context for Seqlock multi-field lockless read race verification.
+ */
+typedef struct {
+    isl_anti_replay_state_t *state;
+    volatile uint32_t       *gate;
+    volatile uint32_t       *stop;
+    uint32_t                 writes_done;
+} seqlock_writer_ctx_t;
+
+/**
+ * @brief Thread context for Seqlock lockless reader consistency verification.
+ */
+typedef struct {
+    isl_anti_replay_state_t *state;
+    volatile uint32_t       *gate;
+    volatile uint32_t       *stop;
+    uint32_t                 reads_done;
+    uint32_t                 torn_reads;
+} seqlock_reader_ctx_t;
+
+/**
+ * @brief Thread worker continuously updating multi-field state under Seqlock write protocol.
+ * @param arg Pointer to seqlock_writer_ctx_t context.
+ * @return Thread exit code.
+ */
+static STARSEC_THREAD_RET STARSEC_THREAD_CALL seqlock_writer_func(void *arg) {
+    seqlock_writer_ctx_t *ctx = (seqlock_writer_ctx_t *)arg;
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+
+    for (uint32_t i = 1; i <= 5000; i++) {
+        starsec_seqlock_write_begin(&ctx->state->lock);
+        ctx->state->session_id = i;
+        ctx->state->window_base_seq = (uint64_t)i * 1000ULL;
+        ctx->state->window_bitmap = (uint64_t)i ^ 0xAAAAAAAAAAAAAAAAULL;
+        starsec_seqlock_write_end(&ctx->state->lock);
+        ctx->writes_done++;
+    }
+    return 0;
+}
+
+/**
+ * @brief Thread worker continuously attempting lockless Seqlock reads and asserting multi-field untorn consistency.
+ * @param arg Pointer to seqlock_reader_ctx_t context.
+ * @return Thread exit code.
+ */
+static STARSEC_THREAD_RET STARSEC_THREAD_CALL seqlock_reader_func(void *arg) {
+    seqlock_reader_ctx_t *ctx = (seqlock_reader_ctx_t *)arg;
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+
+    starsec_replay_snapshot_t snap;
+    while (__atomic_load_n(ctx->stop, __ATOMIC_ACQUIRE) == 0U) {
+        if (starsec_seqlock_read_try(ctx->state, &snap)) {
+            ctx->reads_done++;
+            if (snap.session_id > 0) {
+                if (snap.window_base_seq != (uint64_t)snap.session_id * 1000ULL ||
+                    snap.window_bitmap != ((uint64_t)snap.session_id ^ 0xAAAAAAAAAAAAAAAAULL)) {
+                    ctx->torn_reads++;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+/**
  * @brief Macro for asserting test conditions and logging step results.
  */
 #define STARSEC_ASSERT(cond, msg) \
@@ -1071,7 +1148,7 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
     STARSEC_ASSERT(successes == 1, "TC-CONCURRENT-RACE-01: Exactly one thread must succeed on identical sequence");
     STARSEC_ASSERT(conflicts == (SMP_THREAD_COUNT - 1), "TC-CONCURRENT-RACE-01: 7 threads must detect duplicate conflict");
     STARSEC_ASSERT(smp_state.window_base_seq == 500, "TC-CONCURRENT-RACE-01: Base sequence mismatch after race");
-    STARSEC_ASSERT(smp_state.lock == 0, "TC-CONCURRENT-RACE-01: Spinlock remained locked after thread execution");
+    STARSEC_ASSERT((smp_state.lock & 1U) == 0U, "TC-CONCURRENT-RACE-01: Spinlock remained locked after thread execution");
 
     successes = 0;
     conflicts = 0;
@@ -1110,7 +1187,7 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
                    "TC-CONCURRENT-RACE-01: All 56 unique sequences within window must be committed without loss");
     STARSEC_ASSERT(conflicts == 0, "TC-CONCURRENT-RACE-01: No conflicts expected on disjoint sequence sets");
     STARSEC_ASSERT(smp_state.window_base_seq == 556, "TC-CONCURRENT-RACE-01: Final base sequence should be 556");
-    STARSEC_ASSERT(smp_state.lock == 0, "TC-CONCURRENT-RACE-01: Spinlock left held after parallel commit batch");
+    STARSEC_ASSERT((smp_state.lock & 1U) == 0U, "TC-CONCURRENT-RACE-01: Spinlock left held after parallel commit batch");
 
     bool dup_check = xdp_commit_replay_window_atomic(&smp_state, 1, 520);
     STARSEC_ASSERT(dup_check == false, "TC-CONCURRENT-RACE-01: Replayed in-window sequence 520 was not rejected");
@@ -1607,6 +1684,109 @@ static bool test_exact_memory_layout_conformance_triad(void) {
 }
 
 /**
+ * @brief Tests Seqlock non-blocking linearizability and untorn multi-field read consistency.
+ *
+ * Spawns concurrent writer threads continuously updating multi-field replay state under
+ * the Seqlock write protocol and concurrent reader threads continuously executing lockless
+ * Seqlock reads, verifying zero torn reads across fields and testing negative edge conditions.
+ *
+ * @return true if Seqlock concurrency triad passes, false otherwise.
+ */
+static bool test_seqlock_atomic_untorn_concurrency_triad(void) {
+    printf("[SUITE 15] Seqlock Atomic Untorn Multi-Field Concurrency Triad\n");
+
+    isl_anti_replay_state_t seqlock_state;
+    memset(&seqlock_state, 0, sizeof(seqlock_state));
+
+    starsec_replay_snapshot_t null_snap;
+    STARSEC_ASSERT(starsec_seqlock_read_try(NULL, &null_snap) == false,
+                   "TC-SEQLOCK-NEG-01: NULL state was not rejected");
+    STARSEC_ASSERT(starsec_seqlock_read_try(&seqlock_state, NULL) == false,
+                   "TC-SEQLOCK-NEG-02: NULL snapshot was not rejected");
+
+    seqlock_state.lock = 1U;
+    STARSEC_ASSERT(starsec_seqlock_read_try(&seqlock_state, &null_snap) == false,
+                   "TC-SEQLOCK-NEG-03: Odd lock generation did not reject read attempt");
+    seqlock_state.lock = 0U;
+
+    volatile uint32_t gate = 0;
+    volatile uint32_t stop = 0;
+
+    seqlock_writer_ctx_t writer_ctx1 = {
+        .state = &seqlock_state,
+        .gate = &gate,
+        .stop = &stop,
+        .writes_done = 0
+    };
+    seqlock_writer_ctx_t writer_ctx2 = {
+        .state = &seqlock_state,
+        .gate = &gate,
+        .stop = &stop,
+        .writes_done = 0
+    };
+    seqlock_reader_ctx_t reader_ctx1 = {
+        .state = &seqlock_state,
+        .gate = &gate,
+        .stop = &stop,
+        .reads_done = 0,
+        .torn_reads = 0
+    };
+    seqlock_reader_ctx_t reader_ctx2 = {
+        .state = &seqlock_state,
+        .gate = &gate,
+        .stop = &stop,
+        .reads_done = 0,
+        .torn_reads = 0
+    };
+
+    starsec_thread_t threads[4];
+#if defined(_WIN32)
+    threads[0] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)seqlock_writer_func, &writer_ctx1, 0, NULL);
+    threads[1] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)seqlock_writer_func, &writer_ctx2, 0, NULL);
+    threads[2] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)seqlock_reader_func, &reader_ctx1, 0, NULL);
+    threads[3] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)seqlock_reader_func, &reader_ctx2, 0, NULL);
+    STARSEC_ASSERT(threads[0] != NULL && threads[1] != NULL && threads[2] != NULL && threads[3] != NULL,
+                   "TC-SEQLOCK-CONCUR-01: CreateThread failed");
+#else
+    pthread_create(&threads[0], NULL, seqlock_writer_func, &writer_ctx1);
+    pthread_create(&threads[1], NULL, seqlock_writer_func, &writer_ctx2);
+    pthread_create(&threads[2], NULL, seqlock_reader_func, &reader_ctx1);
+    pthread_create(&threads[3], NULL, seqlock_reader_func, &reader_ctx2);
+#endif
+
+    __atomic_store_n(&gate, 1U, __ATOMIC_RELEASE);
+
+#if defined(_WIN32)
+    WaitForSingleObject(threads[0], INFINITE);
+    WaitForSingleObject(threads[1], INFINITE);
+    __atomic_store_n(&stop, 1U, __ATOMIC_RELEASE);
+    WaitForSingleObject(threads[2], INFINITE);
+    WaitForSingleObject(threads[3], INFINITE);
+    for (int i = 0; i < 4; i++) {
+        CloseHandle(threads[i]);
+    }
+#else
+    pthread_join(threads[0], NULL);
+    pthread_join(threads[1], NULL);
+    __atomic_store_n(&stop, 1U, __ATOMIC_RELEASE);
+    pthread_join(threads[2], NULL);
+    pthread_join(threads[3], NULL);
+#endif
+
+    STARSEC_ASSERT(reader_ctx1.torn_reads == 0,
+                   "TC-SEQLOCK-CONCUR-02: Reader 1 observed torn multi-field state!");
+    STARSEC_ASSERT(reader_ctx2.torn_reads == 0,
+                   "TC-SEQLOCK-CONCUR-02: Reader 2 observed torn multi-field state!");
+    STARSEC_ASSERT(reader_ctx1.reads_done > 0 && reader_ctx2.reads_done > 0,
+                   "TC-SEQLOCK-CONCUR-03: Lockless readers did not capture state");
+    STARSEC_ASSERT(writer_ctx1.writes_done > 0 && writer_ctx2.writes_done > 0,
+                   "TC-SEQLOCK-CONCUR-04: Writers did not complete Seqlock updates");
+
+    printf("  [PASS] Seqlock Atomic Untorn Multi-Field Concurrency Triad Successful (0 torn reads).\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -1631,10 +1811,11 @@ int main(void) {
     all_passed &= test_shared_bpf_map_concurrency_contention_triad();
     all_passed &= test_systematic_failure_path_injection_triad();
     all_passed &= test_exact_memory_layout_conformance_triad();
+    all_passed &= test_seqlock_atomic_untorn_concurrency_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {
-        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (14/14 Suites Passed - 100%% Coverage)\n");
+        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (15/15 Suites Passed - 100%% Coverage)\n");
         printf("=================================================================\n");
         return 0;
     } else {

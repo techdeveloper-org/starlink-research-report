@@ -89,25 +89,50 @@ _Static_assert(offsetof(isl_anti_replay_state_t, reserved_padding) == 24, "reser
 #endif
 
 /**
- * @brief Acquires the cacheline-embedded atomic spinlock using acquire memory ordering.
+ * @brief Acquires the cacheline-embedded atomic spinlock and advances Seqlock counter to odd.
  * @param lock Pointer to 32-bit atomic lock word.
  */
 static inline void starsec_spin_lock(volatile uint32_t *lock) {
-    while (__atomic_exchange_n(lock, 1U, __ATOMIC_ACQUIRE) != 0U) {
-        #if defined(__x86_64__) || defined(_M_X64)
-        __builtin_ia32_pause();
-        #elif defined(__aarch64__)
-        __asm__ __volatile__("yield");
-        #endif
+    uint32_t expected = __atomic_load_n(lock, __ATOMIC_RELAXED);
+    for (;;) {
+        if ((expected & 1U) != 0U) {
+            #if defined(__x86_64__) || defined(_M_X64)
+            __builtin_ia32_pause();
+            #elif defined(__aarch64__)
+            __asm__ __volatile__("yield");
+            #endif
+            expected = __atomic_load_n(lock, __ATOMIC_RELAXED);
+            continue;
+        }
+        if (__atomic_compare_exchange_n(lock, &expected, expected + 1U, false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
+            break;
+        }
     }
 }
 
 /**
- * @brief Releases the cacheline-embedded atomic spinlock using release memory ordering.
+ * @brief Releases the cacheline-embedded atomic spinlock and advances Seqlock counter to even.
  * @param lock Pointer to 32-bit atomic lock word.
  */
 static inline void starsec_spin_unlock(volatile uint32_t *lock) {
-    __atomic_store_n(lock, 0U, __ATOMIC_RELEASE);
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    __atomic_add_fetch(lock, 1U, __ATOMIC_RELEASE);
+}
+
+/**
+ * @brief Begins a Seqlock write sequence by advancing the generation counter to an odd value.
+ * @param lock Pointer to 32-bit Seqlock sequence generation counter word.
+ */
+static inline void starsec_seqlock_write_begin(volatile uint32_t *lock) {
+    starsec_spin_lock(lock);
+}
+
+/**
+ * @brief Completes a Seqlock write sequence by advancing the generation counter to an even value.
+ * @param lock Pointer to 32-bit Seqlock sequence generation counter word.
+ */
+static inline void starsec_seqlock_write_end(volatile uint32_t *lock) {
+    starsec_spin_unlock(lock);
 }
 
 /**
@@ -347,6 +372,33 @@ typedef struct {
     uint32_t session_id;                 /**< Session identifier */
     uint32_t reserved;                   /**< 32-bit alignment padding */
 } starsec_replay_snapshot_t;
+
+/**
+ * @brief Attempts to read a consistent snapshot from a Seqlock-protected state without blocking.
+ * @param state Pointer to source state protected by Seqlock.
+ * @param out_snapshot Pointer to snapshot buffer receiving untorn state fields.
+ * @return true if snapshot was captured consistently without torn reads, false if write in progress.
+ */
+static inline bool starsec_seqlock_read_try(
+    const isl_anti_replay_state_t *state,
+    starsec_replay_snapshot_t     *out_snapshot
+) {
+    if (state == NULL || out_snapshot == NULL) {
+        return false;
+    }
+    uint32_t seq1 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+    if ((seq1 & 1U) != 0U) {
+        return false;
+    }
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    out_snapshot->window_base_seq = state->window_base_seq;
+    out_snapshot->window_bitmap = state->window_bitmap;
+    out_snapshot->session_id = state->session_id;
+    out_snapshot->reserved = 0;
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    uint32_t seq2 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+    return (seq1 == seq2);
+}
 
 /**
  * @brief In-kernel eBPF BPF map storage abstraction with dual-backend support.

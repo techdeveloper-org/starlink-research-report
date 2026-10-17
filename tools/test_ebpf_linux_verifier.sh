@@ -45,11 +45,28 @@ fi
 
 echo "[INFO] Linux Kernel Version: $(uname -r)"
 
+# Strict Zero-Skip CI Enforcement
+STRICT_MODE="${STRICT_CI_NO_SKIP:-0}"
+if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
+    STRICT_MODE="1"
+fi
+export STRICT_CI_NO_SKIP="${STRICT_MODE}"
+
+if [[ "${STRICT_MODE}" == "1" ]]; then
+    echo "[INFO] STRICT_CI_NO_SKIP is active: zero skips permitted, all kernel tests must execute."
+fi
+
 # Ensure /sys/fs/bpf bpffs is mounted
 if ! mountpoint -q /sys/fs/bpf; then
     echo "[INFO] Mounting BPF virtual filesystem at /sys/fs/bpf..."
     mkdir -p /sys/fs/bpf
-    mount -t bpf bpf /sys/fs/bpf || echo "[WARN] Failed to mount /sys/fs/bpf (may need root privileges)"
+    mount -t bpf bpf /sys/fs/bpf || {
+        if [[ "${STRICT_MODE}" == "1" ]]; then
+            echo "[FATAL] Failed to mount /sys/fs/bpf in strict CI mode!"
+            exit 1
+        fi
+        echo "[WARN] Failed to mount /sys/fs/bpf (may need root privileges)"
+    }
 fi
 
 # Check toolchain prerequisites
@@ -139,9 +156,9 @@ if command -v gcc &>/dev/null; then
         "${REPO_ROOT}/system/src/starsec_chacha20.c" \
         "${REPO_ROOT}/system/src/starsec_poly1305.c" \
         -o "${SHARED_TEST_BIN}"
-    if "${SHARED_TEST_BIN}"; then
+    if "${SHARED_TEST_BIN}" "${BPF_PIN_PATH}" "${BPF_MAP_DIR}"; then
         SHARED_TEST_STATUS="PASS"
-        echo "  -> [PASS] C Shared BPF Map Integration Harness verified byte-for-byte in-kernel fidelity."
+        echo "  -> [PASS] C Shared BPF Map Integration Harness verified byte-for-byte in-kernel fidelity & end-to-end XDP drops."
     else
         SHARED_TEST_STATUS="FAIL"
         echo "  -> [FAIL] C Shared BPF Map Integration Harness failed."
@@ -176,6 +193,8 @@ cat <<EOF > "${REPORT_OUTPUT}"
   "maps_pinned_successfully": ${MAPS_PINNED},
   "isl_replay_filter_map_pinned": ${REPLAY_MAP_EXISTS},
   "shared_map_integration_status": "${SHARED_TEST_STATUS}",
+  "e2e_loaded_xdp_test": "${SHARED_TEST_STATUS}",
+  "strict_ci_no_skip": "${STRICT_MODE}",
   "log_file": "${LOG_OUTPUT}"
 }
 EOF

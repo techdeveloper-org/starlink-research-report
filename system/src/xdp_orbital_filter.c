@@ -83,6 +83,23 @@ void xdp_replay_take_snapshot(
         return;
     }
 
+    for (int retry = 0; retry < 5; retry++) {
+        uint32_t seq1 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+        if ((seq1 & 1U) != 0U) {
+            continue;
+        }
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        snapshot->window_base_seq = state->window_base_seq;
+        snapshot->window_bitmap = state->window_bitmap;
+        snapshot->session_id = state->session_id;
+        snapshot->reserved = 0;
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        uint32_t seq2 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+        if (seq1 == seq2) {
+            return;
+        }
+    }
+
     starsec_spin_lock(&state->lock);
     snapshot->window_base_seq = state->window_base_seq;
     snapshot->window_bitmap = state->window_bitmap;

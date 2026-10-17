@@ -242,17 +242,45 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
     }
 
     isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id);
-    if (replay_state != NULL && (replay_state->window_base_seq != 0 || replay_state->window_bitmap != 0 || replay_state->session_id != 0)) {
-        if (hdr->session_id < replay_state->session_id) {
-            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
-            return XDP_DROP;
+    if (replay_state != NULL) {
+        uint32_t snap_session_id = 0;
+        uint64_t snap_base_seq = 0;
+        uint64_t snap_bitmap = 0;
+        bool state_consistent = false;
+
+        uint32_t seq1 = replay_state->lock;
+        if ((seq1 & 1U) == 0U) {
+            snap_session_id = replay_state->session_id;
+            snap_base_seq = replay_state->window_base_seq;
+            snap_bitmap = replay_state->window_bitmap;
+            if (seq1 == replay_state->lock) {
+                state_consistent = true;
+            }
         }
-        if (hdr->session_id == replay_state->session_id) {
-            if (hdr->sequence_number <= replay_state->window_base_seq) {
-                uint64_t diff = replay_state->window_base_seq - hdr->sequence_number;
-                if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) {
-                    starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
-                    return XDP_DROP;
+        if (!state_consistent) {
+            seq1 = replay_state->lock;
+            if ((seq1 & 1U) == 0U) {
+                snap_session_id = replay_state->session_id;
+                snap_base_seq = replay_state->window_base_seq;
+                snap_bitmap = replay_state->window_bitmap;
+                if (seq1 == replay_state->lock) {
+                    state_consistent = true;
+                }
+            }
+        }
+
+        if (state_consistent && (snap_base_seq != 0 || snap_bitmap != 0 || snap_session_id != 0)) {
+            if (hdr->session_id < snap_session_id) {
+                starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
+                return XDP_DROP;
+            }
+            if (hdr->session_id == snap_session_id) {
+                if (hdr->sequence_number <= snap_base_seq) {
+                    uint64_t diff = snap_base_seq - hdr->sequence_number;
+                    if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (snap_bitmap & (1ULL << diff)) != 0) {
+                        starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_SEQ);
+                        return XDP_DROP;
+                    }
                 }
             }
         }

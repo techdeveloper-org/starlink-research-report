@@ -1,12 +1,12 @@
 libbpf: loading object from /mnt/c/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/tools/xdp_isl_kern.o
-libbpf: elf: section(3) xdp, size 1752, link 0, flags 6, type=1
-libbpf: sec 'xdp': found program 'starsec_isl_xdp_filter' at insn offset 0 (0 bytes), code size 219 insns (1752 bytes)
+libbpf: elf: section(3) xdp, size 1760, link 0, flags 6, type=1
+libbpf: sec 'xdp': found program 'starsec_isl_xdp_filter' at insn offset 0 (0 bytes), code size 220 insns (1760 bytes)
 libbpf: elf: section(4) .relxdp, size 208, link 26, flags 40, type=9
 libbpf: elf: section(5) .maps, size 128, link 0, flags 3, type=1
 libbpf: elf: section(6) license, size 4, link 0, flags 3, type=1
 libbpf: license of /mnt/c/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/tools/xdp_isl_kern.o is GPL
-libbpf: elf: section(16) .BTF, size 3681, link 0, flags 0, type=1
-libbpf: elf: section(18) .BTF.ext, size 1152, link 0, flags 0, type=1
+libbpf: elf: section(16) .BTF, size 3873, link 0, flags 0, type=1
+libbpf: elf: section(18) .BTF.ext, size 1120, link 0, flags 0, type=1
 libbpf: elf: section(26) .symtab, size 408, link 1, flags 0, type=2
 libbpf: looking for externs among 17 symbols...
 libbpf: collected 0 externs total
@@ -51,12 +51,12 @@ libbpf: sec '.relxdp': relo #8: insn #131 against 'isl_telemetry_map'
 libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #131
 libbpf: sec '.relxdp': relo #9: insn #136 against 'isl_replay_filter_map'
 libbpf: prog 'starsec_isl_xdp_filter': found map 2 (isl_replay_filter_map, sec 5, off 64) for insn #136
-libbpf: sec '.relxdp': relo #10: insn #163 against 'isl_telemetry_map'
-libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #163
-libbpf: sec '.relxdp': relo #11: insn #202 against 'isl_telemetry_map'
-libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #202
-libbpf: sec '.relxdp': relo #12: insn #211 against 'isl_telemetry_map'
-libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #211
+libbpf: sec '.relxdp': relo #10: insn #165 against 'isl_telemetry_map'
+libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #165
+libbpf: sec '.relxdp': relo #11: insn #203 against 'isl_telemetry_map'
+libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #203
+libbpf: sec '.relxdp': relo #12: insn #212 against 'isl_telemetry_map'
+libbpf: prog 'starsec_isl_xdp_filter': found map 3 (isl_telemetry_map, sec 5, off 96) for insn #212
 libbpf: object 'xdp_isl_kern': failed (-95) to create BPF token from '/sys/fs/bpf', skipping optional step...
 libbpf: map 'time_sync_map': created successfully, fd=4
 libbpf: map 'authorized_satellites_map': created successfully, fd=5
@@ -74,7 +74,7 @@ Live regs before insn:
       6: .1........ (63) *(u32 *)(r10 -4) = r1
       7: .......... (bf) r2 = r10
       8: ..2....... (07) r2 += -4
-      9: ..2....... (18) r1 = 0xffff8c31873d5800
+      9: ..2....... (18) r1 = 0xffff88ba8739ac00
      11: .12....... (85) call bpf_map_lookup_elem#1
      12: 0......... (15) if r0 == 0x0 goto pc+56
      13: 0......... (05) goto pc+53
@@ -93,7 +93,7 @@ Live regs before insn:
      26: .1........ (63) *(u32 *)(r10 -4) = r1
      27: .......... (bf) r2 = r10
      28: ..2....... (07) r2 += -4
-     29: ..2....... (18) r1 = 0xffff8c31873d5800
+     29: ..2....... (18) r1 = 0xffff88ba8739ac00
      31: .12....... (85) call bpf_map_lookup_elem#1
      32: 0......... (15) if r0 == 0x0 goto pc+36
      33: 0......... (05) goto pc+33
@@ -107,7 +107,7 @@ Live regs before insn:
      41: .1........ (63) *(u32 *)(r10 -4) = r1
      42: .......... (bf) r2 = r10
      43: ..2....... (07) r2 += -4
-     44: ..2....... (18) r1 = 0xffff8c31873d5800
+     44: ..2....... (18) r1 = 0xffff88ba8739ac00
      46: .12....... (85) call bpf_map_lookup_elem#1
      47: 0......... (15) if r0 == 0x0 goto pc+21
      48: 0......... (05) goto pc+18
@@ -115,7 +115,7 @@ Live regs before insn:
      50: .1.....7.. (63) *(u32 *)(r10 -8) = r1
      51: .......7.. (bf) r2 = r10
      52: ..2....7.. (07) r2 += -8
-     53: ..2....7.. (18) r1 = 0xffff8c318ad33000
+     53: ..2....7.. (18) r1 = 0xffff88ba87dfb400
      55: .12....7.. (85) call bpf_map_lookup_elem#1
      56: 0......7.. (15) if r0 == 0x0 goto pc+2
      57: 0......7.. (79) r1 = *(u64 *)(r0 +0)
@@ -124,7 +124,7 @@ Live regs before insn:
      60: .1........ (63) *(u32 *)(r10 -4) = r1
      61: .......... (bf) r2 = r10
      62: ..2....... (07) r2 += -4
-     63: ..2....... (18) r1 = 0xffff8c31873d5800
+     63: ..2....... (18) r1 = 0xffff88ba8739ac00
      65: .12....... (85) call bpf_map_lookup_elem#1
      66: 0......... (15) if r0 == 0x0 goto pc+2
      67: 0......... (b7) r1 = 1
@@ -161,7 +161,7 @@ Live regs before insn:
      98: .1........ (63) *(u32 *)(r10 -4) = r1
      99: .......... (bf) r2 = r10
     100: ..2....... (07) r2 += -4
-    101: ..2....... (18) r1 = 0xffff8c31873d5800
+    101: ..2....... (18) r1 = 0xffff88ba8739ac00
     103: .12....... (85) call bpf_map_lookup_elem#1
     104: 0......... (15) if r0 == 0x0 goto pc-36
     105: 0......... (05) goto pc-39
@@ -172,13 +172,13 @@ Live regs before insn:
     110: .1........ (63) *(u32 *)(r10 -4) = r1
     111: .......... (bf) r2 = r10
     112: ..2....... (07) r2 += -4
-    113: ..2....... (18) r1 = 0xffff8c31873d5800
+    113: ..2....... (18) r1 = 0xffff88ba8739ac00
     115: .12....... (85) call bpf_map_lookup_elem#1
     116: 0......... (15) if r0 == 0x0 goto pc-48
     117: 0......... (05) goto pc-51
     118: .......7.. (bf) r6 = r7
     119: ......67.. (07) r6 += 6
-    120: ......67.. (18) r1 = 0xffff8c318ad36800
+    120: ......67.. (18) r1 = 0xffff88ba87dfd000
     122: .1....67.. (bf) r2 = r6
     123: .12...67.. (85) call bpf_map_lookup_elem#1
     124: 0.....67.. (15) if r0 == 0x0 goto pc+2
@@ -188,89 +188,90 @@ Live regs before insn:
     128: .1........ (63) *(u32 *)(r10 -4) = r1
     129: .......... (bf) r2 = r10
     130: ..2....... (07) r2 += -4
-    131: ..2....... (18) r1 = 0xffff8c31873d5800
+    131: ..2....... (18) r1 = 0xffff88ba8739ac00
     133: .12....... (85) call bpf_map_lookup_elem#1
     134: 0......... (15) if r0 == 0x0 goto pc-66
     135: 0......... (05) goto pc-69
-    136: ......67.. (18) r1 = 0xffff8c318ad35400
+    136: ......67.. (18) r1 = 0xffff88ba87df9400
     138: .1....67.. (bf) r2 = r6
     139: .12....7.. (85) call bpf_map_lookup_elem#1
-    140: 0......7.. (15) if r0 == 0x0 goto pc+66
-    141: 0......7.. (79) r1 = *(u64 *)(r0 +0)
-    142: 01.....7.. (55) if r1 != 0x0 goto pc+4
-    143: 01.....7.. (79) r2 = *(u64 *)(r0 +8)
-    144: 012....7.. (55) if r2 != 0x0 goto pc+2
-    145: 01.....7.. (61) r2 = *(u32 *)(r0 +16)
-    146: 012....7.. (16) if w2 == 0x0 goto pc+60
-    147: 01.....7.. (71) r3 = *(u8 *)(r7 +11)
-    148: 01.3...7.. (64) w3 <<= 8
-    149: 01.3...7.. (71) r2 = *(u8 *)(r7 +10)
-    150: 0123...7.. (4c) w3 |= w2
-    151: 01.3...7.. (71) r4 = *(u8 *)(r7 +12)
-    152: 01.34..7.. (64) w4 <<= 16
-    153: 01.34..7.. (71) r2 = *(u8 *)(r7 +13)
-    154: 01234..7.. (64) w2 <<= 24
-    155: 01234..7.. (4c) w2 |= w4
-    156: 0123...7.. (4c) w2 |= w3
-    157: 012....7.. (61) r3 = *(u32 *)(r0 +16)
-    158: 0123...7.. (3e) if w2 >= w3 goto pc+9
-    159: .......... (b4) w1 = 7
-    160: .1........ (63) *(u32 *)(r10 -4) = r1
-    161: .......... (bf) r2 = r10
-    162: ..2....... (07) r2 += -4
-    163: ..2....... (18) r1 = 0xffff8c31873d5800
-    165: .12....... (85) call bpf_map_lookup_elem#1
-    166: 0......... (15) if r0 == 0x0 goto pc-98
-    167: 0......... (05) goto pc-101
-    168: 0123...7.. (5e) if w2 != w3 goto pc+38
-    169: 01.....7.. (71) r2 = *(u8 *)(r7 +14)
-    170: 012....7.. (71) r3 = *(u8 *)(r7 +15)
-    171: 0123...7.. (67) r3 <<= 8
-    172: 0123...7.. (4f) r3 |= r2
-    173: 01.3...7.. (71) r4 = *(u8 *)(r7 +16)
-    174: 01.34..7.. (67) r4 <<= 16
-    175: 01.34..7.. (71) r2 = *(u8 *)(r7 +17)
-    176: 01234..7.. (67) r2 <<= 24
-    177: 01234..7.. (4f) r2 |= r4
-    178: 0123...7.. (4f) r2 |= r3
-    179: 012....7.. (71) r4 = *(u8 *)(r7 +19)
-    180: 012.4..7.. (64) w4 <<= 8
-    181: 012.4..7.. (71) r3 = *(u8 *)(r7 +18)
-    182: 01234..7.. (4c) w4 |= w3
-    183: 012.4..7.. (71) r5 = *(u8 *)(r7 +20)
-    184: 012.45.7.. (64) w5 <<= 16
-    185: 012.45.7.. (71) r3 = *(u8 *)(r7 +21)
-    186: 012345.... (64) w3 <<= 24
-    187: 012345.... (4c) w3 |= w5
-    188: 01234..... (4c) w3 |= w4
-    189: 0123...... (67) r3 <<= 32
-    190: 0123...... (4f) r3 |= r2
-    191: 01.3...... (ad) if r1 < r3 goto pc+15
-    192: 01.3...... (1f) r1 -= r3
-    193: 01........ (25) if r1 > 0x3f goto pc+4
-    194: 01........ (79) r2 = *(u64 *)(r0 +8)
-    195: .12....... (7f) r2 >>= r1
-    196: ..2....... (57) r2 &= 1
-    197: ..2....... (15) if r2 == 0x0 goto pc+9
-    198: .......... (b4) w1 = 4
-    199: .1........ (63) *(u32 *)(r10 -4) = r1
-    200: .......... (bf) r2 = r10
-    201: ..2....... (07) r2 += -4
-    202: ..2....... (18) r1 = 0xffff8c31873d5800
-    204: .12....... (85) call bpf_map_lookup_elem#1
-    205: 0......... (15) if r0 == 0x0 goto pc-137
-    206: 0......... (05) goto pc-140
-    207: .......... (b4) w1 = 0
-    208: .1........ (63) *(u32 *)(r10 -4) = r1
-    209: .......... (bf) r2 = r10
-    210: ..2....... (07) r2 += -4
-    211: ..2....... (18) r1 = 0xffff8c31873d5800
-    213: .12....... (85) call bpf_map_lookup_elem#1
-    214: 0......... (15) if r0 == 0x0 goto pc+2
-    215: 0......... (b7) r1 = 1
-    216: 01........ (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)
-    217: .......... (b4) w0 = 2
-    218: 0......... (05) goto pc-149
+    140: 0......7.. (15) if r0 == 0x0 goto pc+67
+    141: 0......7.. (61) r1 = *(u32 *)(r0 +20)
+    142: 01.....7.. (54) w1 &= 1
+    143: 01.....7.. (56) if w1 != 0x0 goto pc+64
+    144: 0......7.. (61) r3 = *(u32 *)(r0 +16)
+    145: 0..3...7.. (79) r1 = *(u64 *)(r0 +8)
+    146: 01.3...7.. (79) r2 = *(u64 *)(r0 +0)
+    147: .123...7.. (55) if r2 != 0x0 goto pc+2
+    148: .123...7.. (55) if r1 != 0x0 goto pc+1
+    149: .123...7.. (16) if w3 == 0x0 goto pc+58
+    150: .123...7.. (71) r5 = *(u8 *)(r7 +11)
+    151: .123.5.7.. (64) w5 <<= 8
+    152: .123.5.7.. (71) r4 = *(u8 *)(r7 +10)
+    153: .12345.7.. (4c) w5 |= w4
+    154: .123.5.7.. (71) r0 = *(u8 *)(r7 +12)
+    155: 0123.5.7.. (64) w0 <<= 16
+    156: 0123.5.7.. (71) r4 = *(u8 *)(r7 +13)
+    157: 012345.7.. (64) w4 <<= 24
+    158: 012345.7.. (4c) w4 |= w0
+    159: .12345.7.. (4c) w4 |= w5
+    160: .1234..7.. (3e) if w4 >= w3 goto pc+9
+    161: .......... (b4) w1 = 7
+    162: .1........ (63) *(u32 *)(r10 -4) = r1
+    163: .......... (bf) r2 = r10
+    164: ..2....... (07) r2 += -4
+    165: ..2....... (18) r1 = 0xffff88ba8739ac00
+    167: .12....... (85) call bpf_map_lookup_elem#1
+    168: 0......... (15) if r0 == 0x0 goto pc-100
+    169: 0......... (05) goto pc-103
+    170: .1234..7.. (5e) if w4 != w3 goto pc+37
+    171: .12....7.. (71) r3 = *(u8 *)(r7 +14)
+    172: .123...7.. (71) r4 = *(u8 *)(r7 +15)
+    173: .1234..7.. (67) r4 <<= 8
+    174: .1234..7.. (4f) r4 |= r3
+    175: .12.4..7.. (71) r5 = *(u8 *)(r7 +16)
+    176: .12.45.7.. (67) r5 <<= 16
+    177: .12.45.7.. (71) r3 = *(u8 *)(r7 +17)
+    178: .12345.7.. (67) r3 <<= 24
+    179: .12345.7.. (4f) r3 |= r5
+    180: .1234..7.. (4f) r3 |= r4
+    181: .123...7.. (71) r5 = *(u8 *)(r7 +19)
+    182: .123.5.7.. (64) w5 <<= 8
+    183: .123.5.7.. (71) r4 = *(u8 *)(r7 +18)
+    184: .12345.7.. (4c) w5 |= w4
+    185: .123.5.7.. (71) r0 = *(u8 *)(r7 +20)
+    186: 0123.5.7.. (64) w0 <<= 16
+    187: 0123.5.7.. (71) r4 = *(u8 *)(r7 +21)
+    188: 012345.... (64) w4 <<= 24
+    189: 012345.... (4c) w4 |= w0
+    190: .12345.... (4c) w4 |= w5
+    191: .1234..... (67) r4 <<= 32
+    192: .1234..... (4f) r4 |= r3
+    193: .12.4..... (ad) if r2 < r4 goto pc+14
+    194: .12.4..... (1f) r2 -= r4
+    195: .12....... (25) if r2 > 0x3f goto pc+3
+    196: .12....... (7f) r1 >>= r2
+    197: .1........ (57) r1 &= 1
+    198: .1........ (15) if r1 == 0x0 goto pc+9
+    199: .......... (b4) w1 = 4
+    200: .1........ (63) *(u32 *)(r10 -4) = r1
+    201: .......... (bf) r2 = r10
+    202: ..2....... (07) r2 += -4
+    203: ..2....... (18) r1 = 0xffff88ba8739ac00
+    205: .12....... (85) call bpf_map_lookup_elem#1
+    206: 0......... (15) if r0 == 0x0 goto pc-138
+    207: 0......... (05) goto pc-141
+    208: .......... (b4) w1 = 0
+    209: .1........ (63) *(u32 *)(r10 -4) = r1
+    210: .......... (bf) r2 = r10
+    211: ..2....... (07) r2 += -4
+    212: ..2....... (18) r1 = 0xffff88ba8739ac00
+    214: .12....... (85) call bpf_map_lookup_elem#1
+    215: 0......... (15) if r0 == 0x0 goto pc+2
+    216: 0......... (b7) r1 = 1
+    217: 01........ (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)
+    218: .......... (b4) w0 = 2
+    219: 0......... (05) goto pc-150
 0: R1=ctx() R10=fp0
 ; void *data_end = (void *)(uint64_t)ctx->data_end; @ xdp_isl_kern.c:198
 0: (61) r2 = *(u32 *)(r1 +4)          ; R1=ctx() R2=pkt_end()
@@ -285,7 +286,7 @@ Live regs before insn:
 7: (bf) r2 = r10                      ; R2=fp0 R10=fp0
 8: (07) r2 += -4                      ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-9: (18) r1 = 0xffff8c31873d5800       ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+9: (18) r1 = 0xffff88ba8739ac00       ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 11: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=1,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 12: (15) if r0 == 0x0 goto pc+56      ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -294,7 +295,7 @@ Live regs before insn:
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 68: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 (0) frame 0 insn 11 +live -8 
 (0) frame 0 insn 4 +live -8 
@@ -305,7 +306,7 @@ from 12 to 69: R0=0 R7=pkt(r=0) R10=fp0 fp-8=mmmm????
 69: R0=0 R7=pkt(r=0) R10=fp0 fp-8=mmmm????
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 4 to 14: R1=pkt(off=48,r=48) R2=pkt_end() R7=pkt(r=48) R10=fp0
@@ -327,7 +328,7 @@ from 4 to 14: R1=pkt(off=48,r=48) R2=pkt_end() R7=pkt(r=48) R10=fp0
 27: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 28: (07) r2 += -4                     ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-29: (18) r1 = 0xffff8c31873d5800      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+29: (18) r1 = 0xffff88ba8739ac00      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 31: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=2,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 32: (15) if r0 == 0x0 goto pc+36      ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -336,7 +337,7 @@ from 4 to 14: R1=pkt(off=48,r=48) R2=pkt_end() R7=pkt(r=48) R10=fp0
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 68: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 (0) frame 0 insn 31 +live -8 
 (0) frame 0 insn 24 +live -8 
@@ -347,7 +348,7 @@ from 32 to 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmm????
 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmm????
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 24 to 34: R1=pkt(off=48,r=48) R2=pkt_end() R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R5=0x53545345 R7=pkt(r=48) R10=fp0
@@ -370,7 +371,7 @@ mark_precise: frame0: regs=r3 stack= before 34: (71) r3 = *(u8 *)(r7 +46)
 42: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 43: (07) r2 += -4                     ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-44: (18) r1 = 0xffff8c31873d5800      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+44: (18) r1 = 0xffff88ba8739ac00      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 46: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=4,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 47: (15) if r0 == 0x0 goto pc+21      ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -379,7 +380,7 @@ mark_precise: frame0: regs=r3 stack= before 34: (71) r3 = *(u8 *)(r7 +46)
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 68: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 (0) frame 0 insn 46 +live -8 
 (0) frame 0 insn 39 +live -8 
@@ -390,7 +391,7 @@ from 47 to 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmm????
 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmm????
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 39 to 49: R1=pkt(id=3,off=48,r=0,smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R2=pkt_end() R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=0x53545345 R7=pkt(r=48) R10=fp0
@@ -402,7 +403,7 @@ from 39 to 49: R1=pkt(id=3,off=48,r=0,smin=smin32=0,smax=umax=smax32=umax32=0xff
 51: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 52: (07) r2 += -8                     ; R2=fp-8
 ; starsec_time_sync_state_t *time_ref = (starsec_time_sync_state_t *)bpf_map_lookup_elem(&time_sync_map, &time_key); @ xdp_isl_kern.c:218
-53: (18) r1 = 0xffff8c318ad33000      ; R1=map_ptr(map=time_sync_map,ks=4,vs=24)
+53: (18) r1 = 0xffff88ba87dfb400      ; R1=map_ptr(map=time_sync_map,ks=4,vs=24)
 55: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=5,map=time_sync_map,ks=4,vs=24)
 ; if (time_ref == NULL || time_ref->local_epoch_ms == 0) { @ xdp_isl_kern.c:219
 56: (15) if r0 == 0x0 goto pc+2       ; R0=map_value(map=time_sync_map,ks=4,vs=24)
@@ -413,7 +414,7 @@ from 39 to 49: R1=pkt(id=3,off=48,r=0,smin=smin32=0,smax=umax=smax32=umax32=0xff
 61: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 62: (07) r2 += -4                     ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-63: (18) r1 = 0xffff8c31873d5800      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+63: (18) r1 = 0xffff88ba8739ac00      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 65: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=6,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 66: (15) if r0 == 0x0 goto pc+2       ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -421,7 +422,7 @@ from 39 to 49: R1=pkt(id=3,off=48,r=0,smin=smin32=0,smax=umax=smax32=umax32=0xff
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 68: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 (0) frame 0 insn 65 +live -8 
 (0) frame 0 insn 59 +live -8 
@@ -435,7 +436,7 @@ from 66 to 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 58 to 71: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar(umin=1) R7=pkt(r=48) R10=fp0 fp-8=????0
@@ -474,7 +475,7 @@ from 58 to 71: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar(umin=1) R7=p
 99: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 100: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-101: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+101: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 103: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=7,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 104: (15) if r0 == 0x0 goto pc-36     ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -490,7 +491,7 @@ from 104 to 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 69: R0=0 R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 96 to 118: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar() R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar() R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R7=pkt(r=48) R10=fp0 fp-8=????0
@@ -498,7 +499,7 @@ from 96 to 118: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar() R2=scalar
 ; uint32_t *auth_status = (uint32_t *)bpf_map_lookup_elem(&authorized_satellites_map, &hdr->src_satellite_id); @ xdp_isl_kern.c:238
 118: (bf) r6 = r7                     ; R6=pkt(r=48) R7=pkt(r=48)
 119: (07) r6 += 6                     ; R6=pkt(off=6,r=48)
-120: (18) r1 = 0xffff8c318ad36800     ; R1=map_ptr(map=authorized_sate,ks=2,vs=4)
+120: (18) r1 = 0xffff88ba87dfd000     ; R1=map_ptr(map=authorized_sate,ks=2,vs=4)
 122: (bf) r2 = r6                     ; R2=pkt(off=6,r=48) R6=pkt(off=6,r=48)
 123: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=8,map=authorized_sate,ks=2,vs=4)
 ; if (auth_status == NULL || *auth_status == 0) { @ xdp_isl_kern.c:239
@@ -510,7 +511,7 @@ from 96 to 118: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar() R2=scalar
 129: (bf) r2 = r10                    ; R2=fp0 R10=fp0
 130: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-131: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+131: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 133: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=9,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 134: (15) if r0 == 0x0 goto pc-66     ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
@@ -529,352 +530,484 @@ from 134 to 69: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 69: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
 from 126 to 136: R0=map_value(map=authorized_sate,ks=2,vs=4) R1=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 136: R0=map_value(map=authorized_sate,ks=2,vs=4) R1=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 ; isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id); @ xdp_isl_kern.c:244
-136: (18) r1 = 0xffff8c318ad35400     ; R1=map_ptr(map=isl_replay_filt,ks=2,vs=64)
+136: (18) r1 = 0xffff88ba87df9400     ; R1=map_ptr(map=isl_replay_filt,ks=2,vs=64)
 138: (bf) r2 = r6                     ; R2=pkt(off=6,r=48) R6=pkt(off=6,r=48)
 139: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=10,map=isl_replay_filt,ks=2,vs=64)
-; if (replay_state != NULL && (replay_state->window_base_seq != 0 || replay_state->window_bitmap != 0 || replay_state->session_id != 0)) { @ xdp_isl_kern.c:245
-140: (15) if r0 == 0x0 goto pc+66     ; R0=map_value(map=isl_replay_filt,ks=2,vs=64)
-141: (79) r1 = *(u64 *)(r0 +0)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar()
-142: (55) if r1 != 0x0 goto pc+4      ; R1=0
-143: (79) r2 = *(u64 *)(r0 +8)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R2=scalar()
-144: (55) if r2 != 0x0 goto pc+2      ; R2=0
-145: (61) r2 = *(u32 *)(r0 +16)       ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-146: (16) if w2 == 0x0 goto pc+60     ; R2=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-; if (hdr->session_id < replay_state->session_id) { @ xdp_isl_kern.c:246
-147: (71) r3 = *(u8 *)(r7 +11)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-148: (64) w3 <<= 8                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-149: (71) r2 = *(u8 *)(r7 +10)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-150: (4c) w3 |= w2                    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-151: (71) r4 = *(u8 *)(r7 +12)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-152: (64) w4 <<= 16                   ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-153: (71) r2 = *(u8 *)(r7 +13)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-154: (64) w2 <<= 24                   ; R2=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-155: (4c) w2 |= w4                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-156: (4c) w2 |= w3                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-157: (61) r3 = *(u32 *)(r0 +16)       ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-158: (3e) if w2 >= w3 goto pc+9       ; R2=scalar(smin=0,smax=umax=umax32=0xfffffffe,var_off=(0x0; 0xffffffff)) R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-159: (b4) w1 = 7                      ; R1=7
-160: (63) *(u32 *)(r10 -4) = r1       ; R1=7 R10=fp0 fp-8=mmmmmmmm
-161: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-162: (07) r2 += -4                    ; R2=fp-4
+; if (replay_state != NULL) { @ xdp_isl_kern.c:245
+140: (15) if r0 == 0x0 goto pc+67     ; R0=map_value(map=isl_replay_filt,ks=2,vs=64)
+; uint32_t seq1 = replay_state->lock; @ xdp_isl_kern.c:251
+141: (61) r1 = *(u32 *)(r0 +20)       ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; if ((seq1 & 1U) == 0U) { @ xdp_isl_kern.c:252
+142: (54) w1 &= 1                     ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=1,var_off=(0x0; 0x1))
+143: (56) if w1 != 0x0 goto pc+64     ; R1=0
+; snap_session_id = replay_state->session_id; @ xdp_isl_kern.c:253
+144: (61) r3 = *(u32 *)(r0 +16)       ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; snap_bitmap = replay_state->window_bitmap; @ xdp_isl_kern.c:255
+145: (79) r1 = *(u64 *)(r0 +8)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar()
+; snap_base_seq = replay_state->window_base_seq; @ xdp_isl_kern.c:254
+146: (79) r2 = *(u64 *)(r0 +0)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R2=scalar()
+; if (state_consistent && (snap_base_seq != 0 || snap_bitmap != 0 || snap_session_id != 0)) { @ xdp_isl_kern.c:272
+147: (55) if r2 != 0x0 goto pc+2      ; R2=0
+148: (55) if r1 != 0x0 goto pc+1      ; R1=0
+149: (16) if w3 == 0x0 goto pc+58     ; R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; if (hdr->session_id < snap_session_id) { @ xdp_isl_kern.c:273
+150: (71) r5 = *(u8 *)(r7 +11)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+151: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+152: (71) r4 = *(u8 *)(r7 +10)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+153: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+154: (71) r0 = *(u8 *)(r7 +12)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+155: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+156: (71) r4 = *(u8 *)(r7 +13)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+157: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+158: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+159: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+160: (3e) if w4 >= w3 goto pc+9       ; R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=umax32=0xfffffffe,var_off=(0x0; 0xffffffff))
+161: (b4) w1 = 7                      ; R1=7
+162: (63) *(u32 *)(r10 -4) = r1       ; R1=7 R10=fp0 fp-8=mmmmmmmm
+163: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+164: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-163: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-165: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=11,map=isl_telemetry_m,ks=4,vs=8)
+165: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+167: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=11,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-166: (15) if r0 == 0x0 goto pc-98     ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
-167: (05) goto pc-101
+168: (15) if r0 == 0x0 goto pc-100    ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
+169: (05) goto pc-103
 67: safe
-(0) frame 0 insn 165 +live -8 
-(0) frame 0 insn 158 +live -8 
+(0) frame 0 insn 167 +live -8 
+(0) frame 0 insn 160 +live -8 
+(0) frame 0 insn 150 +live -8 
+(0) frame 0 insn 149 +live -8 
+(0) frame 0 insn 148 +live -8 
 (0) frame 0 insn 147 +live -8 
-(0) frame 0 insn 146 +live -8 
-(0) frame 0 insn 144 +live -8 
-(0) frame 0 insn 142 +live -8 
+(0) frame 0 insn 143 +live -8 
 (0) frame 0 insn 140 +live -8 
 (0) frame 0 insn 136 +live -8 
 (0) live stack update done in 2 iterations
 
-from 166 to 69: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
+from 168 to 69: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 69: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=mmmmmmmm
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
 69: (b4) w0 = 1                       ; R0=1
-; } @ xdp_isl_kern.c:263
+; } @ xdp_isl_kern.c:291
 70: (95) exit
 
-from 158 to 168: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-168: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-; if (hdr->session_id == replay_state->session_id) { @ xdp_isl_kern.c:250
-168: (5e) if w2 != w3 goto pc+38      ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-; if (hdr->sequence_number <= replay_state->window_base_seq) { @ xdp_isl_kern.c:251
-169: (71) r2 = *(u8 *)(r7 +14)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-170: (71) r3 = *(u8 *)(r7 +15)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-171: (67) r3 <<= 8                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-172: (4f) r3 |= r2                    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-173: (71) r4 = *(u8 *)(r7 +16)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-174: (67) r4 <<= 16                   ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-175: (71) r2 = *(u8 *)(r7 +17)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-176: (67) r2 <<= 24                   ; R2=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-177: (4f) r2 |= r4                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-178: (4f) r2 |= r3                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-179: (71) r4 = *(u8 *)(r7 +19)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-180: (64) w4 <<= 8                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-181: (71) r3 = *(u8 *)(r7 +18)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-182: (4c) w4 |= w3                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-183: (71) r5 = *(u8 *)(r7 +20)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-184: (64) w5 <<= 16                   ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-185: (71) r3 = *(u8 *)(r7 +21)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-186: (64) w3 <<= 24                   ; R3=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-187: (4c) w3 |= w5                    ; R3=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-188: (4c) w3 |= w4                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-189: (67) r3 <<= 32                   ; R3=scalar(smax=0x7fffffff00000000,umax=0xffffffff00000000,smin32=0,smax32=umax32=0,var_off=(0x0; 0xffffffff00000000))
-190: (4f) r3 |= r2                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar()
-191: (ad) if r1 < r3 goto pc+15       ; R1=0 R3=0
-; uint64_t diff = replay_state->window_base_seq - hdr->sequence_number; @ xdp_isl_kern.c:252
-192: (1f) r1 -= r3                    ; R1=0 R3=0
-; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:253
-193: (25) if r1 > 0x3f goto pc+4
-mark_precise: frame0: last_idx 193 first_idx 191 subseq_idx -1 
-mark_precise: frame0: regs=r1 stack= before 192: (1f) r1 -= r3
-mark_precise: frame0: regs=r1,r3 stack= before 191: (ad) if r1 < r3 goto pc+15
-mark_precise: frame0: parent state regs=r1,r3 stack=:  R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=P0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=Pscalar() R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-mark_precise: frame0: last_idx 190 first_idx 158 subseq_idx 191 
-mark_precise: frame0: regs=r1,r3 stack= before 190: (4f) r3 |= r2
-mark_precise: frame0: regs=r1,r2,r3 stack= before 189: (67) r3 <<= 32
-mark_precise: frame0: regs=r1,r2,r3 stack= before 188: (4c) w3 |= w4
-mark_precise: frame0: regs=r1,r2,r3,r4 stack= before 187: (4c) w3 |= w5
-mark_precise: frame0: regs=r1,r2,r3,r4,r5 stack= before 186: (64) w3 <<= 24
-mark_precise: frame0: regs=r1,r2,r3,r4,r5 stack= before 185: (71) r3 = *(u8 *)(r7 +21)
-mark_precise: frame0: regs=r1,r2,r4,r5 stack= before 184: (64) w5 <<= 16
-mark_precise: frame0: regs=r1,r2,r4,r5 stack= before 183: (71) r5 = *(u8 *)(r7 +20)
-mark_precise: frame0: regs=r1,r2,r4 stack= before 182: (4c) w4 |= w3
-mark_precise: frame0: regs=r1,r2,r3,r4 stack= before 181: (71) r3 = *(u8 *)(r7 +18)
-mark_precise: frame0: regs=r1,r2,r4 stack= before 180: (64) w4 <<= 8
-mark_precise: frame0: regs=r1,r2,r4 stack= before 179: (71) r4 = *(u8 *)(r7 +19)
-mark_precise: frame0: regs=r1,r2 stack= before 178: (4f) r2 |= r3
-mark_precise: frame0: regs=r1,r2,r3 stack= before 177: (4f) r2 |= r4
-mark_precise: frame0: regs=r1,r2,r3,r4 stack= before 176: (67) r2 <<= 24
-mark_precise: frame0: regs=r1,r2,r3,r4 stack= before 175: (71) r2 = *(u8 *)(r7 +17)
-mark_precise: frame0: regs=r1,r3,r4 stack= before 174: (67) r4 <<= 16
-mark_precise: frame0: regs=r1,r3,r4 stack= before 173: (71) r4 = *(u8 *)(r7 +16)
-mark_precise: frame0: regs=r1,r3 stack= before 172: (4f) r3 |= r2
-mark_precise: frame0: regs=r1,r2,r3 stack= before 171: (67) r3 <<= 8
-mark_precise: frame0: regs=r1,r2,r3 stack= before 170: (71) r3 = *(u8 *)(r7 +15)
-mark_precise: frame0: regs=r1,r2 stack= before 169: (71) r2 = *(u8 *)(r7 +14)
-mark_precise: frame0: regs=r1 stack= before 168: (5e) if w2 != w3 goto pc+38
-mark_precise: frame0: regs=r1 stack= before 158: (3e) if w2 >= w3 goto pc+9
-mark_precise: frame0: parent state regs=r1 stack=:  R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=P0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-mark_precise: frame0: last_idx 157 first_idx 140 subseq_idx 158 
-mark_precise: frame0: regs=r1 stack= before 157: (61) r3 = *(u32 *)(r0 +16)
-mark_precise: frame0: regs=r1 stack= before 156: (4c) w2 |= w3
-mark_precise: frame0: regs=r1 stack= before 155: (4c) w2 |= w4
-mark_precise: frame0: regs=r1 stack= before 154: (64) w2 <<= 24
-mark_precise: frame0: regs=r1 stack= before 153: (71) r2 = *(u8 *)(r7 +13)
-mark_precise: frame0: regs=r1 stack= before 152: (64) w4 <<= 16
-mark_precise: frame0: regs=r1 stack= before 151: (71) r4 = *(u8 *)(r7 +12)
-mark_precise: frame0: regs=r1 stack= before 150: (4c) w3 |= w2
-mark_precise: frame0: regs=r1 stack= before 149: (71) r2 = *(u8 *)(r7 +10)
-mark_precise: frame0: regs=r1 stack= before 148: (64) w3 <<= 8
-mark_precise: frame0: regs=r1 stack= before 147: (71) r3 = *(u8 *)(r7 +11)
-mark_precise: frame0: regs=r1 stack= before 146: (16) if w2 == 0x0 goto pc+60
-mark_precise: frame0: regs=r1 stack= before 145: (61) r2 = *(u32 *)(r0 +16)
-mark_precise: frame0: regs=r1 stack= before 144: (55) if r2 != 0x0 goto pc+2
-mark_precise: frame0: regs=r1 stack= before 143: (79) r2 = *(u64 *)(r0 +8)
-mark_precise: frame0: regs=r1 stack= before 142: (55) if r1 != 0x0 goto pc+4
-mark_precise: frame0: regs=r1 stack= before 141: (79) r1 = *(u64 *)(r0 +0)
-193: R1=0
-194: (79) r2 = *(u64 *)(r0 +8)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R2=scalar()
-195: (7f) r2 >>= r1                   ; R1=0 R2=scalar()
-196: (57) r2 &= 1                     ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=1,var_off=(0x0; 0x1))
-197: (15) if r2 == 0x0 goto pc+9      ; R2=1
-198: (b4) w1 = 4                      ; R1=4
-199: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
-200: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-201: (07) r2 += -4                    ; R2=fp-4
-; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-202: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-204: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=12,map=isl_telemetry_m,ks=4,vs=8)
+from 160 to 170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (hdr->session_id == snap_session_id) { @ xdp_isl_kern.c:277
+170: (5e) if w4 != w3 goto pc+37      ; R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; if (hdr->sequence_number <= snap_base_seq) { @ xdp_isl_kern.c:278
+171: (71) r3 = *(u8 *)(r7 +14)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+172: (71) r4 = *(u8 *)(r7 +15)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+173: (67) r4 <<= 8                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+174: (4f) r4 |= r3                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+175: (71) r5 = *(u8 *)(r7 +16)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+176: (67) r5 <<= 16                   ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+177: (71) r3 = *(u8 *)(r7 +17)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+178: (67) r3 <<= 24                   ; R3=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+179: (4f) r3 |= r5                    ; R3=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+180: (4f) r3 |= r4                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+181: (71) r5 = *(u8 *)(r7 +19)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+182: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+183: (71) r4 = *(u8 *)(r7 +18)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+184: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+185: (71) r0 = *(u8 *)(r7 +20)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+186: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+187: (71) r4 = *(u8 *)(r7 +21)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+188: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+189: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+190: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+191: (67) r4 <<= 32                   ; R4=scalar(smax=0x7fffffff00000000,umax=0xffffffff00000000,smin32=0,smax32=umax32=0,var_off=(0x0; 0xffffffff00000000))
+192: (4f) r4 |= r3                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar()
+193: (ad) if r2 < r4 goto pc+14       ; R2=0 R4=0
+; uint64_t diff = snap_base_seq - hdr->sequence_number; @ xdp_isl_kern.c:279
+194: (1f) r2 -= r4                    ; R2=0 R4=0
+; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (snap_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:280
+195: (25) if r2 > 0x3f goto pc+3
+mark_precise: frame0: last_idx 195 first_idx 193 subseq_idx -1 
+mark_precise: frame0: regs=r2 stack= before 194: (1f) r2 -= r4
+mark_precise: frame0: regs=r2,r4 stack= before 193: (ad) if r2 < r4 goto pc+14
+mark_precise: frame0: parent state regs=r2,r4 stack=:  R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=Pscalar() R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 192 first_idx 160 subseq_idx 193 
+mark_precise: frame0: regs=r2,r4 stack= before 192: (4f) r4 |= r3
+mark_precise: frame0: regs=r2,r3,r4 stack= before 191: (67) r4 <<= 32
+mark_precise: frame0: regs=r2,r3,r4 stack= before 190: (4c) w4 |= w5
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 189: (4c) w4 |= w0
+mark_precise: frame0: regs=r0,r2,r3,r4,r5 stack= before 188: (64) w4 <<= 24
+mark_precise: frame0: regs=r0,r2,r3,r4,r5 stack= before 187: (71) r4 = *(u8 *)(r7 +21)
+mark_precise: frame0: regs=r0,r2,r3,r5 stack= before 186: (64) w0 <<= 16
+mark_precise: frame0: regs=r0,r2,r3,r5 stack= before 185: (71) r0 = *(u8 *)(r7 +20)
+mark_precise: frame0: regs=r2,r3,r5 stack= before 184: (4c) w5 |= w4
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 183: (71) r4 = *(u8 *)(r7 +18)
+mark_precise: frame0: regs=r2,r3,r5 stack= before 182: (64) w5 <<= 8
+mark_precise: frame0: regs=r2,r3,r5 stack= before 181: (71) r5 = *(u8 *)(r7 +19)
+mark_precise: frame0: regs=r2,r3 stack= before 180: (4f) r3 |= r4
+mark_precise: frame0: regs=r2,r3,r4 stack= before 179: (4f) r3 |= r5
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 178: (67) r3 <<= 24
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 177: (71) r3 = *(u8 *)(r7 +17)
+mark_precise: frame0: regs=r2,r4,r5 stack= before 176: (67) r5 <<= 16
+mark_precise: frame0: regs=r2,r4,r5 stack= before 175: (71) r5 = *(u8 *)(r7 +16)
+mark_precise: frame0: regs=r2,r4 stack= before 174: (4f) r4 |= r3
+mark_precise: frame0: regs=r2,r3,r4 stack= before 173: (67) r4 <<= 8
+mark_precise: frame0: regs=r2,r3,r4 stack= before 172: (71) r4 = *(u8 *)(r7 +15)
+mark_precise: frame0: regs=r2,r3 stack= before 171: (71) r3 = *(u8 *)(r7 +14)
+mark_precise: frame0: regs=r2 stack= before 170: (5e) if w4 != w3 goto pc+37
+mark_precise: frame0: regs=r2 stack= before 160: (3e) if w4 >= w3 goto pc+9
+mark_precise: frame0: parent state regs=r2 stack=:  R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=P0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 159 first_idx 148 subseq_idx 160 
+mark_precise: frame0: regs=r2 stack= before 159: (4c) w4 |= w5
+mark_precise: frame0: regs=r2 stack= before 158: (4c) w4 |= w0
+mark_precise: frame0: regs=r2 stack= before 157: (64) w4 <<= 24
+mark_precise: frame0: regs=r2 stack= before 156: (71) r4 = *(u8 *)(r7 +13)
+mark_precise: frame0: regs=r2 stack= before 155: (64) w0 <<= 16
+mark_precise: frame0: regs=r2 stack= before 154: (71) r0 = *(u8 *)(r7 +12)
+mark_precise: frame0: regs=r2 stack= before 153: (4c) w5 |= w4
+mark_precise: frame0: regs=r2 stack= before 152: (71) r4 = *(u8 *)(r7 +10)
+mark_precise: frame0: regs=r2 stack= before 151: (64) w5 <<= 8
+mark_precise: frame0: regs=r2 stack= before 150: (71) r5 = *(u8 *)(r7 +11)
+mark_precise: frame0: regs=r2 stack= before 149: (16) if w3 == 0x0 goto pc+58
+mark_precise: frame0: regs=r2 stack= before 148: (55) if r1 != 0x0 goto pc+1
+mark_precise: frame0: parent state regs=r2 stack=:  R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar() R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 147 first_idx 140 subseq_idx 148 
+mark_precise: frame0: regs=r2 stack= before 147: (55) if r2 != 0x0 goto pc+2
+mark_precise: frame0: regs=r2 stack= before 146: (79) r2 = *(u64 *)(r0 +0)
+195: R2=0
+196: (7f) r1 >>= r2                   ; R1=0 R2=0
+197: (57) r1 &= 1                     ; R1=0
+198: (15) if r1 == 0x0 goto pc+9
+mark_precise: frame0: last_idx 198 first_idx 193 subseq_idx -1 
+mark_precise: frame0: regs=r1 stack= before 197: (57) r1 &= 1
+mark_precise: frame0: regs=r1 stack= before 196: (7f) r1 >>= r2
+mark_precise: frame0: regs=r1,r2 stack= before 195: (25) if r2 > 0x3f goto pc+3
+mark_precise: frame0: regs=r1,r2 stack= before 194: (1f) r2 -= r4
+mark_precise: frame0: regs=r1,r2,r4 stack= before 193: (ad) if r2 < r4 goto pc+14
+mark_precise: frame0: parent state regs=r1 stack=:  R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=P0 R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=Pscalar() R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 192 first_idx 160 subseq_idx 193 
+mark_precise: frame0: regs=r1 stack= before 192: (4f) r4 |= r3
+mark_precise: frame0: regs=r1 stack= before 191: (67) r4 <<= 32
+mark_precise: frame0: regs=r1 stack= before 190: (4c) w4 |= w5
+mark_precise: frame0: regs=r1 stack= before 189: (4c) w4 |= w0
+mark_precise: frame0: regs=r1 stack= before 188: (64) w4 <<= 24
+mark_precise: frame0: regs=r1 stack= before 187: (71) r4 = *(u8 *)(r7 +21)
+mark_precise: frame0: regs=r1 stack= before 186: (64) w0 <<= 16
+mark_precise: frame0: regs=r1 stack= before 185: (71) r0 = *(u8 *)(r7 +20)
+mark_precise: frame0: regs=r1 stack= before 184: (4c) w5 |= w4
+mark_precise: frame0: regs=r1 stack= before 183: (71) r4 = *(u8 *)(r7 +18)
+mark_precise: frame0: regs=r1 stack= before 182: (64) w5 <<= 8
+mark_precise: frame0: regs=r1 stack= before 181: (71) r5 = *(u8 *)(r7 +19)
+mark_precise: frame0: regs=r1 stack= before 180: (4f) r3 |= r4
+mark_precise: frame0: regs=r1 stack= before 179: (4f) r3 |= r5
+mark_precise: frame0: regs=r1 stack= before 178: (67) r3 <<= 24
+mark_precise: frame0: regs=r1 stack= before 177: (71) r3 = *(u8 *)(r7 +17)
+mark_precise: frame0: regs=r1 stack= before 176: (67) r5 <<= 16
+mark_precise: frame0: regs=r1 stack= before 175: (71) r5 = *(u8 *)(r7 +16)
+mark_precise: frame0: regs=r1 stack= before 174: (4f) r4 |= r3
+mark_precise: frame0: regs=r1 stack= before 173: (67) r4 <<= 8
+mark_precise: frame0: regs=r1 stack= before 172: (71) r4 = *(u8 *)(r7 +15)
+mark_precise: frame0: regs=r1 stack= before 171: (71) r3 = *(u8 *)(r7 +14)
+mark_precise: frame0: regs=r1 stack= before 170: (5e) if w4 != w3 goto pc+37
+mark_precise: frame0: regs=r1 stack= before 160: (3e) if w4 >= w3 goto pc+9
+mark_precise: frame0: parent state regs=r1 stack=:  R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=P0 R2=P0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 159 first_idx 148 subseq_idx 160 
+mark_precise: frame0: regs=r1 stack= before 159: (4c) w4 |= w5
+mark_precise: frame0: regs=r1 stack= before 158: (4c) w4 |= w0
+mark_precise: frame0: regs=r1 stack= before 157: (64) w4 <<= 24
+mark_precise: frame0: regs=r1 stack= before 156: (71) r4 = *(u8 *)(r7 +13)
+mark_precise: frame0: regs=r1 stack= before 155: (64) w0 <<= 16
+mark_precise: frame0: regs=r1 stack= before 154: (71) r0 = *(u8 *)(r7 +12)
+mark_precise: frame0: regs=r1 stack= before 153: (4c) w5 |= w4
+mark_precise: frame0: regs=r1 stack= before 152: (71) r4 = *(u8 *)(r7 +10)
+mark_precise: frame0: regs=r1 stack= before 151: (64) w5 <<= 8
+mark_precise: frame0: regs=r1 stack= before 150: (71) r5 = *(u8 *)(r7 +11)
+mark_precise: frame0: regs=r1 stack= before 149: (16) if w3 == 0x0 goto pc+58
+mark_precise: frame0: regs=r1 stack= before 148: (55) if r1 != 0x0 goto pc+1
+mark_precise: frame0: parent state regs=r1 stack=:  R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=Pscalar() R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 147 first_idx 140 subseq_idx 148 
+mark_precise: frame0: regs=r1 stack= before 147: (55) if r2 != 0x0 goto pc+2
+mark_precise: frame0: regs=r1 stack= before 146: (79) r2 = *(u64 *)(r0 +0)
+mark_precise: frame0: regs=r1 stack= before 145: (79) r1 = *(u64 *)(r0 +8)
+198: R1=0
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-205: (15) if r0 == 0x0 goto pc-137    ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
-206: (05) goto pc-140
-67: safe
-(0) frame 0 insn 204 +live -8 
-(0) frame 0 insn 198 +live -8 
-(0) frame 0 insn 197 +live -8 
-(0) frame 0 insn 193 +live -8 
-(0) frame 0 insn 191 +live -8 
-(0) frame 0 insn 168 +live -8 
-(0) live stack update done in 2 iterations
-
-from 205 to 69: safe
-
-from 197 to 207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=0 R3=0 R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=0 R3=0 R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-207: (b4) w1 = 0                      ; R1=0
-208: (63) *(u32 *)(r10 -4) = r1
-mark_precise: frame0: last_idx 208 first_idx 191 subseq_idx -1 
-mark_precise: frame0: regs=r1 stack= before 207: (b4) w1 = 0
-209: R1=0 R10=fp0 fp-8=0000mmmm
-209: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-210: (07) r2 += -4                    ; R2=fp-4
+208: (b4) w1 = 0                      ; R1=0
+209: (63) *(u32 *)(r10 -4) = r1
+mark_precise: frame0: last_idx 209 first_idx 193 subseq_idx -1 
+mark_precise: frame0: regs=r1 stack= before 208: (b4) w1 = 0
+210: R1=0 R10=fp0 fp-8=0000mmmm
+210: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+211: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-211: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-213: (85) call bpf_map_lookup_elem#1          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
+212: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+214: (85) call bpf_map_lookup_elem#1          ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-214: (15) if r0 == 0x0 goto pc+2      ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
-215: (b7) r1 = 1                      ; R1=1
+215: (15) if r0 == 0x0 goto pc+2      ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
+216: (b7) r1 = 1                      ; R1=1
 ; __sync_fetch_and_add(val, 1); @ xdp_isl_kern.c:186
-216: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)         ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
-217: (b4) w0 = 2                      ; R0=2
-218: (05) goto pc-149
-; } @ xdp_isl_kern.c:263
+217: (db) r1 = atomic64_fetch_add((u64 *)(r0 +0), r1)         ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8) R1=scalar()
+218: (b4) w0 = 2                      ; R0=2
+219: (05) goto pc-150
+; } @ xdp_isl_kern.c:291
 70: (95) exit
-(0) frame 0 insn 213 +live -8 
-(0) frame 0 insn 207 +live -8 
+(0) frame 0 insn 214 +live -8 
+(0) frame 0 insn 208 +live -8 
+(0) frame 0 insn 198 +live -8 
+(0) frame 0 insn 195 +live -8 
+(0) frame 0 insn 193 +live -8 
+(0) frame 0 insn 170 +live -8 
 (0) live stack update done in 2 iterations
 
-from 191 to 207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(umin=1) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(umin=1) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+from 193 to 208: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(umin=1) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+208: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(umin=1) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-207: (b4) w1 = 0                      ; R1=0
-208: (63) *(u32 *)(r10 -4) = r1
-mark_precise: frame0: last_idx 208 first_idx 191 subseq_idx -1 
-mark_precise: frame0: regs=r1 stack= before 207: (b4) w1 = 0
-209: R1=0 R10=fp0 fp-8=0000mmmm
-209: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-210: (07) r2 += -4                    ; R2=fp-4
+208: (b4) w1 = 0                      ; R1=0
+209: (63) *(u32 *)(r10 -4) = r1
+mark_precise: frame0: last_idx 209 first_idx 193 subseq_idx -1 
+mark_precise: frame0: regs=r1 stack= before 208: (b4) w1 = 0
+210: R1=0 R10=fp0 fp-8=0000mmmm
+210: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+211: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-211: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-213: (85) call bpf_map_lookup_elem#1
-214: safe
+212: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+214: (85) call bpf_map_lookup_elem#1
+215: safe
 
-from 168 to 207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-207: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+from 170 to 208: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+208: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=0 R2=0 R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-207: (b4) w1 = 0                      ; R1=0
-208: (63) *(u32 *)(r10 -4) = r1
-mark_precise: frame0: last_idx 208 first_idx 207 subseq_idx -1 
-mark_precise: frame0: regs=r1 stack= before 207: (b4) w1 = 0
-209: R1=0 R10=fp0 fp-8=0000mmmm
-209: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-210: (07) r2 += -4                    ; R2=fp-4
+208: (b4) w1 = 0                      ; R1=0
+209: (63) *(u32 *)(r10 -4) = r1
+mark_precise: frame0: last_idx 209 first_idx 208 subseq_idx -1 
+mark_precise: frame0: regs=r1 stack= before 208: (b4) w1 = 0
+210: R1=0 R10=fp0 fp-8=0000mmmm
+210: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+211: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-211: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-213: (85) call bpf_map_lookup_elem#1
-214: safe
+212: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+214: (85) call bpf_map_lookup_elem#1
+215: safe
 
-from 146 to 207: safe
+from 149 to 208: safe
 
-from 144 to 147: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(umin=1) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-147: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=0 R2=scalar(umin=1) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-; if (hdr->session_id < replay_state->session_id) { @ xdp_isl_kern.c:246
-147: (71) r3 = *(u8 *)(r7 +11)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-148: (64) w3 <<= 8                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-149: (71) r2 = *(u8 *)(r7 +10)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-150: (4c) w3 |= w2                    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-151: (71) r4 = *(u8 *)(r7 +12)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-152: (64) w4 <<= 16                   ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-153: (71) r2 = *(u8 *)(r7 +13)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-154: (64) w2 <<= 24                   ; R2=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-155: (4c) w2 |= w4                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-156: (4c) w2 |= w3                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-157: (61) r3 = *(u32 *)(r0 +16)
-frame 0: propagating r1
-mark_precise: frame0: last_idx 158 first_idx 140 subseq_idx -1 
-mark_precise: frame0: regs=r1 stack= before 157: (61) r3 = *(u32 *)(r0 +16)
-mark_precise: frame0: regs=r1 stack= before 156: (4c) w2 |= w3
-mark_precise: frame0: regs=r1 stack= before 155: (4c) w2 |= w4
-mark_precise: frame0: regs=r1 stack= before 154: (64) w2 <<= 24
-mark_precise: frame0: regs=r1 stack= before 153: (71) r2 = *(u8 *)(r7 +13)
-mark_precise: frame0: regs=r1 stack= before 152: (64) w4 <<= 16
-mark_precise: frame0: regs=r1 stack= before 151: (71) r4 = *(u8 *)(r7 +12)
-mark_precise: frame0: regs=r1 stack= before 150: (4c) w3 |= w2
-mark_precise: frame0: regs=r1 stack= before 149: (71) r2 = *(u8 *)(r7 +10)
-mark_precise: frame0: regs=r1 stack= before 148: (64) w3 <<= 8
-mark_precise: frame0: regs=r1 stack= before 147: (71) r3 = *(u8 *)(r7 +11)
-mark_precise: frame0: regs=r1 stack= before 144: (55) if r2 != 0x0 goto pc+2
-mark_precise: frame0: regs=r1 stack= before 143: (79) r2 = *(u64 *)(r0 +8)
-mark_precise: frame0: regs=r1 stack= before 142: (55) if r1 != 0x0 goto pc+4
-mark_precise: frame0: regs=r1 stack= before 141: (79) r1 = *(u64 *)(r0 +0)
-158: safe
-
-from 142 to 147: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-147: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-147: (71) r3 = *(u8 *)(r7 +11)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-148: (64) w3 <<= 8                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-149: (71) r2 = *(u8 *)(r7 +10)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-150: (4c) w3 |= w2                    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-151: (71) r4 = *(u8 *)(r7 +12)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-152: (64) w4 <<= 16                   ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-153: (71) r2 = *(u8 *)(r7 +13)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-154: (64) w2 <<= 24                   ; R2=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-155: (4c) w2 |= w4                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-156: (4c) w2 |= w3                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-157: (61) r3 = *(u32 *)(r0 +16)       ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-158: (3e) if w2 >= w3 goto pc+9       ; R2=scalar(smin=0,smax=umax=umax32=0xfffffffe,var_off=(0x0; 0xffffffff)) R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-159: (b4) w1 = 7                      ; R1=7
-160: (63) *(u32 *)(r10 -4) = r1       ; R1=7 R10=fp0 fp-8=mmmmmmmm
-161: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-162: (07) r2 += -4                    ; R2=fp-4
+from 148 to 150: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+150: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (hdr->session_id < snap_session_id) { @ xdp_isl_kern.c:273
+150: (71) r5 = *(u8 *)(r7 +11)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+151: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+152: (71) r4 = *(u8 *)(r7 +10)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+153: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+154: (71) r0 = *(u8 *)(r7 +12)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+155: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+156: (71) r4 = *(u8 *)(r7 +13)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+157: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+158: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+159: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+160: (3e) if w4 >= w3 goto pc+9       ; R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=umax32=0xfffffffe,var_off=(0x0; 0xffffffff))
+161: (b4) w1 = 7                      ; R1=7
+162: (63) *(u32 *)(r10 -4) = r1       ; R1=7 R10=fp0 fp-8=mmmmmmmm
+163: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+164: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-163: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-165: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=13,map=isl_telemetry_m,ks=4,vs=8)
+165: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+167: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=12,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
-166: (15) if r0 == 0x0 goto pc-98     ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
-167: (05) goto pc-101
+168: (15) if r0 == 0x0 goto pc-100    ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
+169: (05) goto pc-103
 67: safe
 
-from 166 to 69: safe
+from 168 to 69: safe
 
-from 158 to 168: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-168: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=1) R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-; if (hdr->session_id == replay_state->session_id) { @ xdp_isl_kern.c:250
-168: (5e) if w2 != w3 goto pc+38      ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
-; if (hdr->sequence_number <= replay_state->window_base_seq) { @ xdp_isl_kern.c:251
-169: (71) r2 = *(u8 *)(r7 +14)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-170: (71) r3 = *(u8 *)(r7 +15)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-171: (67) r3 <<= 8                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-172: (4f) r3 |= r2                    ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-173: (71) r4 = *(u8 *)(r7 +16)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-174: (67) r4 <<= 16                   ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-175: (71) r2 = *(u8 *)(r7 +17)        ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-176: (67) r2 <<= 24                   ; R2=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-177: (4f) r2 |= r4                    ; R2=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-178: (4f) r2 |= r3                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-179: (71) r4 = *(u8 *)(r7 +19)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-180: (64) w4 <<= 8                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
-181: (71) r3 = *(u8 *)(r7 +18)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-182: (4c) w4 |= w3                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-183: (71) r5 = *(u8 *)(r7 +20)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-184: (64) w5 <<= 16                   ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-185: (71) r3 = *(u8 *)(r7 +21)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
-186: (64) w3 <<= 24                   ; R3=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
-187: (4c) w3 |= w5                    ; R3=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
-188: (4c) w3 |= w4                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
-189: (67) r3 <<= 32                   ; R3=scalar(smax=0x7fffffff00000000,umax=0xffffffff00000000,smin32=0,smax32=umax32=0,var_off=(0x0; 0xffffffff00000000))
-190: (4f) r3 |= r2                    ; R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar()
-191: (ad) if r1 < r3 goto pc+15       ; R1=scalar(umin=1) R3=scalar()
-; uint64_t diff = replay_state->window_base_seq - hdr->sequence_number; @ xdp_isl_kern.c:252
-192: (1f) r1 -= r3                    ; R1=scalar() R3=scalar()
-; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:253
-193: (25) if r1 > 0x3f goto pc+4      ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=63,var_off=(0x0; 0x3f))
-194: (79) r2 = *(u64 *)(r0 +8)        ; R0=map_value(map=isl_replay_filt,ks=2,vs=64) R2=scalar()
-195: (7f) r2 >>= r1                   ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=63,var_off=(0x0; 0x3f)) R2=scalar()
-196: (57) r2 &= 1                     ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=1,var_off=(0x0; 0x1))
-197: (15) if r2 == 0x0 goto pc+9      ; R2=1
-198: (b4) w1 = 4                      ; R1=4
-199: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
-200: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-201: (07) r2 += -4                    ; R2=fp-4
+from 160 to 170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar(umin=1) R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar(umin=1) R2=0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (hdr->session_id == snap_session_id) { @ xdp_isl_kern.c:277
+170: (5e) if w4 != w3 goto pc+37      ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; if (hdr->sequence_number <= snap_base_seq) { @ xdp_isl_kern.c:278
+171: (71) r3 = *(u8 *)(r7 +14)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+172: (71) r4 = *(u8 *)(r7 +15)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+173: (67) r4 <<= 8                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+174: (4f) r4 |= r3                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+175: (71) r5 = *(u8 *)(r7 +16)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+176: (67) r5 <<= 16                   ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+177: (71) r3 = *(u8 *)(r7 +17)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+178: (67) r3 <<= 24                   ; R3=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+179: (4f) r3 |= r5                    ; R3=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+180: (4f) r3 |= r4                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+181: (71) r5 = *(u8 *)(r7 +19)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+182: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+183: (71) r4 = *(u8 *)(r7 +18)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+184: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+185: (71) r0 = *(u8 *)(r7 +20)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+186: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+187: (71) r4 = *(u8 *)(r7 +21)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+188: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+189: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+190: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+191: (67) r4 <<= 32                   ; R4=scalar(smax=0x7fffffff00000000,umax=0xffffffff00000000,smin32=0,smax32=umax32=0,var_off=(0x0; 0xffffffff00000000))
+192: (4f) r4 |= r3                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar()
+193: (ad) if r2 < r4 goto pc+14       ; R2=0 R4=0
+; uint64_t diff = snap_base_seq - hdr->sequence_number; @ xdp_isl_kern.c:279
+194: (1f) r2 -= r4                    ; R2=0 R4=0
+; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (snap_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:280
+195: (25) if r2 > 0x3f goto pc+3
+mark_precise: frame0: last_idx 195 first_idx 193 subseq_idx -1 
+mark_precise: frame0: regs=r2 stack= before 194: (1f) r2 -= r4
+mark_precise: frame0: regs=r2,r4 stack= before 193: (ad) if r2 < r4 goto pc+14
+mark_precise: frame0: parent state regs=r2,r4 stack=:  R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar(umin=1) R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=Pscalar() R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+mark_precise: frame0: last_idx 192 first_idx 148 subseq_idx 193 
+mark_precise: frame0: regs=r2,r4 stack= before 192: (4f) r4 |= r3
+mark_precise: frame0: regs=r2,r3,r4 stack= before 191: (67) r4 <<= 32
+mark_precise: frame0: regs=r2,r3,r4 stack= before 190: (4c) w4 |= w5
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 189: (4c) w4 |= w0
+mark_precise: frame0: regs=r0,r2,r3,r4,r5 stack= before 188: (64) w4 <<= 24
+mark_precise: frame0: regs=r0,r2,r3,r4,r5 stack= before 187: (71) r4 = *(u8 *)(r7 +21)
+mark_precise: frame0: regs=r0,r2,r3,r5 stack= before 186: (64) w0 <<= 16
+mark_precise: frame0: regs=r0,r2,r3,r5 stack= before 185: (71) r0 = *(u8 *)(r7 +20)
+mark_precise: frame0: regs=r2,r3,r5 stack= before 184: (4c) w5 |= w4
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 183: (71) r4 = *(u8 *)(r7 +18)
+mark_precise: frame0: regs=r2,r3,r5 stack= before 182: (64) w5 <<= 8
+mark_precise: frame0: regs=r2,r3,r5 stack= before 181: (71) r5 = *(u8 *)(r7 +19)
+mark_precise: frame0: regs=r2,r3 stack= before 180: (4f) r3 |= r4
+mark_precise: frame0: regs=r2,r3,r4 stack= before 179: (4f) r3 |= r5
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 178: (67) r3 <<= 24
+mark_precise: frame0: regs=r2,r3,r4,r5 stack= before 177: (71) r3 = *(u8 *)(r7 +17)
+mark_precise: frame0: regs=r2,r4,r5 stack= before 176: (67) r5 <<= 16
+mark_precise: frame0: regs=r2,r4,r5 stack= before 175: (71) r5 = *(u8 *)(r7 +16)
+mark_precise: frame0: regs=r2,r4 stack= before 174: (4f) r4 |= r3
+mark_precise: frame0: regs=r2,r3,r4 stack= before 173: (67) r4 <<= 8
+mark_precise: frame0: regs=r2,r3,r4 stack= before 172: (71) r4 = *(u8 *)(r7 +15)
+mark_precise: frame0: regs=r2,r3 stack= before 171: (71) r3 = *(u8 *)(r7 +14)
+mark_precise: frame0: regs=r2 stack= before 170: (5e) if w4 != w3 goto pc+37
+mark_precise: frame0: regs=r2 stack= before 160: (3e) if w4 >= w3 goto pc+9
+mark_precise: frame0: regs=r2 stack= before 159: (4c) w4 |= w5
+mark_precise: frame0: regs=r2 stack= before 158: (4c) w4 |= w0
+mark_precise: frame0: regs=r2 stack= before 157: (64) w4 <<= 24
+mark_precise: frame0: regs=r2 stack= before 156: (71) r4 = *(u8 *)(r7 +13)
+mark_precise: frame0: regs=r2 stack= before 155: (64) w0 <<= 16
+mark_precise: frame0: regs=r2 stack= before 154: (71) r0 = *(u8 *)(r7 +12)
+mark_precise: frame0: regs=r2 stack= before 153: (4c) w5 |= w4
+mark_precise: frame0: regs=r2 stack= before 152: (71) r4 = *(u8 *)(r7 +10)
+mark_precise: frame0: regs=r2 stack= before 151: (64) w5 <<= 8
+mark_precise: frame0: regs=r2 stack= before 150: (71) r5 = *(u8 *)(r7 +11)
+mark_precise: frame0: regs=r2 stack= before 148: (55) if r1 != 0x0 goto pc+1
+mark_precise: frame0: parent state regs= stack=:  R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=Pscalar() R2=P0 R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+195: R2=0
+196: (7f) r1 >>= r2                   ; R1=scalar(umin=1) R2=0
+197: (57) r1 &= 1                     ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=1,var_off=(0x0; 0x1))
+198: (15) if r1 == 0x0 goto pc+9      ; R1=1
+199: (b4) w1 = 4                      ; R1=4
+200: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
+201: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+202: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-202: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-204: (85) call bpf_map_lookup_elem#1
-205: safe
+203: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+205: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=13,map=isl_telemetry_m,ks=4,vs=8)
+; if (val != NULL) { @ xdp_isl_kern.c:185
+206: (15) if r0 == 0x0 goto pc-138    ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
+207: (05) goto pc-141
+67: safe
+(0) frame 0 insn 205 +live -8 
+(0) frame 0 insn 199 +live -8 
+(0) live stack update done in 2 iterations
 
-from 197 to 207: safe
+from 206 to 69: safe
 
-from 193 to 198: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=64) R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar() R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-198: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar(umin=64) R2=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R3=scalar() R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
-; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (replay_state->window_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:253
-198: (b4) w1 = 4                      ; R1=4
-199: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
-200: (bf) r2 = r10                    ; R2=fp0 R10=fp0
-201: (07) r2 += -4                    ; R2=fp-4
+from 198 to 208: safe
+
+from 193 to 208: safe
+
+from 170 to 208: safe
+
+from 147 to 150: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar() R2=scalar(umin=1) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+150: R0=map_value(map=isl_replay_filt,ks=2,vs=64) R1=scalar() R2=scalar(umin=1) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (hdr->session_id < snap_session_id) { @ xdp_isl_kern.c:273
+150: (71) r5 = *(u8 *)(r7 +11)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+151: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+152: (71) r4 = *(u8 *)(r7 +10)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+153: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+154: (71) r0 = *(u8 *)(r7 +12)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+155: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+156: (71) r4 = *(u8 *)(r7 +13)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+157: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+158: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+159: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+160: (3e) if w4 >= w3 goto pc+9       ; R3=scalar(smin=umin=umin32=1,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=umax32=0xfffffffe,var_off=(0x0; 0xffffffff))
+161: (b4) w1 = 7                      ; R1=7
+162: (63) *(u32 *)(r10 -4) = r1       ; R1=7 R10=fp0 fp-8=mmmmmmmm
+163: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+164: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-202: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-204: (85) call bpf_map_lookup_elem#1
-205: safe
+165: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+167: (85) call bpf_map_lookup_elem#1
+168: safe
 
-from 191 to 207: safe
+from 160 to 170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar() R2=scalar(umin=1) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+170: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar() R2=scalar(umin=1) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (hdr->session_id == snap_session_id) { @ xdp_isl_kern.c:277
+170: (5e) if w4 != w3 goto pc+37      ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff))
+; if (hdr->sequence_number <= snap_base_seq) { @ xdp_isl_kern.c:278
+171: (71) r3 = *(u8 *)(r7 +14)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+172: (71) r4 = *(u8 *)(r7 +15)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+173: (67) r4 <<= 8                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+174: (4f) r4 |= r3                    ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+175: (71) r5 = *(u8 *)(r7 +16)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+176: (67) r5 <<= 16                   ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+177: (71) r3 = *(u8 *)(r7 +17)        ; R3=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+178: (67) r3 <<= 24                   ; R3=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+179: (4f) r3 |= r5                    ; R3=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+180: (4f) r3 |= r4                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+181: (71) r5 = *(u8 *)(r7 +19)        ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+182: (64) w5 <<= 8                    ; R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff00,var_off=(0x0; 0xff00))
+183: (71) r4 = *(u8 *)(r7 +18)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+184: (4c) w5 |= w4                    ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+185: (71) r0 = *(u8 *)(r7 +20)        ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+186: (64) w0 <<= 16                   ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000))
+187: (71) r4 = *(u8 *)(r7 +21)        ; R4=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R7=pkt(r=48)
+188: (64) w4 <<= 24                   ; R4=scalar(smin=0,smax=umax=umax32=0xff000000,smax32=0x7f000000,var_off=(0x0; 0xff000000))
+189: (4c) w4 |= w0                    ; R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R4=scalar(smin=0,smax=umax=umax32=0xffff0000,smax32=0x7fff0000,var_off=(0x0; 0xffff0000))
+190: (4c) w4 |= w5                    ; R4=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff))
+191: (67) r4 <<= 32                   ; R4=scalar(smax=0x7fffffff00000000,umax=0xffffffff00000000,smin32=0,smax32=umax32=0,var_off=(0x0; 0xffffffff00000000))
+192: (4f) r4 |= r3                    ; R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar()
+193: (ad) if r2 < r4 goto pc+14       ; R2=scalar(umin=1) R4=scalar()
+; uint64_t diff = snap_base_seq - hdr->sequence_number; @ xdp_isl_kern.c:279
+194: (1f) r2 -= r4                    ; R2=scalar() R4=scalar()
+; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (snap_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:280
+195: (25) if r2 > 0x3f goto pc+3      ; R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=63,var_off=(0x0; 0x3f))
+196: (7f) r1 >>= r2                   ; R1=scalar() R2=scalar(smin=smin32=0,smax=umax=smax32=umax32=63,var_off=(0x0; 0x3f))
+197: (57) r1 &= 1                     ; R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=1,var_off=(0x0; 0x1))
+198: (15) if r1 == 0x0 goto pc+9      ; R1=1
+199: (b4) w1 = 4                      ; R1=4
+200: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
+201: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+202: (07) r2 += -4                    ; R2=fp-4
+; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
+203: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+205: (85) call bpf_map_lookup_elem#1
+206: safe
 
-from 168 to 207: safe
+from 198 to 208: safe
 
-from 140 to 207: safe
+from 195 to 199: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar() R2=scalar(umin=64) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar() R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+199: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xff0000,var_off=(0x0; 0xff0000)) R1=scalar() R2=scalar(umin=64) R3=scalar(smin=0,smax=umax=0xffffffff,var_off=(0x0; 0xffffffff)) R4=scalar() R5=scalar(smin=smin32=0,smax=umax=smax32=umax32=0xffff,var_off=(0x0; 0xffff)) R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
+; if (diff >= STARSEC_SLIDING_WINDOW_SIZE || (snap_bitmap & (1ULL << diff)) != 0) { @ xdp_isl_kern.c:280
+199: (b4) w1 = 4                      ; R1=4
+200: (63) *(u32 *)(r10 -4) = r1       ; R1=4 R10=fp0 fp-8=mmmmmmmm
+201: (bf) r2 = r10                    ; R2=fp0 R10=fp0
+202: (07) r2 += -4                    ; R2=fp-4
+; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
+203: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+205: (85) call bpf_map_lookup_elem#1
+206: safe
+
+from 193 to 208: safe
+
+from 170 to 208: safe
+
+from 143 to 208: safe
+
+from 140 to 208: safe
 
 from 124 to 127: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 127: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
@@ -884,7 +1017,7 @@ from 124 to 127: R0=0 R6=pkt(off=6,r=48) R7=pkt(r=48) R10=fp0 fp-8=????0
 129: (bf) r2 = r10                    ; R2=fp0 R10=fp0
 130: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-131: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+131: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
 133: (85) call bpf_map_lookup_elem#1
 134: safe
 
@@ -900,8 +1033,8 @@ from 93 to 106: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar(umin=1) R2=
 111: (bf) r2 = r10                    ; R2=fp0 R10=fp0
 112: (07) r2 += -4                    ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-113: (18) r1 = 0xffff8c31873d5800     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-115: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=17,map=isl_telemetry_m,ks=4,vs=8)
+113: (18) r1 = 0xffff88ba8739ac00     ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+115: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=18,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 116: (15) if r0 == 0x0 goto pc-48     ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
 117: (05) goto pc-51
@@ -916,7 +1049,7 @@ from 108 to 118: R0=map_value(map=time_sync_map,ks=4,vs=24) R1=scalar() R2=scala
 ; uint32_t *auth_status = (uint32_t *)bpf_map_lookup_elem(&authorized_satellites_map, &hdr->src_satellite_id); @ xdp_isl_kern.c:238
 118: (bf) r6 = r7                     ; R6=pkt(r=48) R7=pkt(r=48)
 119: (07) r6 += 6                     ; R6=pkt(off=6,r=48)
-120: (18) r1 = 0xffff8c318ad36800     ; R1=map_ptr(map=authorized_sate,ks=2,vs=4)
+120: (18) r1 = 0xffff88ba87dfd000     ; R1=map_ptr(map=authorized_sate,ks=2,vs=4)
 122: (bf) r2 = r6                     ; R2=pkt(off=6,r=48) R6=pkt(off=6,r=48)
 123: (85) call bpf_map_lookup_elem#1
 124: safe
@@ -929,16 +1062,16 @@ from 56 to 59: R0=0 R7=pkt(r=48) R10=fp0 fp-8=????0
 61: (bf) r2 = r10                     ; R2=fp0 R10=fp0
 62: (07) r2 += -4                     ; R2=fp-4
 ; uint64_t *val = (uint64_t *)bpf_map_lookup_elem(&isl_telemetry_map, &metric); @ xdp_isl_kern.c:184
-63: (18) r1 = 0xffff8c31873d5800      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
-65: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=19,map=isl_telemetry_m,ks=4,vs=8)
+63: (18) r1 = 0xffff88ba8739ac00      ; R1=map_ptr(map=isl_telemetry_m,ks=4,vs=8)
+65: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=20,map=isl_telemetry_m,ks=4,vs=8)
 ; if (val != NULL) { @ xdp_isl_kern.c:185
 66: (15) if r0 == 0x0 goto pc+2       ; R0=map_value(map=isl_telemetry_m,ks=4,vs=8)
 67: safe
 
 from 66 to 69: safe
-verification time 1164 usec
+verification time 1632 usec
 stack depth 8
-processed 359 insns (limit 1000000) max_states_per_insn 1 total_states 25 peak_states 25 mark_read 0
+processed 397 insns (limit 1000000) max_states_per_insn 2 total_states 29 peak_states 29 mark_read 0
 -- END PROG LOAD LOG --
 libbpf: pinned map '/sys/fs/bpf/starsec_maps/time_sync_map'
 libbpf: pinned map '/sys/fs/bpf/starsec_maps/authorized_satellites_map'

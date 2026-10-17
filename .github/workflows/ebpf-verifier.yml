@@ -33,15 +33,17 @@ jobs:
           sudo chmod 777 /sys/fs/bpf
 
       - name: Run Authentic Linux eBPF Verifier & Shared Map Integration Test
+        env:
+          STRICT_CI_NO_SKIP: "1"
         run: |
           chmod +x tools/test_ebpf_linux_verifier.sh
-          sudo ./tools/test_ebpf_linux_verifier.sh
+          sudo -E ./tools/test_ebpf_linux_verifier.sh
 
       - name: Run Live In-Kernel BPF Syscall Python Harness
         run: |
           sudo python3 tools/test_linux_kernel_bpf_live.py
 
-      - name: Compile & Run C Triad Test Suites (14/14 Suites)
+      - name: Compile & Run C Triad Test Suites (15/15 Suites)
         run: |
           gcc -O2 -Wall -Wextra -pthread \
             -I system/include \
