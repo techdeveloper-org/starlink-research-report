@@ -139,14 +139,14 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 
 | Verification Metric | Production CI Measurement & Evidence |
 | :--- | :--- |
-| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39013617230](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39013617230)** (`PASS`, 100% Verified) |
-| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39013617230/artifacts/12094181339)** (Artifact ID: `12094181339`, 10,101 bytes) |
-| **Artifact SHA256** | `f3b5fa5d008cde9338fd7e558f60725348a4a97e3ec743fc39e3e1c5df58b88b` |
+| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39016293689](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689)** (`PASS`, 100% Verified) |
+| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689/artifacts/12095216383)** (Artifact ID: `12095216383`, 10,784 bytes) |
+| **Artifact SHA256** | `a934bd54a1333532ecdae45902a3a4db4ab7dd05bc49441e04e95333353b90bc` |
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
 | **In-Kernel Verification** | `182 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
 | **Shared Map Bisimulation**| Pinned bpffs maps (`/sys/fs/bpf/starsec_maps/`): **Phases A–G Verified** via `BPF_PROG_TEST_RUN` |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **15/15 Suites Passed (100% Coverage)**: 0 torn reads across 1,581,883 reads, 724,810 collisions safely rejected |
+| **Native C Triad Suites** | **15/15 Suites Passed (100% Coverage)**: 0 torn reads across 6,796,678 reads, 400,053 collisions safely rejected |
 
 ```text
 ==================================================================

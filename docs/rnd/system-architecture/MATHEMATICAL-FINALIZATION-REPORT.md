@@ -791,16 +791,17 @@ All 26 Theorems above have been formally derived from first principles and certi
 The authentic in-kernel verification and pinned map sharing pipeline executes on Ubuntu 24.04 (Noble) runners under Linux Kernel 6.8 with the official static `bpftool v7.4.0` binary:
 
 - **Workflow Name:** `Linux Kernel eBPF Runtime Verifier & Shared Map CI`
-- **Run ID:** `39013617230`
+- **Latest Production Run ID:** `39016293689` (Commit `1078d33`, Issue #17)
 - **Run Status:** `completed` / `success` (100% Pass)
-- **Job ID:** `117341093563`
+- **Job ID:** `117348981600`
 - **Official GitHub Actions Run Permalinks:**
-  - [GitHub Actions Run 39013617230](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39013617230)
-  - [Official Verifier Artifacts ZIP](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39013617230/artifacts/12094181339) (Artifact ID `12094181339`, Size: 10,101 bytes)
+  - [GitHub Actions Run 39016293689](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689)
+  - [Official Verifier Artifacts ZIP](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689/artifacts/12095216383) (Artifact ID `12095216383`, Size: 10,784 bytes)
 - **Artifact SHA256 Digest:**
   ```
-  f3b5fa5d008cde9338fd7e558f60725348a4a97e3ec743fc39e3e1c5df58b88b
+  a934bd54a1333532ecdae45902a3a4db4ab7dd05bc49441e04e95333353b90bc
   ```
+- **Historical Benchmark Run:** [Run 39013617230](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39013617230) (Artifact ID `12094181339`, SHA256 `f3b5fa5d008cde9338fd7e558f60725348a4a97e3ec743fc39e3e1c5df58b88b`)
 
 ### 7.2 Verbatim In-Kernel Verifier Instruction & Telemetry Dump
 ```
