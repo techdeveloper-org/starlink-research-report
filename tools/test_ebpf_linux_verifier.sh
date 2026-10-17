@@ -136,6 +136,8 @@ fi
 if [[ "${LOAD_STATUS}" == "PASS" ]] && [[ -e "${BPF_PIN_PATH}" ]]; then
     echo "  -> In-Kernel BPF Bytecode Verification (Volatile Seqlock Instruction Check):"
     bpftool prog dump xlated pinned "${BPF_PIN_PATH}" | grep -E '\(r[0-9] \+(20|16|8|0)\)' -B 1 -A 1 || true
+    echo "  -> In-Kernel BPF Bytecode Verification (Fail-Closed Verdict Invariant Check):"
+    bpftool prog dump xlated pinned "${BPF_PIN_PATH}" | grep -E 'r0 = 1' -B 1 -A 1 || true
 fi
 
 if grep -q "processed .* insns" "${LOG_OUTPUT}"; then

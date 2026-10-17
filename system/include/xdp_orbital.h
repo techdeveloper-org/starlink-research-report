@@ -155,6 +155,7 @@ typedef struct {
     uint64_t dropped_clock_unavailable;
     uint64_t dropped_stale_session;
     uint64_t dropped_sync_failure;
+    uint64_t dropped_replay_inconsistent;
     uint64_t passed_frames;
 } xdp_filter_stats_t;
 

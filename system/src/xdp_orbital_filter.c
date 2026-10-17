@@ -63,6 +63,7 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats) {
     stats->dropped_clock_unavailable = 0;
     stats->dropped_stale_session = 0;
     stats->dropped_sync_failure = 0;
+    stats->dropped_replay_inconsistent = 0;
     stats->passed_frames = 0;
 }
 

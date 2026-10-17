@@ -120,14 +120,15 @@ typedef struct {
  * @brief Telemetry metric indices for per-CPU line-rate observability.
  */
 enum isl_telemetry_metric {
-    STARSEC_TELEM_PASSED_FRAMES              = 0,
-    STARSEC_TELEM_DROPPED_BAD_MAGIC          = 1,
-    STARSEC_TELEM_DROPPED_BAD_LEN            = 2,
-    STARSEC_TELEM_DROPPED_UNAUTHORIZED       = 3,
-    STARSEC_TELEM_DROPPED_REPLAY_SEQ         = 4,
-    STARSEC_TELEM_DROPPED_EPOCH_DRIFT        = 5,
-    STARSEC_TELEM_DROPPED_CLOCK_UNAVAILABLE  = 6,
-    STARSEC_TELEM_DROPPED_STALE_SESSION      = 7
+    STARSEC_TELEM_PASSED_FRAMES               = 0,
+    STARSEC_TELEM_DROPPED_BAD_MAGIC           = 1,
+    STARSEC_TELEM_DROPPED_BAD_LEN             = 2,
+    STARSEC_TELEM_DROPPED_UNAUTHORIZED        = 3,
+    STARSEC_TELEM_DROPPED_REPLAY_SEQ          = 4,
+    STARSEC_TELEM_DROPPED_EPOCH_DRIFT         = 5,
+    STARSEC_TELEM_DROPPED_CLOCK_UNAVAILABLE   = 6,
+    STARSEC_TELEM_DROPPED_STALE_SESSION       = 7,
+    STARSEC_TELEM_DROPPED_REPLAY_INCONSISTENT = 8
 };
 
 /**
@@ -173,7 +174,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, uint32_t);
     __type(value, uint64_t);
-    __uint(max_entries, 8);
+    __uint(max_entries, 16);
 } isl_telemetry_map SEC(".maps");
 
 /**
@@ -279,8 +280,27 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
                 }
             }
         }
+        if (!state_consistent) {
+            seq1 = *lock_p;
+            if ((seq1 & 1U) == 0U) {
+                asm volatile("" ::: "memory");
+                snap_session_id = *sess_p;
+                snap_base_seq = *base_p;
+                snap_bitmap = *bmap_p;
+                asm volatile("" ::: "memory");
+                uint32_t seq2 = *lock_p;
+                if (seq1 == seq2) {
+                    state_consistent = true;
+                }
+            }
+        }
 
-        if (state_consistent && (snap_base_seq != 0 || snap_bitmap != 0 || snap_session_id != 0)) {
+        if (!state_consistent) {
+            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_REPLAY_INCONSISTENT);
+            return XDP_DROP;
+        }
+
+        if (snap_base_seq != 0 || snap_bitmap != 0 || snap_session_id != 0) {
             if (hdr->session_id < snap_session_id) {
                 starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
                 return XDP_DROP;

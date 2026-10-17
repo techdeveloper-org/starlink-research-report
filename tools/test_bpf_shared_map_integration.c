@@ -470,6 +470,84 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     }
     printf("  [PASS] Phase F: In-kernel per-CPU telemetry confirmed replay drop counter: %llu\n", (unsigned long long)total_replay_drops);
 
+    isl_anti_replay_state_t contested_state;
+    memset(&contested_state, 0, sizeof(contested_state));
+    contested_state.session_id = 10;
+    contested_state.window_base_seq = 100;
+    contested_state.window_bitmap = 1ULL;
+    contested_state.lock = 1U;
+
+    if (!test_kernel_bpf_update_elem_raw(replay_fd, &sat_key, &contested_state)) {
+        printf("  [FAIL] Failed to update replay state with odd lock word!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    starsec_isl_header_t template_hdr_fresh;
+    memset(&template_hdr_fresh, 0, sizeof(template_hdr_fresh));
+    template_hdr_fresh.magic = STARSEC_ISL_MAGIC;
+    template_hdr_fresh.protocol_type = 1;
+    template_hdr_fresh.flags = 0;
+    template_hdr_fresh.src_satellite_id = 42;
+    template_hdr_fresh.dst_satellite_id = 1;
+    template_hdr_fresh.session_id = 10;
+    template_hdr_fresh.sequence_number = 101;
+    template_hdr_fresh.tx_epoch_ms = 1700000000000ULL;
+    template_hdr_fresh.payload_len = 32;
+
+    uint8_t packet_buffer_fresh[sizeof(starsec_isl_header_t) + 32];
+    memset(packet_buffer_fresh, 0, sizeof(packet_buffer_fresh));
+
+    seal_stat = xdp_seal_isl_frame(
+        &template_hdr_fresh,
+        raw_plaintext,
+        sizeof(raw_plaintext),
+        packet_buffer_fresh,
+        sizeof(packet_buffer_fresh),
+        master_key
+    );
+    if (seal_stat != STARSEC_CRYPTO_SUCCESS) {
+        printf("  [FAIL] Failed to seal fresh frame for Phase G!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    test_res = test_run_bpf_prog_test(prog_fd, packet_buffer_fresh, sizeof(packet_buffer_fresh), &verdict);
+    if (test_res != 0 || verdict != 1 /* XDP_DROP */) {
+        printf("  [FAIL] Kernel XDP filter passed packet under inconsistent Seqlock state! verdict = %u (expected XDP_DROP=1)\n", verdict);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    uint32_t telem_inconsistent_key = 8; /* STARSEC_TELEM_DROPPED_REPLAY_INCONSISTENT */
+    uint64_t telem_inconsistent_vals[128];
+    memset(telem_inconsistent_vals, 0, sizeof(telem_inconsistent_vals));
+    memset(&telem_attr, 0, sizeof(telem_attr));
+    telem_attr.map_elem.map_fd = (uint32_t)telem_fd;
+    telem_attr.map_elem.key = (uint64_t)(uintptr_t)&telem_inconsistent_key;
+    telem_attr.map_elem.value = (uint64_t)(uintptr_t)telem_inconsistent_vals;
+    telem_res = syscall(__NR_bpf, 1 /* BPF_MAP_LOOKUP_ELEM */, &telem_attr, sizeof(telem_attr));
+    if (telem_res != 0) {
+        printf("  [FAIL] Failed to lookup in-kernel per-CPU inconsistent drop counter! (errno: %d)\n", errno);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    uint64_t total_inconsistent_drops = 0;
+    for (int c = 0; c < 128; c++) {
+        total_inconsistent_drops += telem_inconsistent_vals[c];
+    }
+    if (total_inconsistent_drops == 0) {
+        printf("  [FAIL] In-kernel telemetry dropped_replay_inconsistent did not increment! (val: %llu)\n",
+               (unsigned long long)total_inconsistent_drops);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    printf("  [PASS] Phase G: In-kernel XDP filter enforced strict FAIL-CLOSED drop on inconsistent/contended state (verdict = XDP_DROP, telem[8] = %llu)!\n",
+           (unsigned long long)total_inconsistent_drops);
+
+    contested_state.lock = 0U;
+    test_kernel_bpf_update_elem_raw(replay_fd, &sat_key, &contested_state);
+
     starsec_bpf_map_close(&pipeline.kernel_bpf_map);
     close(prog_fd);
     close(replay_fd);

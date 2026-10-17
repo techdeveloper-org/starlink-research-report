@@ -168,6 +168,7 @@ typedef struct {
     volatile uint32_t       *stop;
     uint32_t                 reads_done;
     uint32_t                 torn_reads;
+    uint32_t                 collisions_detected;
 } seqlock_reader_ctx_t;
 
 /**
@@ -185,7 +186,7 @@ static STARSEC_THREAD_RET STARSEC_THREAD_CALL seqlock_writer_func(void *arg) {
         #endif
     }
 
-    for (uint32_t i = 1; i <= 5000; i++) {
+    for (uint32_t i = 1; i <= 20000; i++) {
         starsec_seqlock_write_begin(&ctx->state->lock);
         ctx->state->session_id = i;
         ctx->state->window_base_seq = (uint64_t)i * 1000ULL;
@@ -221,6 +222,8 @@ static STARSEC_THREAD_RET STARSEC_THREAD_CALL seqlock_reader_func(void *arg) {
                     ctx->torn_reads++;
                 }
             }
+        } else {
+            ctx->collisions_detected++;
         }
     }
     return 0;
@@ -1729,14 +1732,16 @@ static bool test_seqlock_atomic_untorn_concurrency_triad(void) {
         .gate = &gate,
         .stop = &stop,
         .reads_done = 0,
-        .torn_reads = 0
+        .torn_reads = 0,
+        .collisions_detected = 0
     };
     seqlock_reader_ctx_t reader_ctx2 = {
         .state = &seqlock_state,
         .gate = &gate,
         .stop = &stop,
         .reads_done = 0,
-        .torn_reads = 0
+        .torn_reads = 0,
+        .collisions_detected = 0
     };
 
     starsec_thread_t threads[4];
@@ -1781,8 +1786,12 @@ static bool test_seqlock_atomic_untorn_concurrency_triad(void) {
                    "TC-SEQLOCK-CONCUR-03: Lockless readers did not capture state");
     STARSEC_ASSERT(writer_ctx1.writes_done > 0 && writer_ctx2.writes_done > 0,
                    "TC-SEQLOCK-CONCUR-04: Writers did not complete Seqlock updates");
+    STARSEC_ASSERT((reader_ctx1.collisions_detected + reader_ctx2.collisions_detected) > 0,
+                   "TC-SEQLOCK-CONCUR-05: Lockless readers observed 0 collisions under high contention!");
 
-    printf("  [PASS] Seqlock Atomic Untorn Multi-Field Concurrency Triad Successful (0 torn reads).\n");
+    printf("  [PASS] Seqlock Atomic Untorn Multi-Field Concurrency Triad Successful (0 torn reads across %u reads, %u collisions safely rejected).\n",
+           reader_ctx1.reads_done + reader_ctx2.reads_done,
+           reader_ctx1.collisions_detected + reader_ctx2.collisions_detected);
     return true;
 }
 
