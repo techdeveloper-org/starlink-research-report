@@ -673,7 +673,7 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
             return 1;
         }
 
-        if (live_verdict == 0 /* XDP_PASS */) {
+        if (live_verdict == 2 /* XDP_PASS */) {
             live_passed++;
         } else if (live_verdict == 1 /* XDP_DROP */) {
             live_dropped++;
