@@ -706,6 +706,13 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
         return 1;
     }
 
+    if (live_passed != 30 || live_dropped != 30 || (live_passed + live_dropped != live_iterations)) {
+        printf("  [FAIL] Phase H Invariant Assertion Failure: Expected exactly 30 passed and 30 dropped (total %u), observed %u passed, %u dropped\n",
+               live_iterations, live_passed, live_dropped);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
     printf("  [PASS] Phase H: Live Multi-Threaded In-Kernel Map Updates & Simultaneous XDP Filtering Verified!\n");
     printf("         Kernel updates committed: %u, in-flight tests: %u (passed: %u, dropped: %u), final kernel seq: %llu\n",
            live_ctx.updates_completed, live_iterations, live_passed, live_dropped,

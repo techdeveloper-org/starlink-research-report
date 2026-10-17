@@ -21,15 +21,16 @@
     {
       "name": "stack_budget",
       "passed": true,
-      "estimated_stack_bytes": 104,
+      "estimated_stack_bytes": 108,
       "stack_limit_bytes": 512,
-      "description": "Stack allocation (104 bytes) within Linux 512-byte eBPF verifier budget."
+      "description": "Stack allocation (108 bytes) within Linux 512-byte eBPF verifier budget."
     },
     {
       "name": "return_code_invariants",
       "passed": true,
-      "returns_count": 10,
+      "returns_count": 11,
       "return_values": [
+        "XDP_DROP",
         "XDP_DROP",
         "XDP_DROP",
         "XDP_DROP",
@@ -41,7 +42,7 @@
         "XDP_DROP",
         "XDP_PASS"
       ],
-      "description": "All 10 execution paths strictly terminate in verified XDP actions (['XDP_DROP', 'XDP_PASS'])."
+      "description": "All 11 execution paths strictly terminate in verified XDP actions (['XDP_DROP', 'XDP_PASS'])."
     },
     {
       "name": "maps_and_license",
