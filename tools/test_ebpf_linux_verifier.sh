@@ -187,7 +187,7 @@ if command -v gcc &>/dev/null; then
         "${REPO_ROOT}/system/src/xdp_orbital_filter.c" \
         -o "${TSAN_TEST_BIN}"; then
         if "${TSAN_TEST_BIN}"; then
-            echo "  -> [PASS] ThreadSanitizer (TSan) certified 0 data races across all 15 Triad Test Suites."
+            echo "  -> [PASS] ThreadSanitizer (TSan) certified 0 data races across all 16 Triad Test Suites."
         else
             echo "  -> [FAIL] ThreadSanitizer detected data race violation!"
             SHARED_TEST_STATUS="FAIL"

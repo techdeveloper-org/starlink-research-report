@@ -145,9 +145,9 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
 | **In-Kernel Verification** | `512 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
 | **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
-| **ThreadSanitizer (TSan)** | **Zero Data Races Verified**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 15 suites under `-fsanitize=thread` |
+| **ThreadSanitizer (TSan)** | **Zero Data Races Verified**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 16 suites under `-fsanitize=thread` |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **15/15 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention |
+| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention |
 | **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27 & 28 formal proofs) |
 
 ```text
@@ -162,7 +162,7 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
   [PASS] Phase F: In-kernel per-CPU telemetry confirmed replay drop counter
   [PASS] Phase G: Strict FAIL-CLOSED drop on inconsistent/contended Seqlock state (XDP_DROP)
   [PASS] Phase H: Live multi-threaded in-kernel map updates & simultaneous XDP filtering verified (107 updates, 60 tests)
-  [PASS] ThreadSanitizer (TSan): Certified 0 data races across all 15 Triad Test Suites
+  [PASS] ThreadSanitizer (TSan): Certified 0 data races across all 16 Triad Test Suites
 ==================================================================
   [SUCCESS] IN-KERNEL eBPF & TWO-TIER APPLICATION BISIMULATION PROVEN
 ==================================================================

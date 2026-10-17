@@ -1805,6 +1805,79 @@ static bool test_seqlock_atomic_untorn_concurrency_triad(void) {
 }
 
 /**
+ * @brief Executes TC-WINDOW-SHIFT-DELTA1, TC-WINDOW-INWINDOW-UNSEEN, TC-WINDOW-DUPLICATE-REJECT,
+ *        TC-WINDOW-SHIFT-DELTA63, TC-WINDOW-SHIFT-DELTA64-UB, TC-WINDOW-SHIFT-DELTA65-UB,
+ *        TC-WINDOW-OOO-BOUNDARY-63, and TC-WINDOW-OOO-BOUNDARY-64.
+ *
+ * Validates RFC 6479 sliding replay window shift boundaries, ISO C11 § 6.5.7 p3 undefined
+ * behavior prevention on shifts >= 64, duplicate detection, and out-of-order packet horizon limits.
+ *
+ * @return true if all 8 sliding window boundary and shift test cases pass, false otherwise.
+ */
+static bool test_sliding_window_boundary_shift_triad(void) {
+    printf("[SUITE 16] Sliding Window Boundary, Shift Invariants & UB Prevention Triad\n");
+
+    isl_anti_replay_state_t state;
+    memset(&state, 0, sizeof(state));
+
+    bool ok_init = xdp_commit_replay_window_atomic(&state, 1, 1000);
+    STARSEC_ASSERT(ok_init == true, "TC-WINDOW-INIT: Initial sequence 1000 commit failed");
+    STARSEC_ASSERT(state.window_base_seq == 1000ULL, "TC-WINDOW-INIT: Base sequence mismatch");
+    STARSEC_ASSERT(state.window_bitmap == 1ULL, "TC-WINDOW-INIT: Initial bitmap must be 1ULL");
+
+    bool ok_d1 = xdp_commit_replay_window_atomic(&state, 1, 1001);
+    STARSEC_ASSERT(ok_d1 == true, "TC-WINDOW-SHIFT-DELTA1: Forward progression by 1 failed");
+    STARSEC_ASSERT(state.window_base_seq == 1001ULL, "TC-WINDOW-SHIFT-DELTA1: Base sequence mismatch");
+    STARSEC_ASSERT(state.window_bitmap == 3ULL, "TC-WINDOW-SHIFT-DELTA1: Bitmap must be (1 << 1) | 1 = 3ULL (0b11)");
+
+    bool ok_ooo = xdp_commit_replay_window_atomic(&state, 1, 999);
+    STARSEC_ASSERT(ok_ooo == true, "TC-WINDOW-INWINDOW-UNSEEN: In-window out-of-order seq 999 rejected");
+    STARSEC_ASSERT(state.window_base_seq == 1001ULL, "TC-WINDOW-INWINDOW-UNSEEN: Base sequence must remain 1001");
+    STARSEC_ASSERT(state.window_bitmap == 7ULL, "TC-WINDOW-INWINDOW-UNSEEN: Bitmap must be 3 | (1 << 2) = 7ULL (0b111)");
+
+    bool dup_999 = xdp_commit_replay_window_atomic(&state, 1, 999);
+    STARSEC_ASSERT(dup_999 == false, "TC-WINDOW-DUPLICATE-REJECT: Duplicate seq 999 was not rejected");
+
+    bool dup_1001 = xdp_commit_replay_window_atomic(&state, 1, 1001);
+    STARSEC_ASSERT(dup_1001 == false, "TC-WINDOW-DUPLICATE-REJECT: Duplicate seq 1001 was not rejected");
+
+    bool ok_d63 = xdp_commit_replay_window_atomic(&state, 1, 1064);
+    STARSEC_ASSERT(ok_d63 == true, "TC-WINDOW-SHIFT-DELTA63: Shift by 63 failed");
+    STARSEC_ASSERT(state.window_base_seq == 1064ULL, "TC-WINDOW-SHIFT-DELTA63: Base sequence mismatch");
+    STARSEC_ASSERT((state.window_bitmap & (1ULL << 63)) != 0, "TC-WINDOW-SHIFT-DELTA63: Bit 63 must be set");
+    STARSEC_ASSERT((state.window_bitmap & 1ULL) != 0, "TC-WINDOW-SHIFT-DELTA63: Bit 0 must be set");
+
+    bool dup_1001_edge = xdp_commit_replay_window_atomic(&state, 1, 1001);
+    STARSEC_ASSERT(dup_1001_edge == false, "TC-WINDOW-SHIFT-DELTA63: Boundary duplicate seq 1001 was not rejected");
+
+    bool ok_d64 = xdp_commit_replay_window_atomic(&state, 1, 1128);
+    STARSEC_ASSERT(ok_d64 == true, "TC-WINDOW-SHIFT-DELTA64-UB: Leap by 64 failed");
+    STARSEC_ASSERT(state.window_base_seq == 1128ULL, "TC-WINDOW-SHIFT-DELTA64-UB: Base sequence mismatch");
+    STARSEC_ASSERT(state.window_bitmap == 1ULL, "TC-WINDOW-SHIFT-DELTA64-UB: Bitmap must reset to 1ULL (preventing UB shift)");
+
+    bool obs_1064 = xdp_commit_replay_window_atomic(&state, 1, 1064);
+    STARSEC_ASSERT(obs_1064 == false, "TC-WINDOW-SHIFT-DELTA64-UB: Obsolete seq 1064 (diff=64) not dropped");
+
+    bool ok_d65 = xdp_commit_replay_window_atomic(&state, 1, 1193);
+    STARSEC_ASSERT(ok_d65 == true, "TC-WINDOW-SHIFT-DELTA65-UB: Leap by 65 failed");
+    STARSEC_ASSERT(state.window_base_seq == 1193ULL, "TC-WINDOW-SHIFT-DELTA65-UB: Base sequence mismatch");
+    STARSEC_ASSERT(state.window_bitmap == 1ULL, "TC-WINDOW-SHIFT-DELTA65-UB: Bitmap must reset to 1ULL (preventing UB shift)");
+
+    bool ok_ooo_63 = xdp_commit_replay_window_atomic(&state, 1, 1130);
+    STARSEC_ASSERT(ok_ooo_63 == true, "TC-WINDOW-OOO-BOUNDARY-63: Oldest valid in-window sequence 1130 rejected");
+    STARSEC_ASSERT((state.window_bitmap & (1ULL << 63)) != 0, "TC-WINDOW-OOO-BOUNDARY-63: Bit 63 was not set");
+
+    bool dup_1130 = xdp_commit_replay_window_atomic(&state, 1, 1130);
+    STARSEC_ASSERT(dup_1130 == false, "TC-WINDOW-OOO-BOUNDARY-63: Duplicate seq 1130 not rejected");
+
+    bool obs_1129 = xdp_commit_replay_window_atomic(&state, 1, 1129);
+    STARSEC_ASSERT(obs_1129 == false, "TC-WINDOW-OOO-BOUNDARY-64: Sequence 1129 (diff=64) outside horizon was not rejected");
+
+    printf("  [PASS] Sliding Window Boundary, Shift Invariants & UB Prevention Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -1830,10 +1903,11 @@ int main(void) {
     all_passed &= test_systematic_failure_path_injection_triad();
     all_passed &= test_exact_memory_layout_conformance_triad();
     all_passed &= test_seqlock_atomic_untorn_concurrency_triad();
+    all_passed &= test_sliding_window_boundary_shift_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {
-        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (15/15 Suites Passed - 100%% Coverage)\n");
+        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (16/16 Suites Passed - 100%% Coverage)\n");
         printf("=================================================================\n");
         return 0;
     } else {
