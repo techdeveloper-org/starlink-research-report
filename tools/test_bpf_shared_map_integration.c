@@ -698,16 +698,10 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
 
     isl_anti_replay_state_t final_kernel_state;
     memset(&final_kernel_state, 0, sizeof(final_kernel_state));
-    struct starsec_bpf_map_attr final_read_attr;
-    memset(&final_read_attr, 0, sizeof(final_read_attr));
-    final_read_attr.map_elem.map_fd = (uint32_t)replay_fd;
-    final_read_attr.map_elem.key = (uint64_t)(uintptr_t)&sat_key;
-    final_read_attr.map_elem.value = (uint64_t)(uintptr_t)&final_kernel_state;
-
-    long final_read_res = syscall(__NR_bpf, 1 /* BPF_MAP_LOOKUP_ELEM */, &final_read_attr, sizeof(final_read_attr));
-    if (final_read_res != 0 || final_kernel_state.window_base_seq < 200ULL) {
-        printf("  [FAIL] Phase H: In-kernel post-test readback verification failed! (res: %ld, base_seq: %llu)\n",
-               final_read_res, (unsigned long long)final_kernel_state.window_base_seq);
+    if (!test_kernel_bpf_lookup_elem(replay_fd, sat_key, &final_kernel_state) ||
+        final_kernel_state.window_base_seq < 200ULL) {
+        printf("  [FAIL] Phase H: In-kernel post-test readback verification failed! (base_seq: %llu)\n",
+               (unsigned long long)final_kernel_state.window_base_seq);
         starsec_bpf_map_close(&pipeline.kernel_bpf_map);
         return 1;
     }
