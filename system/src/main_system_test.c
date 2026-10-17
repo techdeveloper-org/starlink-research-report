@@ -188,9 +188,9 @@ static STARSEC_THREAD_RET STARSEC_THREAD_CALL seqlock_writer_func(void *arg) {
 
     for (uint32_t i = 1; i <= 20000; i++) {
         starsec_seqlock_write_begin(&ctx->state->lock);
-        ctx->state->session_id = i;
-        ctx->state->window_base_seq = (uint64_t)i * 1000ULL;
-        ctx->state->window_bitmap = (uint64_t)i ^ 0xAAAAAAAAAAAAAAAAULL;
+        STARSEC_ATOMIC_WRITE_RELAXED(&ctx->state->session_id, i);
+        STARSEC_ATOMIC_WRITE_RELAXED(&ctx->state->window_base_seq, (uint64_t)i * 1000ULL);
+        STARSEC_ATOMIC_WRITE_RELAXED(&ctx->state->window_bitmap, (uint64_t)i ^ 0xAAAAAAAAAAAAAAAAULL);
         starsec_seqlock_write_end(&ctx->state->lock);
         ctx->writes_done++;
     }

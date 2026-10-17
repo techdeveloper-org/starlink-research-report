@@ -173,6 +173,30 @@ if command -v gcc &>/dev/null; then
         echo "  -> [FAIL] C Shared BPF Map Integration Harness failed."
     fi
     rm -f "${SHARED_TEST_BIN}"
+
+    echo "[4b/5] Executing Standalone Native C Triad Suites with ThreadSanitizer (TSan DRF Proof)..."
+    TSAN_TEST_BIN="${SCRIPT_DIR}/system_test_runner_tsan"
+    if gcc -O2 -Wall -Wextra -pthread -fsanitize=thread \
+        -I"${INCLUDE_DIR}" \
+        "${REPO_ROOT}/system/src/main_system_test.c" \
+        "${REPO_ROOT}/system/src/dcls_fault_monitor.c" \
+        "${REPO_ROOT}/system/src/sram_puf_fuzzy_extractor.c" \
+        "${REPO_ROOT}/system/src/starsec_chacha20.c" \
+        "${REPO_ROOT}/system/src/starsec_poly1305.c" \
+        "${REPO_ROOT}/system/src/tamper_zeroize_driver.c" \
+        "${REPO_ROOT}/system/src/xdp_orbital_filter.c" \
+        -o "${TSAN_TEST_BIN}"; then
+        if "${TSAN_TEST_BIN}"; then
+            echo "  -> [PASS] ThreadSanitizer (TSan) certified 0 data races across all 15 Triad Test Suites."
+        else
+            echo "  -> [FAIL] ThreadSanitizer detected data race violation!"
+            SHARED_TEST_STATUS="FAIL"
+        fi
+        rm -f "${TSAN_TEST_BIN}"
+    else
+        echo "  -> [WARN] gcc -fsanitize=thread compilation not supported on current platform."
+    fi
+
 else
     echo "  -> [WARN] gcc not available. Running Python live BPF verifier instead..."
     if python3 "${SCRIPT_DIR}/test_linux_kernel_bpf_live.py"; then

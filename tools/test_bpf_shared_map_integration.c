@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <errno.h>
+#include <pthread.h>
 
 #ifndef __NR_bpf
 #if defined(__x86_64__)
@@ -153,6 +154,50 @@ static int test_run_bpf_prog_test(
         *out_retval = attr.retval;
     }
     return 0;
+}
+
+/**
+ * @brief Thread context for live concurrent in-kernel BPF map mutator worker.
+ */
+typedef struct {
+    int                map_fd;
+    uint16_t           sat_key;
+    volatile uint32_t *gate;
+    volatile uint32_t *stop;
+    uint32_t           updates_completed;
+    uint32_t           update_errors;
+} live_kernel_mutator_ctx_t;
+
+/**
+ * @brief Background thread worker continuously mutating in-kernel replay map via BPF_MAP_UPDATE_ELEM.
+ * @param arg Pointer to live_kernel_mutator_ctx_t context.
+ * @return NULL on thread termination.
+ */
+static void *live_kernel_mutator_worker(void *arg) {
+    live_kernel_mutator_ctx_t *ctx = (live_kernel_mutator_ctx_t *)arg;
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
+        #if defined(__x86_64__)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+
+    isl_anti_replay_state_t st;
+    memset(&st, 0, sizeof(st));
+    st.session_id = 10;
+    st.lock = 0U;
+
+    for (uint64_t seq = 200; seq <= 2200 && __atomic_load_n(ctx->stop, __ATOMIC_ACQUIRE) == 0U; seq += 2) {
+        st.window_base_seq = seq;
+        st.window_bitmap = 1ULL;
+        if (test_kernel_bpf_update_elem_raw(ctx->map_fd, &ctx->sat_key, &st)) {
+            ctx->updates_completed++;
+        } else {
+            ctx->update_errors++;
+        }
+    }
+    return NULL;
 }
 
 /**
@@ -547,6 +592,130 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
 
     contested_state.lock = 0U;
     test_kernel_bpf_update_elem_raw(replay_fd, &sat_key, &contested_state);
+
+    printf("[Phase H] Executing live concurrent multi-threaded BPF_MAP_UPDATE_ELEM & BPF_PROG_TEST_RUN...\n");
+    isl_anti_replay_state_t phase_h_init_state;
+    memset(&phase_h_init_state, 0, sizeof(phase_h_init_state));
+    phase_h_init_state.session_id = 10;
+    phase_h_init_state.window_base_seq = 200;
+    phase_h_init_state.window_bitmap = 1ULL;
+    phase_h_init_state.lock = 0U;
+
+    if (!test_kernel_bpf_update_elem_raw(replay_fd, &sat_key, &phase_h_init_state)) {
+        printf("  [FAIL] Failed to initialize replay state for Phase H!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    volatile uint32_t live_gate = 0;
+    volatile uint32_t live_stop = 0;
+    live_kernel_mutator_ctx_t live_ctx = {
+        .map_fd = replay_fd,
+        .sat_key = sat_key,
+        .gate = &live_gate,
+        .stop = &live_stop,
+        .updates_completed = 0,
+        .update_errors = 0
+    };
+
+    pthread_t mutator_thread;
+    int create_rc = pthread_create(&mutator_thread, NULL, live_kernel_mutator_worker, &live_ctx);
+    if (create_rc != 0) {
+        printf("  [FAIL] Failed to spawn kernel mutator worker thread (errno: %d)\n", create_rc);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    __atomic_store_n(&live_gate, 1U, __ATOMIC_RELEASE);
+
+    uint32_t live_passed = 0;
+    uint32_t live_dropped = 0;
+    uint32_t live_iterations = 60;
+
+    for (uint32_t iter = 0; iter < live_iterations; iter++) {
+        starsec_isl_header_t live_hdr;
+        memset(&live_hdr, 0, sizeof(live_hdr));
+        live_hdr.magic = STARSEC_ISL_MAGIC;
+        live_hdr.protocol_type = 1;
+        live_hdr.src_satellite_id = 42;
+        live_hdr.dst_satellite_id = 1;
+        live_hdr.session_id = 10;
+        live_hdr.sequence_number = (iter % 2 == 0) ? (5000ULL + iter) : (50ULL);
+        live_hdr.tx_epoch_ms = 1700000000000ULL;
+        live_hdr.payload_len = 32;
+
+        uint8_t live_frame[sizeof(starsec_isl_header_t) + 32];
+        memset(live_frame, 0, sizeof(live_frame));
+
+        seal_stat = xdp_seal_isl_frame(
+            &live_hdr,
+            raw_plaintext,
+            sizeof(raw_plaintext),
+            live_frame,
+            sizeof(live_frame),
+            master_key
+        );
+        if (seal_stat != STARSEC_CRYPTO_SUCCESS) {
+            printf("  [FAIL] Failed to seal frame during Phase H at iter %u!\n", iter);
+            __atomic_store_n(&live_stop, 1U, __ATOMIC_RELEASE);
+            pthread_join(mutator_thread, NULL);
+            starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+            return 1;
+        }
+
+        uint32_t live_verdict = 0;
+        int live_res = test_run_bpf_prog_test(prog_fd, live_frame, sizeof(live_frame), &live_verdict);
+        if (live_res != 0) {
+            printf("  [FAIL] BPF_PROG_TEST_RUN returned error %d during Phase H at iter %u!\n", live_res, iter);
+            __atomic_store_n(&live_stop, 1U, __ATOMIC_RELEASE);
+            pthread_join(mutator_thread, NULL);
+            starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+            return 1;
+        }
+
+        if (live_verdict == 0 /* XDP_PASS */) {
+            live_passed++;
+        } else if (live_verdict == 1 /* XDP_DROP */) {
+            live_dropped++;
+        } else {
+            printf("  [FAIL] In-kernel filter returned illegal verdict %u during Phase H!\n", live_verdict);
+            __atomic_store_n(&live_stop, 1U, __ATOMIC_RELEASE);
+            pthread_join(mutator_thread, NULL);
+            starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+            return 1;
+        }
+    }
+
+    __atomic_store_n(&live_stop, 1U, __ATOMIC_RELEASE);
+    pthread_join(mutator_thread, NULL);
+
+    if (live_ctx.update_errors > 0 || live_ctx.updates_completed == 0) {
+        printf("  [FAIL] Phase H live mutator thread failed (completed: %u, errors: %u)\n",
+               live_ctx.updates_completed, live_ctx.update_errors);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    isl_anti_replay_state_t final_kernel_state;
+    memset(&final_kernel_state, 0, sizeof(final_kernel_state));
+    struct starsec_bpf_map_attr final_read_attr;
+    memset(&final_read_attr, 0, sizeof(final_read_attr));
+    final_read_attr.map_elem.map_fd = (uint32_t)replay_fd;
+    final_read_attr.map_elem.key = (uint64_t)(uintptr_t)&sat_key;
+    final_read_attr.map_elem.value = (uint64_t)(uintptr_t)&final_kernel_state;
+
+    long final_read_res = syscall(__NR_bpf, 1 /* BPF_MAP_LOOKUP_ELEM */, &final_read_attr, sizeof(final_read_attr));
+    if (final_read_res != 0 || final_kernel_state.window_base_seq < 200ULL) {
+        printf("  [FAIL] Phase H: In-kernel post-test readback verification failed! (res: %ld, base_seq: %llu)\n",
+               final_read_res, (unsigned long long)final_kernel_state.window_base_seq);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+
+    printf("  [PASS] Phase H: Live Multi-Threaded In-Kernel Map Updates & Simultaneous XDP Filtering Verified!\n");
+    printf("         Kernel updates committed: %u, in-flight tests: %u (passed: %u, dropped: %u), final kernel seq: %llu\n",
+           live_ctx.updates_completed, live_iterations, live_passed, live_dropped,
+           (unsigned long long)final_kernel_state.window_base_seq);
 
     starsec_bpf_map_close(&pipeline.kernel_bpf_map);
     close(prog_fd);

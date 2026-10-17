@@ -85,26 +85,24 @@ void xdp_replay_take_snapshot(
     }
 
     for (int retry = 0; retry < 5; retry++) {
-        uint32_t seq1 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+        uint32_t seq1 = starsec_seqlock_read_begin(&state->lock);
         if ((seq1 & 1U) != 0U) {
             continue;
         }
         __atomic_thread_fence(__ATOMIC_ACQUIRE);
-        snapshot->window_base_seq = state->window_base_seq;
-        snapshot->window_bitmap = state->window_bitmap;
-        snapshot->session_id = state->session_id;
+        snapshot->window_base_seq = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+        snapshot->window_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+        snapshot->session_id = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
         snapshot->reserved = 0;
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-        uint32_t seq2 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
-        if (seq1 == seq2) {
+        if (!starsec_seqlock_read_retry(&state->lock, seq1)) {
             return;
         }
     }
 
     starsec_spin_lock(&state->lock);
-    snapshot->window_base_seq = state->window_base_seq;
-    snapshot->window_bitmap = state->window_bitmap;
-    snapshot->session_id = state->session_id;
+    snapshot->window_base_seq = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+    snapshot->window_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+    snapshot->session_id = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
     snapshot->reserved = 0;
     starsec_spin_unlock(&state->lock);
 }
@@ -130,28 +128,32 @@ bool xdp_check_replay_window_speculative(
         return false;
     }
 
-    if (state->session_id != 0 && session_id < state->session_id) {
+    uint32_t current_session = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
+    uint64_t current_base = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+    uint64_t current_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+
+    if (current_session != 0 && session_id < current_session) {
         return false;
     }
 
-    if (session_id > state->session_id) {
+    if (session_id > current_session) {
         return true;
     }
 
-    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
+    if (current_base == 0 && current_bitmap == 0) {
         return true;
     }
 
-    if (seq_num > state->window_base_seq) {
+    if (seq_num > current_base) {
         return true;
     }
 
-    uint64_t diff = state->window_base_seq - seq_num;
+    uint64_t diff = current_base - seq_num;
     if (diff >= STARSEC_SLIDING_WINDOW_SIZE) {
         return false;
     }
 
-    if ((state->window_bitmap & (1ULL << diff)) != 0) {
+    if ((current_bitmap & (1ULL << diff)) != 0) {
         return false;
     }
 
@@ -177,29 +179,33 @@ void xdp_commit_replay_window_authenticated(
         return;
     }
 
-    if (session_id > state->session_id || (state->window_base_seq == 0 && state->window_bitmap == 0)) {
-        state->session_id = session_id;
-        state->window_base_seq = seq_num;
-        state->window_bitmap = 1ULL;
+    uint32_t current_session = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
+    uint64_t current_base = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+    uint64_t current_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+
+    if (session_id > current_session || (current_base == 0 && current_bitmap == 0)) {
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
         return;
     }
 
-    if (session_id < state->session_id) {
+    if (session_id < current_session) {
         return;
     }
 
-    if (seq_num > state->window_base_seq) {
-        uint64_t delta = seq_num - state->window_base_seq;
+    if (seq_num > current_base) {
+        uint64_t delta = seq_num - current_base;
         if (delta < STARSEC_SLIDING_WINDOW_SIZE) {
-            state->window_bitmap = (state->window_bitmap << delta) | 1ULL;
+            STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, (current_bitmap << delta) | 1ULL);
         } else {
-            state->window_bitmap = 1ULL;
+            STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
         }
-        state->window_base_seq = seq_num;
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
     } else {
-        uint64_t diff = state->window_base_seq - seq_num;
+        uint64_t diff = current_base - seq_num;
         if (diff < STARSEC_SLIDING_WINDOW_SIZE) {
-            state->window_bitmap |= (1ULL << diff);
+            STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, current_bitmap | (1ULL << diff));
         }
     }
 }
@@ -222,51 +228,56 @@ bool xdp_commit_replay_window_atomic(
 
     starsec_spin_lock(&state->lock);
 
-    if (session_id < state->session_id) {
+    uint32_t current_session = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
+    uint64_t current_base = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+    uint64_t current_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+
+    if (session_id < current_session) {
         starsec_spin_unlock(&state->lock);
         return false;
     }
 
-    if (session_id > state->session_id) {
-        state->session_id = session_id;
-        state->window_base_seq = seq_num;
-        state->window_bitmap = 1ULL;
+    if (session_id > current_session) {
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
         starsec_spin_unlock(&state->lock);
         return true;
     }
 
-    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
-        state->window_base_seq = seq_num;
-        state->window_bitmap = 1ULL;
+    if (current_base == 0 && current_bitmap == 0) {
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
         starsec_spin_unlock(&state->lock);
         return true;
     }
 
-    if (seq_num > state->window_base_seq) {
-        uint64_t diff = seq_num - state->window_base_seq;
+    if (seq_num > current_base) {
+        uint64_t diff = seq_num - current_base;
         if (diff < STARSEC_SLIDING_WINDOW_SIZE) {
-            state->window_bitmap = (state->window_bitmap << diff) | 1ULL;
+            STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, (current_bitmap << diff) | 1ULL);
         } else {
-            state->window_bitmap = 1ULL;
+            STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
         }
-        state->window_base_seq = seq_num;
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
         starsec_spin_unlock(&state->lock);
         return true;
     }
 
-    uint64_t diff = state->window_base_seq - seq_num;
+    uint64_t diff = current_base - seq_num;
     if (diff >= STARSEC_SLIDING_WINDOW_SIZE) {
         starsec_spin_unlock(&state->lock);
         return false;
     }
 
     uint64_t mask = (1ULL << diff);
-    if ((state->window_bitmap & mask) != 0) {
+    if ((current_bitmap & mask) != 0) {
         starsec_spin_unlock(&state->lock);
         return false;
     }
 
-    state->window_bitmap |= mask;
+    STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, current_bitmap | mask);
     starsec_spin_unlock(&state->lock);
     return true;
 }

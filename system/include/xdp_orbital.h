@@ -136,6 +136,42 @@ static inline void starsec_seqlock_write_end(volatile uint32_t *lock) {
 }
 
 /**
+ * @brief Begins a lockless Seqlock read sequence by observing the sequence generation counter.
+ * @param lock Pointer to 32-bit Seqlock sequence generation counter word.
+ * @return Generation counter observed with acquire semantics.
+ */
+static inline uint32_t starsec_seqlock_read_begin(const volatile uint32_t *lock) {
+    return __atomic_load_n(lock, __ATOMIC_ACQUIRE);
+}
+
+/**
+ * @brief Validates if a lockless Seqlock read sequence experienced concurrent writer interference.
+ * @param lock Pointer to 32-bit Seqlock sequence generation counter word.
+ * @param start_seq Generation counter value captured at the start of the read sequence.
+ * @return true if write collision occurred or counter was odd, false if snapshot was uncorrupted.
+ */
+static inline bool starsec_seqlock_read_retry(const volatile uint32_t *lock, uint32_t start_seq) {
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    uint32_t end_seq = __atomic_load_n(lock, __ATOMIC_ACQUIRE);
+    return ((start_seq & 1U) != 0U) || (start_seq != end_seq);
+}
+
+/**
+ * @brief Reads a scalar field atomically with relaxed memory ordering (ISO C11 §5.1.2.4 p25).
+ * @param ptr Pointer to scalar member inside shared state structure.
+ * @return Value read atomically.
+ */
+#define STARSEC_ATOMIC_READ_RELAXED(ptr) __atomic_load_n((ptr), __ATOMIC_RELAXED)
+
+/**
+ * @brief Writes a scalar field atomically with relaxed memory ordering (ISO C11 §5.1.2.4 p25).
+ * @param ptr Pointer to scalar member inside shared state structure.
+ * @param val Value to store atomically.
+ */
+#define STARSEC_ATOMIC_WRITE_RELAXED(ptr, val) __atomic_store_n((ptr), (val), __ATOMIC_RELAXED)
+
+
+/**
  * @brief Spacecraft receiver local clock synchronization reference.
  */
 typedef struct {
@@ -387,18 +423,16 @@ static inline bool starsec_seqlock_read_try(
     if (state == NULL || out_snapshot == NULL) {
         return false;
     }
-    uint32_t seq1 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
+    uint32_t seq1 = starsec_seqlock_read_begin(&state->lock);
     if ((seq1 & 1U) != 0U) {
         return false;
     }
     __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    out_snapshot->window_base_seq = state->window_base_seq;
-    out_snapshot->window_bitmap = state->window_bitmap;
-    out_snapshot->session_id = state->session_id;
+    out_snapshot->window_base_seq = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
+    out_snapshot->window_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
+    out_snapshot->session_id = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
     out_snapshot->reserved = 0;
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    uint32_t seq2 = __atomic_load_n(&state->lock, __ATOMIC_ACQUIRE);
-    return (seq1 == seq2);
+    return !starsec_seqlock_read_retry(&state->lock, seq1);
 }
 
 /**
