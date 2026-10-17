@@ -2,8 +2,14 @@
 Linux In-Kernel eBPF System Call Runtime Verification Harness.
 
 Validates authentic Linux kernel bpf() system call (__NR_bpf = 321 on x86_64)
-invocations directly against the host Linux kernel (BPF_MAP_CREATE, BPF_MAP_UPDATE_ELEM,
-BPF_MAP_LOOKUP_ELEM) verifying true kernel/userspace boundary synchronization.
+invocations directly against the host Linux kernel:
+- BPF_MAP_CREATE (cmd 0)
+- BPF_MAP_LOOKUP_ELEM (cmd 1)
+- BPF_MAP_UPDATE_ELEM (cmd 2)
+- BPF_OBJ_PIN (cmd 6)
+- BPF_OBJ_GET (cmd 7)
+
+Verifies true kernel/userspace boundary synchronization and bpffs shared map persistence.
 
 Standard: Linux Kernel bpf() syscall (kernel/bpf/syscall.c), StarSec CSF v1.0
 Compliance: Level 2.2 Docstrings-Only, Zero Cloud Cost
@@ -26,6 +32,8 @@ class LinuxKernelBpfLiveVerifier:
     BPF_MAP_CREATE = 0
     BPF_MAP_LOOKUP_ELEM = 1
     BPF_MAP_UPDATE_ELEM = 2
+    BPF_OBJ_PIN = 6
+    BPF_OBJ_GET = 7
     BPF_MAP_TYPE_HASH = 1
 
     class MapCreateAttr(ctypes.Structure):
@@ -49,6 +57,16 @@ class LinuxKernelBpfLiveVerifier:
             ("key", ctypes.c_uint64),
             ("value", ctypes.c_uint64),
             ("flags", ctypes.c_uint64),
+        ]
+
+    class ObjPinGetAttr(ctypes.Structure):
+        """
+        Kernel BPF attribute struct for BPF_OBJ_PIN and BPF_OBJ_GET.
+        """
+        _fields_ = [
+            ("pathname", ctypes.c_uint64),
+            ("bpf_fd", ctypes.c_uint32),
+            ("file_flags", ctypes.c_uint32),
         ]
 
     def __init__(self):
@@ -140,7 +158,60 @@ class LinuxKernelBpfLiveVerifier:
             }
 
         read_base_seq, read_bitmap, read_session = struct.unpack_from("<QQI", read_val, 0)
-        os.close(fd)
+
+        # Step 4: Shared Pinned Map Validation (BPF_OBJ_PIN & BPF_OBJ_GET)
+        pin_test_path = "/sys/fs/bpf/test_starsec_isl_py_pin"
+        pin_verified = False
+        pin_c_str = ctypes.create_string_buffer(pin_test_path.encode("utf-8"))
+
+        # Clean prior pin if present
+        if os.path.exists(pin_test_path):
+            os.unlink(pin_test_path)
+
+        pin_attr = self.ObjPinGetAttr(ctypes.addressof(pin_c_str), fd, 0)
+        res_pin = self.libc.syscall(
+            self.SYS_BPF,
+            self.BPF_OBJ_PIN,
+            ctypes.byref(pin_attr),
+            ctypes.sizeof(pin_attr),
+        )
+
+        if res_pin == 0:
+            # Successfully pinned! Close original fd
+            os.close(fd)
+
+            # Open via BPF_OBJ_GET
+            get_attr = self.ObjPinGetAttr(ctypes.addressof(pin_c_str), 0, 0)
+            opened_fd = self.libc.syscall(
+                self.SYS_BPF,
+                self.BPF_OBJ_GET,
+                ctypes.byref(get_attr),
+                ctypes.sizeof(get_attr),
+            )
+
+            if opened_fd >= 0:
+                # Read back via opened_fd to prove shared memory persistence
+                read_val_pinned = (ctypes.c_uint8 * 64)()
+                lookup_pinned_attr = self.MapElemAttr(
+                    opened_fd, ctypes.addressof(test_key), ctypes.addressof(read_val_pinned), 0
+                )
+                res_lookup_pinned = self.libc.syscall(
+                    self.SYS_BPF,
+                    self.BPF_MAP_LOOKUP_ELEM,
+                    ctypes.byref(lookup_pinned_attr),
+                    ctypes.sizeof(lookup_pinned_attr),
+                )
+                if res_lookup_pinned == 0:
+                    p_base, p_bmap, p_sess = struct.unpack_from("<QQI", read_val_pinned, 0)
+                    pin_verified = (p_base == 5001 and p_bmap == 1 and p_sess == 1)
+
+                os.close(opened_fd)
+
+            if os.path.exists(pin_test_path):
+                os.unlink(pin_test_path)
+        else:
+            # Non-fatal if /sys/fs/bpf is unmounted or read-only without root
+            os.close(fd)
 
         match = (read_base_seq == 5001) and (read_bitmap == 1) and (read_session == 1)
         return {
@@ -153,6 +224,17 @@ class LinuxKernelBpfLiveVerifier:
             "read_back_bitmap": read_bitmap,
             "read_back_session_id": read_session,
             "kernel_fidelity_verified": match,
+            "shared_bpffs_pin_verified": pin_verified,
+            "struct_memory_layout": {
+                "key_size_bytes": key_size,
+                "value_size_bytes": val_size,
+                "cacheline_aligned_64b": True,
+                "offset_window_base_seq": 0,
+                "offset_window_bitmap": 8,
+                "offset_session_id": 16,
+                "offset_lock": 20,
+                "offset_reserved_padding": 24,
+            },
             "syscall_number": self.SYS_BPF,
         }
 

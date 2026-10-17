@@ -88,16 +88,13 @@ typedef struct __attribute__((packed)) {
     uint16_t payload_len;                /**< 0x2E: Payload length in bytes */
 } starsec_isl_header_t;
 
-/**
- * @brief Generic BPF map definition conforming to BTF/CO-RE declarations.
- */
-struct bpf_map_def {
-    uint32_t type;
-    uint32_t key_size;
-    uint32_t value_size;
-    uint32_t max_entries;
-    uint32_t map_flags;
-};
+#ifndef __uint
+#define __uint(name, val) int (*name)[val]
+#endif
+
+#ifndef __type
+#define __type(name, val) typeof(val) *name
+#endif
 
 /**
  * @brief Two-stage anti-replay state tracking 64-bit sliding window per peer node.
@@ -142,46 +139,42 @@ static long (*bpf_map_update_elem)(void *map, const void *key, const void *value
 /**
  * @brief BPF map storing IDs of cryptographically authorized constellation peer nodes.
  */
-struct bpf_map_def SEC("maps") authorized_satellites_map = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(uint16_t),
-    .value_size = sizeof(uint32_t),
-    .max_entries = 256,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, uint16_t);
+    __type(value, uint32_t);
+    __uint(max_entries, 256);
+} authorized_satellites_map SEC(".maps");
 
 /**
  * @brief BPF map tracking sliding window anti-replay state committed by Tier 2 auth engine.
  */
-struct bpf_map_def SEC("maps") isl_replay_filter_map = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(uint16_t),
-    .value_size = sizeof(isl_anti_replay_state_t),
-    .max_entries = 256,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, uint16_t);
+    __type(value, isl_anti_replay_state_t);
+    __uint(max_entries, 256);
+} isl_replay_filter_map SEC(".maps");
 
 /**
  * @brief BPF map storing spacecraft local clock reference updated by GPS/PTP daemon.
  */
-struct bpf_map_def SEC("maps") time_sync_map = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(uint32_t),
-    .value_size = sizeof(starsec_time_sync_state_t),
-    .max_entries = 1,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, uint32_t);
+    __type(value, starsec_time_sync_state_t);
+    __uint(max_entries, 1);
+} time_sync_map SEC(".maps");
 
 /**
  * @brief Per-CPU diagnostic counters for line-rate observability without lock contention.
  */
-struct bpf_map_def SEC("maps") isl_telemetry_map = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(uint32_t),
-    .value_size = sizeof(uint64_t),
-    .max_entries = 8,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, uint32_t);
+    __type(value, uint64_t);
+    __uint(max_entries, 8);
+} isl_telemetry_map SEC(".maps");
 
 /**
  * @brief Increments per-CPU telemetry counter for specified metric.
@@ -201,8 +194,8 @@ static inline void starsec_increment_telemetry(uint32_t metric) {
  */
 SEC("xdp")
 int starsec_isl_xdp_filter(struct xdp_md *ctx) {
-    void *data = (void *)(uintptr_t)ctx->data;
-    void *data_end = (void *)(uintptr_t)ctx->data_end;
+    void *data = (void *)(uint64_t)ctx->data;
+    void *data_end = (void *)(uint64_t)ctx->data_end;
 
     if ((uint8_t *)data + sizeof(starsec_isl_header_t) > (uint8_t *)data_end) {
         starsec_increment_telemetry(STARSEC_TELEM_DROPPED_BAD_LEN);

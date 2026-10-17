@@ -1,0 +1,15 @@
+{
+  "test_name": "Linux In-Kernel eBPF Verifier & Shared Map Integration",
+  "kernel_version": "6.18.33.2-microsoft-standard-WSL2",
+  "arch": "x86_64",
+  "compiler": "Ubuntu clang version 21.1.8 (6ubuntu1)",
+  "timestamp": "2026-10-17T06:12:07Z",
+  "source_file": "/mnt/c/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/system/src/xdp_isl_kern.c",
+  "object_file": "/mnt/c/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/tools/xdp_isl_kern.o",
+  "verifier_status": "PASS",
+  "instructions_verified": 359,
+  "maps_pinned_successfully": true,
+  "isl_replay_filter_map_pinned": true,
+  "shared_map_integration_status": "PASS",
+  "log_file": "/mnt/c/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/tools/ebpf_kernel_verifier_log.txt"
+}

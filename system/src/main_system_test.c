@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include "tamper_zeroize.h"
 #include "sram_puf.h"
 #include "dcls_monitor.h"
@@ -1416,7 +1417,7 @@ static bool test_bpf_kernel_syscall_and_concurrency_triad(void) {
     );
     STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-FAIL-CLOSED-SYNC-03: Frame sealing failed");
 
-    uint8_t decrypted_buf[128];
+    uint8_t decrypted_buf[128] = {0};
     size_t decrypted_len = 0;
     int action = xdp_pipeline_process_packet(
         &fail_pipeline,
@@ -1443,6 +1444,169 @@ static bool test_bpf_kernel_syscall_and_concurrency_triad(void) {
 }
 
 /**
+ * @brief Tests multi-threaded SMP concurrency contention and snapshot integrity under heavy load.
+ *
+ * Spawns concurrent worker threads executing continuous atomic replay sequence commits and
+ * parallel reader threads executing atomic snapshots, verifying zero torn reads and strict monotonicity.
+ *
+ * @return true if concurrency contention suite passes, false otherwise.
+ */
+static bool test_shared_bpf_map_concurrency_contention_triad(void) {
+    printf("[SUITE 12] Multi-Threaded SMP Concurrency Contention & Snapshot Integrity Triad\n");
+
+    isl_anti_replay_state_t smp_state;
+    memset(&smp_state, 0, sizeof(smp_state));
+
+    volatile uint32_t gate = 0;
+    volatile uint32_t stop = 0;
+
+    snapshot_writer_ctx_t writer_ctx1 = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .writes_done = 0
+    };
+
+    snapshot_writer_ctx_t writer_ctx2 = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .writes_done = 0
+    };
+
+    snapshot_reader_ctx_t reader_ctx1 = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .reads_done = 0,
+        .torn_reads = 0
+    };
+
+    snapshot_reader_ctx_t reader_ctx2 = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .reads_done = 0,
+        .torn_reads = 0
+    };
+
+    starsec_thread_t threads[4];
+#if defined(_WIN32)
+    threads[0] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_writer_func, &writer_ctx1, 0, NULL);
+    threads[1] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_writer_func, &writer_ctx2, 0, NULL);
+    threads[2] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_reader_func, &reader_ctx1, 0, NULL);
+    threads[3] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_reader_func, &reader_ctx2, 0, NULL);
+    STARSEC_ASSERT(threads[0] != NULL && threads[1] != NULL && threads[2] != NULL && threads[3] != NULL,
+                   "TC-CONCURRENT-SMP-04: CreateThread failed");
+#else
+    pthread_create(&threads[0], NULL, snapshot_writer_func, &writer_ctx1);
+    pthread_create(&threads[1], NULL, snapshot_writer_func, &writer_ctx2);
+    pthread_create(&threads[2], NULL, snapshot_reader_func, &reader_ctx1);
+    pthread_create(&threads[3], NULL, snapshot_reader_func, &reader_ctx2);
+#endif
+
+    __atomic_store_n(&gate, 1U, __ATOMIC_RELEASE);
+
+#if defined(_WIN32)
+    WaitForMultipleObjects(4, threads, TRUE, INFINITE);
+    for (int i = 0; i < 4; i++) {
+        CloseHandle(threads[i]);
+    }
+#else
+    for (int i = 0; i < 4; i++) {
+        pthread_join(threads[i], NULL);
+    }
+#endif
+
+    STARSEC_ASSERT(reader_ctx1.torn_reads == 0,
+                   "TC-CONCURRENT-SMP-04: Reader 1 observed torn reads during contention!");
+    STARSEC_ASSERT(reader_ctx2.torn_reads == 0,
+                   "TC-CONCURRENT-SMP-04: Reader 2 observed torn reads during contention!");
+    STARSEC_ASSERT(reader_ctx1.reads_done > 0 && reader_ctx2.reads_done > 0,
+                   "TC-CONCURRENT-SMP-04: Readers did not execute snapshots");
+    STARSEC_ASSERT(writer_ctx1.writes_done > 0 && writer_ctx2.writes_done > 0,
+                   "TC-CONCURRENT-SMP-04: Writers did not complete commits");
+
+    printf("  [PASS] Multi-Threaded SMP Concurrency Contention Triad Successful (0 torn reads).\n");
+    return true;
+}
+
+/**
+ * @brief Tests systematic failure path injection across syscall boundaries, capacity limits, and pipeline.
+ *
+ * Validates error code propagation on invalid arguments, table capacity saturation,
+ * and fail-closed cryptographic scrub invariants upon map synchronization error.
+ *
+ * @return true if failure path injection suite passes, false otherwise.
+ */
+static bool test_systematic_failure_path_injection_triad(void) {
+    printf("[SUITE 13] Systematic Failure Path Injection & Fail-Closed Invariant Triad\n");
+
+    int pin_bad_fd = starsec_bpf_obj_pin(-1, "/sys/fs/bpf/bad");
+    STARSEC_ASSERT(pin_bad_fd == -EINVAL, "TC-FAIL-INJECT-01: Invalid fd not rejected with -EINVAL");
+
+    int pin_null = starsec_bpf_obj_pin(3, NULL);
+    STARSEC_ASSERT(pin_null == -EINVAL, "TC-FAIL-INJECT-01: NULL pathname not rejected with -EINVAL");
+
+    int get_null = starsec_bpf_obj_get(NULL);
+    STARSEC_ASSERT(get_null == -EINVAL, "TC-FAIL-INJECT-01: NULL pathname in bpf_obj_get not rejected with -EINVAL");
+
+    starsec_xdp_pipeline_t pipe;
+    xdp_pipeline_init(&pipe, NULL, NULL);
+
+    for (uint16_t i = 1; i <= 256; i++) {
+        bool auth_ok = xdp_pipeline_authorize_node(&pipe, i);
+        STARSEC_ASSERT(auth_ok == true, "TC-FAIL-INJECT-02: Valid node authorization failed");
+    }
+    bool auth_overflow = xdp_pipeline_authorize_node(&pipe, 257);
+    STARSEC_ASSERT(auth_overflow == false, "TC-FAIL-INJECT-02: Capacity overflow not rejected at 256 nodes");
+
+    int init_null_ret = xdp_pipeline_init_pinned(NULL, NULL, NULL, NULL);
+    STARSEC_ASSERT(init_null_ret == -EINVAL, "TC-FAIL-INJECT-03: NULL pipeline init not rejected with -EINVAL");
+
+    starsec_kernel_bpf_map_t full_map;
+    memset(&full_map, 0, sizeof(full_map));
+    full_map.count = 256;
+    for (size_t i = 0; i < 256; i++) {
+        full_map.satellite_ids[i] = (uint16_t)(i + 1);
+    }
+    isl_anti_replay_state_t new_state;
+    memset(&new_state, 0, sizeof(new_state));
+    bool sync_full = xdp_sync_kernel_replay_map(&full_map, 999, &new_state);
+    STARSEC_ASSERT(sync_full == false, "TC-FAIL-INJECT-04: Sync into saturated map did not return false");
+
+    printf("  [PASS] Systematic Failure Path Injection Triad Successful.\n");
+    return true;
+}
+
+/**
+ * @brief Tests exact struct memory layout, byte offsets, and hardware cacheline alignment.
+ *
+ * Validates C11 struct alignment and offset rules for seamless userspace/eBPF kernel memory sharing.
+ *
+ * @return true if memory layout conforms to specification, false otherwise.
+ */
+static bool test_exact_memory_layout_conformance_triad(void) {
+    printf("[SUITE 14] Exact Struct Memory Layout & Hardware Cacheline Alignment Triad\n");
+
+    bool verified = starsec_verify_memory_layout();
+    STARSEC_ASSERT(verified == true, "TC-MEM-LAYOUT-01: starsec_verify_memory_layout returned false");
+
+    STARSEC_ASSERT(sizeof(isl_anti_replay_state_t) == 64, "TC-MEM-LAYOUT-01: Struct size must be exactly 64 bytes");
+    STARSEC_ASSERT(_Alignof(isl_anti_replay_state_t) == 64, "TC-MEM-LAYOUT-01: Struct must be 64-byte aligned");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, window_base_seq) == 0, "TC-MEM-LAYOUT-01: window_base_seq offset != 0");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, window_bitmap) == 8, "TC-MEM-LAYOUT-01: window_bitmap offset != 8");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, session_id) == 16, "TC-MEM-LAYOUT-01: session_id offset != 16");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, lock) == 20, "TC-MEM-LAYOUT-01: lock offset != 20");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, reserved_padding) == 24, "TC-MEM-LAYOUT-01: reserved_padding offset != 24");
+    STARSEC_ASSERT(sizeof(uint16_t) == 2, "TC-MEM-LAYOUT-01: Key size must be 2 bytes");
+    STARSEC_ASSERT(sizeof(starsec_replay_snapshot_t) == 24, "TC-MEM-LAYOUT-01: Snapshot size mismatch");
+
+    printf("  [PASS] Exact Struct Memory Layout & Hardware Cacheline Alignment Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -1464,10 +1628,13 @@ int main(void) {
     all_passed &= test_rfc8439_aead_and_smp_stress_triad();
     all_passed &= test_aead_packet_pipeline_and_kernel_sync_triad();
     all_passed &= test_bpf_kernel_syscall_and_concurrency_triad();
+    all_passed &= test_shared_bpf_map_concurrency_contention_triad();
+    all_passed &= test_systematic_failure_path_injection_triad();
+    all_passed &= test_exact_memory_layout_conformance_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {
-        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (100%% Triad Coverage)\n");
+        printf("[PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (14/14 Suites Passed - 100%% Coverage)\n");
         printf("=================================================================\n");
         return 0;
     } else {

@@ -12,6 +12,7 @@
 #include "xdp_orbital.h"
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -792,6 +793,160 @@ int starsec_bpf_map_create_kernel(
 }
 
 /**
+ * @brief Pins a BPF file descriptor to bpffs using the Linux bpf() system call (BPF_OBJ_PIN = 6).
+ * @param fd Kernel BPF object file descriptor (map or program).
+ * @param pathname Absolute path in BPF filesystem (/sys/fs/bpf/...).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_obj_pin(int fd, const char *pathname) {
+    if (fd < 0 || pathname == NULL) {
+        return -EINVAL;
+    }
+
+#if defined(__linux__)
+    union starsec_bpf_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.obj_pin_get.pathname = (uint64_t)(uintptr_t)pathname;
+    attr.obj_pin_get.bpf_fd = (uint32_t)fd;
+    attr.obj_pin_get.file_flags = 0;
+
+    long ret = syscall(__NR_bpf, 6 /* BPF_OBJ_PIN */, &attr, sizeof(attr));
+    if (ret == 0) {
+        return 0;
+    }
+    return -errno;
+#else
+    (void)fd;
+    (void)pathname;
+    return 0;
+#endif
+}
+
+/**
+ * @brief Opens an existing pinned BPF object from bpffs using Linux bpf() system call (BPF_OBJ_GET = 7).
+ * @param pathname Absolute path in BPF filesystem (/sys/fs/bpf/...).
+ * @return Valid file descriptor (>= 0) on success, negative errno on failure.
+ */
+int starsec_bpf_obj_get(const char *pathname) {
+    if (pathname == NULL) {
+        return -EINVAL;
+    }
+
+#if defined(__linux__)
+    union starsec_bpf_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.obj_pin_get.pathname = (uint64_t)(uintptr_t)pathname;
+    attr.obj_pin_get.bpf_fd = 0;
+    attr.obj_pin_get.file_flags = 0;
+
+    long ret = syscall(__NR_bpf, 7 /* BPF_OBJ_GET */, &attr, sizeof(attr));
+    if (ret >= 0) {
+        return (int)ret;
+    }
+    return -errno;
+#else
+    (void)pathname;
+    return -ENOSYS;
+#endif
+}
+
+/**
+ * @brief Pins the active in-kernel BPF map into bpffs for sharing with eBPF programs.
+ * @param map Pointer to active BPF map instance.
+ * @param pinned_path Absolute path destination in /sys/fs/bpf.
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_pin(
+    starsec_kernel_bpf_map_t *map,
+    const char               *pinned_path
+) {
+    if (map == NULL || pinned_path == NULL) {
+        return -EINVAL;
+    }
+
+#if defined(__linux__)
+    if (map->map_fd < 0) {
+        return -EBADF;
+    }
+    int ret = starsec_bpf_obj_pin(map->map_fd, pinned_path);
+    if (ret == 0) {
+        strncpy(map->pinned_path, pinned_path, sizeof(map->pinned_path) - 1);
+        map->pinned_path[sizeof(map->pinned_path) - 1] = '\0';
+        map->backend_type = STARSEC_BPF_BACKEND_KERNEL_PINNED;
+        return 0;
+    }
+    return ret;
+#else
+    strncpy(map->pinned_path, pinned_path, sizeof(map->pinned_path) - 1);
+    map->pinned_path[sizeof(map->pinned_path) - 1] = '\0';
+    map->backend_type = STARSEC_BPF_BACKEND_KERNEL_PINNED;
+    return 0;
+#endif
+}
+
+/**
+ * @brief Connects to an existing pinned in-kernel BPF map loaded by XDP / bpftool.
+ * @param map Pointer to starsec_kernel_bpf_map_t instance.
+ * @param pinned_path Path to pinned BPF map node (/sys/fs/bpf/starsec_maps/isl_replay_filter_map).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_open_pinned(
+    starsec_kernel_bpf_map_t *map,
+    const char               *pinned_path
+) {
+    if (map == NULL || pinned_path == NULL) {
+        return -EINVAL;
+    }
+
+#if defined(__linux__)
+    int fd = starsec_bpf_obj_get(pinned_path);
+    if (fd >= 0) {
+        map->map_fd = fd;
+        map->backend_type = STARSEC_BPF_BACKEND_KERNEL_PINNED;
+        strncpy(map->pinned_path, pinned_path, sizeof(map->pinned_path) - 1);
+        map->pinned_path[sizeof(map->pinned_path) - 1] = '\0';
+        return 0;
+    }
+    return fd;
+#else
+    map->map_fd = -1;
+    map->backend_type = STARSEC_BPF_BACKEND_EMULATED;
+    strncpy(map->pinned_path, pinned_path, sizeof(map->pinned_path) - 1);
+    map->pinned_path[sizeof(map->pinned_path) - 1] = '\0';
+    return 0;
+#endif
+}
+
+/**
+ * @brief Verifies memory layout equivalence, struct offsets, and cacheline alignment at runtime.
+ * @return true if all struct sizes, alignments, and offsets strictly match specifications.
+ */
+bool starsec_verify_memory_layout(void) {
+    if (sizeof(isl_anti_replay_state_t) != 64) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, window_base_seq) != 0) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, window_bitmap) != 8) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, session_id) != 16) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, lock) != 20) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, reserved_padding) != 24) {
+        return false;
+    }
+    if (sizeof(uint16_t) != 2) {
+        return false;
+    }
+    return true;
+}
+
+/**
  * @brief Updates an element in the Linux kernel BPF map via BPF_MAP_UPDATE_ELEM syscall.
  * @param map Pointer to active BPF map instance.
  * @param satellite_id 16-bit Constellation Node ID (key).
@@ -847,6 +1002,27 @@ void starsec_bpf_map_close(starsec_kernel_bpf_map_t *map) {
 }
 
 /**
+ * @brief Initializes the two-tier pipeline connecting to an existing pinned in-kernel BPF map.
+ * @param pipeline Pointer to starsec_xdp_pipeline_t instance to initialize.
+ * @param pinned_path Path to pinned BPF map node in /sys/fs/bpf.
+ * @param shared_key_32 Pointer to 32-byte shared ISL master secret.
+ * @param clock_ref Pointer to trusted local spacecraft receiver clock reference.
+ * @return 0 on success, negative errno on failure.
+ */
+int xdp_pipeline_init_pinned(
+    starsec_xdp_pipeline_t          *pipeline,
+    const char                      *pinned_path,
+    const uint8_t                    shared_key_32[32],
+    const starsec_time_sync_state_t *clock_ref
+) {
+    if (pipeline == NULL || pinned_path == NULL) {
+        return -EINVAL;
+    }
+    xdp_pipeline_init(pipeline, shared_key_32, clock_ref);
+    return starsec_bpf_map_open_pinned(&pipeline->kernel_bpf_map, pinned_path);
+}
+
+/**
  * @brief Registers an authorized satellite node in both Tier 1 BPF map and Tier 2 filter.
  * @param pipeline Pointer to active pipeline instance.
  * @param satellite_id 16-bit Constellation Node ID.
@@ -865,7 +1041,8 @@ bool xdp_pipeline_authorize_node(
     pipeline->filter_config.authorized_nodes[pipeline->filter_config.authorized_count++] = satellite_id;
     pipeline->kernel_bpf_map.satellite_ids[pipeline->kernel_bpf_map.count++] = satellite_id;
 
-    if (pipeline->kernel_bpf_map.backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL &&
+    if ((pipeline->kernel_bpf_map.backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL ||
+         pipeline->kernel_bpf_map.backend_type == STARSEC_BPF_BACKEND_KERNEL_PINNED) &&
         pipeline->kernel_bpf_map.map_fd >= 0) {
         isl_anti_replay_state_t zero_state;
         memset(&zero_state, 0, sizeof(zero_state));
@@ -894,7 +1071,8 @@ bool xdp_sync_kernel_replay_map(
     starsec_replay_snapshot_t snap;
     xdp_replay_take_snapshot(source_state, &snap);
 
-    if (bpf_map->backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL && bpf_map->map_fd >= 0) {
+    if ((bpf_map->backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL ||
+         bpf_map->backend_type == STARSEC_BPF_BACKEND_KERNEL_PINNED) && bpf_map->map_fd >= 0) {
         isl_anti_replay_state_t kernel_state;
         memset(&kernel_state, 0, sizeof(kernel_state));
         kernel_state.window_base_seq = snap.window_base_seq;

@@ -78,6 +78,16 @@ typedef struct __attribute__((aligned(64))) {
     uint8_t  reserved_padding[40];       /**< Explicit padding guaranteeing full 64-byte cacheline isolation */
 } isl_anti_replay_state_t;
 
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+_Static_assert(sizeof(isl_anti_replay_state_t) == 64, "isl_anti_replay_state_t must be exactly 64 bytes");
+_Static_assert(_Alignof(isl_anti_replay_state_t) == 64, "isl_anti_replay_state_t must be 64-byte aligned");
+_Static_assert(offsetof(isl_anti_replay_state_t, window_base_seq) == 0, "window_base_seq offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, window_bitmap) == 8, "window_bitmap offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, session_id) == 16, "session_id offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, lock) == 20, "lock offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, reserved_padding) == 24, "reserved_padding offset mismatch");
+#endif
+
 /**
  * @brief Acquires the cacheline-embedded atomic spinlock using acquire memory ordering.
  * @param lock Pointer to 32-bit atomic lock word.
@@ -287,7 +297,9 @@ typedef enum {
     /** @brief Emulated in-memory table for testing, non-privileged or non-Linux hosts. */
     STARSEC_BPF_BACKEND_EMULATED       = 0,
     /** @brief Real Linux kernel BPF map accessed via bpf() syscall and map file descriptor. */
-    STARSEC_BPF_BACKEND_KERNEL_SYSCALL = 1
+    STARSEC_BPF_BACKEND_KERNEL_SYSCALL = 1,
+    /** @brief Real Linux kernel BPF map shared via pinned bpffs node (/sys/fs/bpf/...). */
+    STARSEC_BPF_BACKEND_KERNEL_PINNED  = 2
 } starsec_bpf_backend_type_t;
 
 /**
@@ -318,6 +330,12 @@ union starsec_bpf_attr {
         };
         uint64_t flags;                  /**< BPF_ANY = 0 */
     } map_elem;
+
+    struct {
+        uint64_t pathname;               /**< Pointer to const char* path in bpffs cast to uint64_t */
+        uint32_t bpf_fd;                 /**< Map or program file descriptor to pin */
+        uint32_t file_flags;             /**< File flags (0) */
+    } obj_pin_get;
 };
 
 /**
@@ -369,6 +387,49 @@ int starsec_bpf_map_create_kernel(
 );
 
 /**
+ * @brief Pins a BPF file descriptor to bpffs using the Linux bpf() system call (BPF_OBJ_PIN = 6).
+ * @param fd Kernel BPF object file descriptor (map or program).
+ * @param pathname Absolute path in BPF filesystem (/sys/fs/bpf/...).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_obj_pin(int fd, const char *pathname);
+
+/**
+ * @brief Opens an existing pinned BPF object from bpffs using Linux bpf() system call (BPF_OBJ_GET = 7).
+ * @param pathname Absolute path in BPF filesystem (/sys/fs/bpf/...).
+ * @return Valid file descriptor (>= 0) on success, negative errno on failure.
+ */
+int starsec_bpf_obj_get(const char *pathname);
+
+/**
+ * @brief Pins the active in-kernel BPF map into bpffs for sharing with eBPF programs.
+ * @param map Pointer to active BPF map instance.
+ * @param pinned_path Absolute path destination in /sys/fs/bpf.
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_pin(
+    starsec_kernel_bpf_map_t *map,
+    const char               *pinned_path
+);
+
+/**
+ * @brief Connects to an existing pinned in-kernel BPF map loaded by XDP / bpftool.
+ * @param map Pointer to starsec_kernel_bpf_map_t instance.
+ * @param pinned_path Path to pinned BPF map node (/sys/fs/bpf/starsec_maps/isl_replay_filter_map).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_open_pinned(
+    starsec_kernel_bpf_map_t *map,
+    const char               *pinned_path
+);
+
+/**
+ * @brief Verifies memory layout equivalence, struct offsets, and cacheline alignment at runtime.
+ * @return true if all struct sizes, alignments, and offsets strictly match specifications.
+ */
+bool starsec_verify_memory_layout(void);
+
+/**
  * @brief Updates an element in the Linux kernel BPF map via BPF_MAP_UPDATE_ELEM syscall.
  * @param map Pointer to active BPF map instance.
  * @param satellite_id 16-bit Constellation Node ID (key).
@@ -407,6 +468,21 @@ typedef struct {
  */
 void xdp_pipeline_init(
     starsec_xdp_pipeline_t          *pipeline,
+    const uint8_t                    shared_key_32[32],
+    const starsec_time_sync_state_t *clock_ref
+);
+
+/**
+ * @brief Initializes the two-tier pipeline connecting to an existing pinned in-kernel BPF map.
+ * @param pipeline Pointer to starsec_xdp_pipeline_t instance to initialize.
+ * @param pinned_path Path to pinned BPF map node in /sys/fs/bpf.
+ * @param shared_key_32 Pointer to 32-byte shared ISL master secret.
+ * @param clock_ref Pointer to trusted local spacecraft receiver clock reference.
+ * @return 0 on success, negative errno on failure.
+ */
+int xdp_pipeline_init_pinned(
+    starsec_xdp_pipeline_t          *pipeline,
+    const char                      *pinned_path,
     const uint8_t                    shared_key_32[32],
     const starsec_time_sync_state_t *clock_ref
 );

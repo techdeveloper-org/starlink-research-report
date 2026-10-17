@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# StarSec CSF v1.0: Linux Kernel eBPF Runtime Verifier Test Harness
+# StarSec CSF v1.0: Linux Kernel eBPF Runtime Verifier & Shared Map Test Harness
 #
 # Standard: Linux Kernel bpf() syscall (kernel/bpf/verifier.c)
-# Purpose: Compiles system/src/xdp_isl_kern.c with Clang BPF backend and loads
-#          the resulting ELF object into the Linux kernel via bpftool to obtain
-#          in-kernel verifier logs and proof of termination/bounds compliance.
+# Purpose: Compiles system/src/xdp_isl_kern.c with Clang BPF backend, loads the
+#          resulting ELF object into the Linux kernel via bpftool with pinmaps,
+#          executes userspace-to-kernel shared map integration tests, and captures
+#          authentic in-kernel verifier instruction logs and JSON telemetry reports.
 #
 # Prerequisites (Linux host or WSL2):
 #   - Linux Kernel >= 5.10 with CONFIG_BPF=y, CONFIG_BPF_SYSCALL=y
@@ -29,9 +30,10 @@ OBJ_OUTPUT="${SCRIPT_DIR}/xdp_isl_kern.o"
 LOG_OUTPUT="${SCRIPT_DIR}/ebpf_kernel_verifier_log.txt"
 REPORT_OUTPUT="${SCRIPT_DIR}/ebpf_linux_verifier_report.json"
 BPF_PIN_PATH="/sys/fs/bpf/starsec_isl_test"
+BPF_MAP_DIR="/sys/fs/bpf/starsec_maps"
 
 echo "=================================================================="
-echo "    STARSEC CSF v1.0: LINUX KERNEL eBPF RUNTIME VERIFIER TEST    "
+echo "    STARSEC CSF v1.0: LINUX KERNEL eBPF VERIFIER & SHARED MAP    "
 echo "=================================================================="
 
 # Check OS and kernel
@@ -43,6 +45,13 @@ fi
 
 echo "[INFO] Linux Kernel Version: $(uname -r)"
 
+# Ensure /sys/fs/bpf bpffs is mounted
+if ! mountpoint -q /sys/fs/bpf; then
+    echo "[INFO] Mounting BPF virtual filesystem at /sys/fs/bpf..."
+    mkdir -p /sys/fs/bpf
+    mount -t bpf bpf /sys/fs/bpf || echo "[WARN] Failed to mount /sys/fs/bpf (may need root privileges)"
+fi
+
 # Check toolchain prerequisites
 for tool in clang bpftool; do
     if ! command -v "${tool}" &>/dev/null; then
@@ -53,8 +62,8 @@ for tool in clang bpftool; do
 done
 
 # Step 1: Compile xdp_isl_kern.c to BPF bytecode ELF object
-echo "[1/4] Compiling ${SOURCE_FILE} to BPF bytecode with Clang..."
-clang -O2 -target bpf \
+echo "[1/5] Compiling ${SOURCE_FILE} to BPF bytecode with Clang..."
+clang -g -O2 -target bpf \
     -D__KERNEL__ \
     -D__BPF_TRACING__ \
     -Wno-unused-value \
@@ -67,56 +76,95 @@ clang -O2 -target bpf \
 echo "  -> Object compiled successfully: ${OBJ_OUTPUT}"
 
 # Step 2: Verify ELF Sections
-echo "[2/4] Inspecting BPF ELF sections..."
+echo "[2/5] Inspecting BPF ELF sections..."
 if command -v llvm-objdump &>/dev/null; then
     llvm-objdump -h "${OBJ_OUTPUT}"
 fi
 
-# Step 3: Test In-Kernel BPF Verifier Loading
-echo "[3/4] Loading BPF program into Linux kernel verifier..."
-# Clean up prior pinned object if present
-if [[ -e "${BPF_PIN_PATH}" ]]; then
-    rm -f "${BPF_PIN_PATH}"
-fi
+# Step 3: Test In-Kernel BPF Verifier Loading with Map Pinning
+echo "[3/5] Loading BPF program into Linux kernel verifier with pinmaps..."
+# Clean up prior pinned objects if present
+rm -f "${BPF_PIN_PATH}" 2>/dev/null || true
+rm -rf "${BPF_MAP_DIR}" 2>/dev/null || true
+mkdir -p "${BPF_MAP_DIR}"
 
-# Attempt bpftool load with canonical global debug option
 VERIFIER_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 LOAD_STATUS="PASS"
 INSNS_PROCESSED=0
+MAPS_PINNED=false
 
-if bpftool --debug prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
+if bpftool --debug prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp pinmaps "${BPF_MAP_DIR}" > "${LOG_OUTPUT}" 2>&1; then
     LOAD_STATUS="PASS"
-    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode without violation."
-    if grep -q "processed .* insns" "${LOG_OUTPUT}"; then
-        INSNS_PROCESSED=$(grep -oE "processed [0-9]+ insns" "${LOG_OUTPUT}" | head -n1 | awk '{print $2}')
-        echo "  -> In-Kernel Verifier Metrics: ${INSNS_PROCESSED} instructions verified, 0 unbounded loops."
-    fi
-elif bpftool -d prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
+    MAPS_PINNED=true
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode and pinned maps."
+elif bpftool -d prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp pinmaps "${BPF_MAP_DIR}" > "${LOG_OUTPUT}" 2>&1; then
     LOAD_STATUS="PASS"
-    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (-d mode)."
-    if grep -q "processed .* insns" "${LOG_OUTPUT}"; then
-        INSNS_PROCESSED=$(grep -oE "processed [0-9]+ insns" "${LOG_OUTPUT}" | head -n1 | awk '{print $2}')
-        echo "  -> In-Kernel Verifier Metrics: ${INSNS_PROCESSED} instructions verified, 0 unbounded loops."
-    fi
+    MAPS_PINNED=true
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (-d mode) and pinned maps."
+elif bpftool prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp pinmaps "${BPF_MAP_DIR}" > "${LOG_OUTPUT}" 2>&1; then
+    LOAD_STATUS="PASS"
+    MAPS_PINNED=true
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (standard mode) and pinned maps."
 elif bpftool prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
     LOAD_STATUS="PASS"
-    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (standard mode)."
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode without pinmaps."
 else
     LOAD_STATUS="FAIL"
     echo "  -> [FAIL] In-kernel verifier rejected program. Log excerpt:"
     tail -n 25 "${LOG_OUTPUT}"
 fi
 
-# Clean up pinned test object
-if [[ -e "${BPF_PIN_PATH}" ]]; then
-    rm -f "${BPF_PIN_PATH}"
+if grep -q "processed .* insns" "${LOG_OUTPUT}"; then
+    INSNS_PROCESSED=$(grep -oE "processed [0-9]+ insns" "${LOG_OUTPUT}" | head -n1 | awk '{print $2}')
+    echo "  -> In-Kernel Verifier Metrics: ${INSNS_PROCESSED} instructions verified, 0 unbounded loops."
 fi
 
-# Step 4: Emit JSON Report
-echo "[4/4] Writing runtime verification report to ${REPORT_OUTPUT}..."
+# Verify pinned replay map existence
+REPLAY_MAP_EXISTS=false
+if [[ -e "${BPF_MAP_DIR}/isl_replay_filter_map" ]]; then
+    REPLAY_MAP_EXISTS=true
+    echo "  -> [PASS] Verified in-kernel pinned map: ${BPF_MAP_DIR}/isl_replay_filter_map"
+fi
+
+# Step 4: Run C Shared Map Integration Harness
+echo "[4/5] Executing Standalone Linux C Shared BPF Map Integration Test..."
+SHARED_TEST_BIN="${SCRIPT_DIR}/test_bpf_shared_map_integration"
+SHARED_TEST_STATUS="PASS"
+
+if command -v gcc &>/dev/null; then
+    gcc -O2 -Wall -Wextra -pthread \
+        -I"${INCLUDE_DIR}" \
+        "${SCRIPT_DIR}/test_bpf_shared_map_integration.c" \
+        "${REPO_ROOT}/system/src/xdp_orbital_filter.c" \
+        "${REPO_ROOT}/system/src/starsec_chacha20.c" \
+        "${REPO_ROOT}/system/src/starsec_poly1305.c" \
+        -o "${SHARED_TEST_BIN}"
+    if "${SHARED_TEST_BIN}"; then
+        SHARED_TEST_STATUS="PASS"
+        echo "  -> [PASS] C Shared BPF Map Integration Harness verified byte-for-byte in-kernel fidelity."
+    else
+        SHARED_TEST_STATUS="FAIL"
+        echo "  -> [FAIL] C Shared BPF Map Integration Harness failed."
+    fi
+    rm -f "${SHARED_TEST_BIN}"
+else
+    echo "  -> [WARN] gcc not available. Running Python live BPF verifier instead..."
+    if python3 "${SCRIPT_DIR}/test_linux_kernel_bpf_live.py"; then
+        SHARED_TEST_STATUS="PASS"
+    else
+        SHARED_TEST_STATUS="FAIL"
+    fi
+fi
+
+# Clean up pinned test objects
+rm -f "${BPF_PIN_PATH}" 2>/dev/null || true
+rm -rf "${BPF_MAP_DIR}" 2>/dev/null || true
+
+# Step 5: Emit JSON Report
+echo "[5/5] Writing runtime verification report to ${REPORT_OUTPUT}..."
 cat <<EOF > "${REPORT_OUTPUT}"
 {
-  "test_name": "Linux In-Kernel eBPF Verifier Runtime Load",
+  "test_name": "Linux In-Kernel eBPF Verifier & Shared Map Integration",
   "kernel_version": "$(uname -r)",
   "arch": "$(uname -m)",
   "compiler": "$(clang --version | head -n1)",
@@ -125,15 +173,18 @@ cat <<EOF > "${REPORT_OUTPUT}"
   "object_file": "${OBJ_OUTPUT}",
   "verifier_status": "${LOAD_STATUS}",
   "instructions_verified": ${INSNS_PROCESSED:-0},
+  "maps_pinned_successfully": ${MAPS_PINNED},
+  "isl_replay_filter_map_pinned": ${REPLAY_MAP_EXISTS},
+  "shared_map_integration_status": "${SHARED_TEST_STATUS}",
   "log_file": "${LOG_OUTPUT}"
 }
 EOF
 
 echo "=================================================================="
-if [[ "${LOAD_STATUS}" == "PASS" ]]; then
-    echo "[PASS] LINUX KERNEL eBPF RUNTIME VERIFICATION SUCCESSFUL"
+if [[ "${LOAD_STATUS}" == "PASS" && "${SHARED_TEST_STATUS}" == "PASS" ]]; then
+    echo "[PASS] LINUX KERNEL eBPF VERIFICATION & SHARED MAP INTEGRATION SUCCESSFUL"
     exit 0
 else
-    echo "[FAIL] LINUX KERNEL eBPF RUNTIME VERIFICATION FAILED"
+    echo "[FAIL] LINUX KERNEL eBPF VERIFICATION OR SHARED MAP FAILED"
     exit 1
 fi

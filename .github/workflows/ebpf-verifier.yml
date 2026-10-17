@@ -1,0 +1,67 @@
+name: Linux Kernel eBPF Runtime Verifier & Shared Map CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ebpf-kernel-verifier:
+    name: eBPF Verifier, Pinned Map Sharing & 14 Triad Test Suites
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install eBPF Toolchain & Linux Headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libbpf-dev linux-tools-generic bpftool build-essential gcc-multilib
+
+      - name: Mount BPF Virtual Filesystem (bpffs)
+        run: |
+          sudo mkdir -p /sys/fs/bpf
+          mountpoint -q /sys/fs/bpf || sudo mount -t bpf bpf /sys/fs/bpf
+          sudo chmod 777 /sys/fs/bpf
+
+      - name: Run Authentic Linux eBPF Verifier & Shared Map Integration Test
+        run: |
+          chmod +x tools/test_ebpf_linux_verifier.sh
+          sudo ./tools/test_ebpf_linux_verifier.sh
+
+      - name: Run Live In-Kernel BPF Syscall Python Harness
+        run: |
+          sudo python3 tools/test_linux_kernel_bpf_live.py
+
+      - name: Compile & Run C Triad Test Suites (14/14 Suites)
+        run: |
+          gcc -O2 -Wall -Wextra -pthread \
+            -I system/include \
+            system/src/main_system_test.c \
+            system/src/dcls_fault_monitor.c \
+            system/src/sram_puf_fuzzy_extractor.c \
+            system/src/starsec_chacha20.c \
+            system/src/starsec_poly1305.c \
+            system/src/tamper_zeroize_driver.c \
+            system/src/xdp_orbital_filter.c \
+            -o system_test_runner
+          sudo ./system_test_runner
+
+      - name: Upload Verifier Telemetry & Artifact Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebpf-kernel-verifier-reports
+          path: |
+            tools/ebpf_linux_verifier_report.json
+            tools/ebpf_kernel_verifier_log.txt
+            tools/ebpf_kernel_syscall_report.json
+            tools/test_execution_report.json

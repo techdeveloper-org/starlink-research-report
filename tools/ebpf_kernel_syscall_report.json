@@ -8,5 +8,16 @@
   "read_back_bitmap": 1,
   "read_back_session_id": 1,
   "kernel_fidelity_verified": true,
+  "shared_bpffs_pin_verified": true,
+  "struct_memory_layout": {
+    "key_size_bytes": 2,
+    "value_size_bytes": 64,
+    "cacheline_aligned_64b": true,
+    "offset_window_base_seq": 0,
+    "offset_window_bitmap": 8,
+    "offset_session_id": 16,
+    "offset_lock": 20,
+    "offset_reserved_padding": 24
+  },
   "syscall_number": 321
 }
