@@ -25,6 +25,55 @@
 #include "xdp_orbital.h"
 #include "starsec_bench.h"
 
+#if defined(_WIN32)
+#include <windows.h>
+typedef HANDLE starsec_thread_t;
+#define STARSEC_THREAD_CALL WINAPI
+#define STARSEC_THREAD_RET DWORD
+#else
+#include <pthread.h>
+typedef pthread_t starsec_thread_t;
+#define STARSEC_THREAD_CALL
+#define STARSEC_THREAD_RET void *
+#endif
+
+/**
+ * @brief Thread context for multi-core SMP atomic commit race verification.
+ */
+typedef struct {
+    isl_anti_replay_state_t *state;
+    uint32_t                 session_id;
+    uint64_t                 seq_start;
+    size_t                   count;
+    volatile uint32_t       *gate;
+    uint32_t                *successes;
+    uint32_t                *conflicts;
+} smp_race_ctx_t;
+
+/**
+ * @brief Thread routine executing simultaneous atomic replay commits.
+ * @param arg Pointer to smp_race_ctx_t context.
+ * @return Thread exit code.
+ */
+static STARSEC_THREAD_RET STARSEC_THREAD_CALL smp_race_worker_func(void *arg) {
+    smp_race_ctx_t *ctx = (smp_race_ctx_t *)arg;
+    while (*(ctx->gate) == 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #endif
+    }
+
+    for (size_t i = 0; i < ctx->count; i++) {
+        uint64_t seq = ctx->seq_start + i;
+        if (xdp_commit_replay_window_atomic(ctx->state, ctx->session_id, seq)) {
+            __atomic_fetch_add(ctx->successes, 1U, __ATOMIC_RELAXED);
+        } else {
+            __atomic_fetch_add(ctx->conflicts, 1U, __ATOMIC_RELAXED);
+        }
+    }
+    return 0;
+}
+
 /**
  * @brief Macro for asserting test conditions and logging step results.
  */
@@ -803,6 +852,202 @@ static bool test_hardened_security_and_concurrency_triad(void) {
 }
 
 /**
+ * @brief Executes TC-AEAD-KAT-01, TC-AEAD-TAMPER-01, and TC-CONCURRENT-RACE-01.
+ * @return true if all RFC 8439 AEAD and SMP multi-threaded race tests pass, false otherwise.
+ */
+static bool test_rfc8439_aead_and_smp_stress_triad(void) {
+    printf("[TEST] Running RFC 8439 Section 2.8 AEAD & SMP Multi-Core Race Triad...\n");
+
+    const uint8_t kat_key[32] = {
+        0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+        0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+        0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+        0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f
+    };
+    const uint8_t kat_nonce[12] = {
+        0x07, 0x00, 0x00, 0x00, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+    };
+    const uint8_t kat_aad[12] = {
+        0x50, 0x51, 0x52, 0x53, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+    };
+    const char *kat_plaintext =
+        "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
+    const size_t plaintext_len = 114U;
+
+    const uint8_t expected_ciphertext[114] = {
+        0xd3, 0x1a, 0x8d, 0x34, 0x64, 0x8e, 0x60, 0xdb, 0x7b, 0x86, 0xaf, 0xbc, 0x53, 0xef, 0x7e, 0xc2,
+        0xa4, 0xad, 0xed, 0x51, 0x29, 0x6e, 0x08, 0xfe, 0xa9, 0xe2, 0xb5, 0xa7, 0x36, 0xee, 0x62, 0xd6,
+        0x3d, 0xbe, 0xa4, 0x5e, 0x8c, 0xa9, 0x67, 0x12, 0x82, 0xfa, 0xfb, 0x69, 0xda, 0x92, 0x72, 0x8b,
+        0x1a, 0x71, 0xde, 0x0a, 0x9e, 0x06, 0x0b, 0x29, 0x05, 0xd6, 0xa5, 0xb6, 0x7e, 0xcd, 0x3b, 0x36,
+        0x92, 0xdd, 0xbd, 0x7f, 0x2d, 0x77, 0x8b, 0x8c, 0x98, 0x03, 0xae, 0xe3, 0x28, 0x09, 0x1b, 0x58,
+        0xfa, 0xb3, 0x24, 0xe4, 0xfa, 0xd6, 0x75, 0x94, 0x55, 0x85, 0x80, 0x8b, 0x48, 0x31, 0xd7, 0xbc,
+        0x3f, 0xf4, 0xde, 0xf0, 0x8e, 0x4b, 0x7a, 0x9d, 0xe5, 0x76, 0xd2, 0x65, 0x86, 0xce, 0xc6, 0x4b,
+        0x61, 0x16
+    };
+    const uint8_t expected_tag[16] = {
+        0x1a, 0xe1, 0x0b, 0x59, 0x4f, 0x09, 0xe2, 0x6a, 0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91
+    };
+
+    uint8_t computed_ciphertext[114];
+    uint8_t computed_tag[16];
+    starsec_crypto_status_t enc_status = starsec_aead_chacha20_poly1305_encrypt(
+        kat_key, kat_nonce,
+        kat_aad, sizeof(kat_aad),
+        (const uint8_t *)kat_plaintext, plaintext_len,
+        computed_ciphertext, computed_tag
+    );
+    STARSEC_ASSERT(enc_status == STARSEC_CRYPTO_SUCCESS, "TC-AEAD-KAT-01: AEAD encryption failed");
+    STARSEC_ASSERT(memcmp(computed_ciphertext, expected_ciphertext, plaintext_len) == 0,
+                   "TC-AEAD-KAT-01: Ciphertext does not match RFC 8439 Section 2.8.2 KAT");
+    STARSEC_ASSERT(memcmp(computed_tag, expected_tag, 16) == 0,
+                   "TC-AEAD-KAT-01: Poly1305 AEAD tag does not match RFC 8439 Section 2.8.2 KAT");
+
+    uint8_t decrypted_plaintext[115];
+    memset(decrypted_plaintext, 0, sizeof(decrypted_plaintext));
+    starsec_crypto_status_t dec_status = starsec_aead_chacha20_poly1305_decrypt(
+        kat_key, kat_nonce,
+        kat_aad, sizeof(kat_aad),
+        computed_ciphertext, plaintext_len,
+        computed_tag, decrypted_plaintext
+    );
+    STARSEC_ASSERT(dec_status == STARSEC_CRYPTO_SUCCESS, "TC-AEAD-KAT-01: AEAD decryption failed");
+    STARSEC_ASSERT(memcmp(decrypted_plaintext, kat_plaintext, plaintext_len) == 0,
+                   "TC-AEAD-KAT-01: Decrypted plaintext did not match original plaintext");
+
+    uint8_t tampered_aad[12];
+    memcpy(tampered_aad, kat_aad, sizeof(kat_aad));
+    tampered_aad[2] ^= 0x01;
+    starsec_crypto_status_t dec_tamper_aad = starsec_aead_chacha20_poly1305_decrypt(
+        kat_key, kat_nonce,
+        tampered_aad, sizeof(tampered_aad),
+        computed_ciphertext, plaintext_len,
+        computed_tag, decrypted_plaintext
+    );
+    STARSEC_ASSERT(dec_tamper_aad == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-TAMPER-01: Decryption accepted tampered AAD bit");
+
+    uint8_t tampered_ct[114];
+    memcpy(tampered_ct, computed_ciphertext, plaintext_len);
+    tampered_ct[42] ^= 0x80;
+    starsec_crypto_status_t dec_tamper_ct = starsec_aead_chacha20_poly1305_decrypt(
+        kat_key, kat_nonce,
+        kat_aad, sizeof(kat_aad),
+        tampered_ct, plaintext_len,
+        computed_tag, decrypted_plaintext
+    );
+    STARSEC_ASSERT(dec_tamper_ct == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-TAMPER-01: Decryption accepted tampered ciphertext bit");
+
+    uint8_t tampered_tag[16];
+    memcpy(tampered_tag, computed_tag, 16);
+    tampered_tag[15] ^= 0x01;
+    starsec_crypto_status_t dec_tamper_tag = starsec_aead_chacha20_poly1305_decrypt(
+        kat_key, kat_nonce,
+        kat_aad, sizeof(kat_aad),
+        computed_ciphertext, plaintext_len,
+        tampered_tag, decrypted_plaintext
+    );
+    STARSEC_ASSERT(dec_tamper_tag == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-TAMPER-01: Decryption accepted tampered Poly1305 authentication tag");
+
+    isl_anti_replay_state_t smp_state;
+    memset(&smp_state, 0, sizeof(smp_state));
+    smp_state.session_id = 1;
+    smp_state.window_base_seq = 0;
+    smp_state.window_bitmap = 0;
+    smp_state.lock = 0;
+
+    #define SMP_THREAD_COUNT 8
+    starsec_thread_t threads[SMP_THREAD_COUNT];
+    smp_race_ctx_t ctxs[SMP_THREAD_COUNT];
+    volatile uint32_t start_gate = 0;
+    uint32_t successes = 0;
+    uint32_t conflicts = 0;
+
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        ctxs[t].state = &smp_state;
+        ctxs[t].session_id = 1;
+        ctxs[t].seq_start = 500;
+        ctxs[t].count = 1;
+        ctxs[t].gate = &start_gate;
+        ctxs[t].successes = &successes;
+        ctxs[t].conflicts = &conflicts;
+
+        #if defined(_WIN32)
+        threads[t] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)smp_race_worker_func, &ctxs[t], 0, NULL);
+        #else
+        pthread_create(&threads[t], NULL, smp_race_worker_func, &ctxs[t]);
+        #endif
+    }
+
+    start_gate = 1;
+
+    #if defined(_WIN32)
+    WaitForMultipleObjects(SMP_THREAD_COUNT, threads, TRUE, INFINITE);
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        CloseHandle(threads[t]);
+    }
+    #else
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        pthread_join(threads[t], NULL);
+    }
+    #endif
+
+    STARSEC_ASSERT(successes == 1, "TC-CONCURRENT-RACE-01: Exactly one thread must succeed on identical sequence");
+    STARSEC_ASSERT(conflicts == (SMP_THREAD_COUNT - 1), "TC-CONCURRENT-RACE-01: 7 threads must detect duplicate conflict");
+    STARSEC_ASSERT(smp_state.window_base_seq == 500, "TC-CONCURRENT-RACE-01: Base sequence mismatch after race");
+    STARSEC_ASSERT(smp_state.lock == 0, "TC-CONCURRENT-RACE-01: Spinlock remained locked after thread execution");
+
+    successes = 0;
+    conflicts = 0;
+    start_gate = 0;
+
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        ctxs[t].state = &smp_state;
+        ctxs[t].session_id = 1;
+        ctxs[t].seq_start = 501 + (t * 7);
+        ctxs[t].count = 7;
+        ctxs[t].gate = &start_gate;
+        ctxs[t].successes = &successes;
+        ctxs[t].conflicts = &conflicts;
+
+        #if defined(_WIN32)
+        threads[t] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)smp_race_worker_func, &ctxs[t], 0, NULL);
+        #else
+        pthread_create(&threads[t], NULL, smp_race_worker_func, &ctxs[t]);
+        #endif
+    }
+
+    start_gate = 1;
+
+    #if defined(_WIN32)
+    WaitForMultipleObjects(SMP_THREAD_COUNT, threads, TRUE, INFINITE);
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        CloseHandle(threads[t]);
+    }
+    #else
+    for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
+        pthread_join(threads[t], NULL);
+    }
+    #endif
+
+    STARSEC_ASSERT(successes == (SMP_THREAD_COUNT * 7),
+                   "TC-CONCURRENT-RACE-01: All 56 unique sequences within window must be committed without loss");
+    STARSEC_ASSERT(conflicts == 0, "TC-CONCURRENT-RACE-01: No conflicts expected on disjoint sequence sets");
+    STARSEC_ASSERT(smp_state.window_base_seq == 556, "TC-CONCURRENT-RACE-01: Final base sequence should be 556");
+    STARSEC_ASSERT(smp_state.lock == 0, "TC-CONCURRENT-RACE-01: Spinlock left held after parallel commit batch");
+
+    bool dup_check = xdp_commit_replay_window_atomic(&smp_state, 1, 520);
+    STARSEC_ASSERT(dup_check == false, "TC-CONCURRENT-RACE-01: Replayed in-window sequence 520 was not rejected");
+
+    bool obsolete_check = xdp_commit_replay_window_atomic(&smp_state, 1, 490);
+    STARSEC_ASSERT(obsolete_check == false, "TC-CONCURRENT-RACE-01: Obsolete out-of-window sequence 490 was not rejected");
+
+    printf("  [PASS] RFC 8439 Section 2.8 AEAD & SMP Multi-Core Race Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -821,6 +1066,7 @@ int main(void) {
     all_passed &= test_xdp_orbital_filter_triad();
     all_passed &= test_ebpf_kernel_ingress_triad();
     all_passed &= test_hardened_security_and_concurrency_triad();
+    all_passed &= test_rfc8439_aead_and_smp_stress_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {

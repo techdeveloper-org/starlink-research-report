@@ -106,7 +106,8 @@ typedef struct {
     uint64_t window_base_seq;
     uint64_t window_bitmap;
     uint32_t session_id;
-    uint32_t reserved_padding;
+    uint32_t lock;
+    uint8_t  reserved_padding[40];
 } isl_anti_replay_state_t;
 
 /**

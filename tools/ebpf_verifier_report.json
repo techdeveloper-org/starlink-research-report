@@ -1,0 +1,57 @@
+{
+  "target_file": "C:\\Users\\techd\\Documents\\workspace-spring-tool-suite-4-4.27.0-new\\starlink-research-report\\system\\src\\xdp_isl_kern.c",
+  "overall_status": "PASS",
+  "total_checks": 5,
+  "passed_checks": 5,
+  "checks": [
+    {
+      "name": "packet_bounds_checks",
+      "passed": true,
+      "guards_count": 2,
+      "description": "Packet memory dereferences guarded by strict data_end invariants."
+    },
+    {
+      "name": "loop_termination",
+      "passed": true,
+      "loops_found": 0,
+      "description": "Zero unbounded loops detected; program terminates in O(1) instructions."
+    },
+    {
+      "name": "stack_budget",
+      "passed": true,
+      "estimated_stack_bytes": 72,
+      "stack_limit_bytes": 512,
+      "description": "Stack allocation (72 bytes) within Linux 512-byte eBPF verifier budget."
+    },
+    {
+      "name": "return_code_invariants",
+      "passed": true,
+      "returns_count": 10,
+      "return_values": [
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_DROP",
+        "XDP_PASS"
+      ],
+      "description": "All 10 execution paths strictly terminate in verified XDP actions (['XDP_DROP', 'XDP_PASS'])."
+    },
+    {
+      "name": "maps_and_license",
+      "passed": true,
+      "maps_checked": {
+        "authorized_satellites_map": true,
+        "isl_replay_filter_map": true,
+        "time_sync_map": true,
+        "isl_telemetry_map": true
+      },
+      "license_verified": true,
+      "description": "Mandatory eBPF maps and GPL license descriptor validated."
+    }
+  ]
+}

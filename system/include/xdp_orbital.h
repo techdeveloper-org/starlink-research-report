@@ -74,8 +74,31 @@ typedef struct __attribute__((aligned(64))) {
     uint64_t window_base_seq;            /**< Highest authenticated sequence committed to date */
     uint64_t window_bitmap;              /**< 64-bit bitmap of authenticated packets (bit 0 = base) */
     uint32_t session_id;                 /**< Active authenticated session identifier */
-    uint32_t reserved_padding;           /**< Padding for 64-bit word alignment */
+    uint32_t lock;                       /**< Cacheline-embedded atomic test-and-set spinlock */
+    uint8_t  reserved_padding[40];       /**< Explicit padding guaranteeing full 64-byte cacheline isolation */
 } isl_anti_replay_state_t;
+
+/**
+ * @brief Acquires the cacheline-embedded atomic spinlock using acquire memory ordering.
+ * @param lock Pointer to 32-bit atomic lock word.
+ */
+static inline void starsec_spin_lock(volatile uint32_t *lock) {
+    while (__atomic_exchange_n(lock, 1U, __ATOMIC_ACQUIRE) != 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+}
+
+/**
+ * @brief Releases the cacheline-embedded atomic spinlock using release memory ordering.
+ * @param lock Pointer to 32-bit atomic lock word.
+ */
+static inline void starsec_spin_unlock(volatile uint32_t *lock) {
+    __atomic_store_n(lock, 0U, __ATOMIC_RELEASE);
+}
 
 /**
  * @brief Spacecraft receiver local clock synchronization reference.

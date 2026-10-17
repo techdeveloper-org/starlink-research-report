@@ -160,32 +160,55 @@ bool xdp_commit_replay_window_atomic(
         return false;
     }
 
-    isl_anti_replay_state_t current_state;
-    isl_anti_replay_state_t next_state;
+    starsec_spin_lock(&state->lock);
 
-    do {
-        current_state.window_base_seq = __atomic_load_n(&state->window_base_seq, __ATOMIC_ACQUIRE);
-        current_state.window_bitmap   = __atomic_load_n(&state->window_bitmap, __ATOMIC_ACQUIRE);
-        current_state.session_id      = __atomic_load_n(&state->session_id, __ATOMIC_ACQUIRE);
-        current_state.reserved_padding = 0;
+    if (session_id < state->session_id) {
+        starsec_spin_unlock(&state->lock);
+        return false;
+    }
 
-        next_state = current_state;
-        xdp_commit_replay_window_authenticated(&next_state, session_id, seq_num);
+    if (session_id > state->session_id) {
+        state->session_id = session_id;
+        state->window_base_seq = seq_num;
+        state->window_bitmap = 1ULL;
+        starsec_spin_unlock(&state->lock);
+        return true;
+    }
 
-        if (next_state.window_base_seq == current_state.window_base_seq &&
-            next_state.window_bitmap == current_state.window_bitmap &&
-            next_state.session_id == current_state.session_id) {
-            return false;
+    if (state->window_base_seq == 0 && state->window_bitmap == 0) {
+        state->window_base_seq = seq_num;
+        state->window_bitmap = 1ULL;
+        starsec_spin_unlock(&state->lock);
+        return true;
+    }
+
+    if (seq_num > state->window_base_seq) {
+        uint64_t diff = seq_num - state->window_base_seq;
+        if (diff < STARSEC_SLIDING_WINDOW_SIZE) {
+            state->window_bitmap = (state->window_bitmap << diff) | 1ULL;
+        } else {
+            state->window_bitmap = 1ULL;
         }
+        state->window_base_seq = seq_num;
+        starsec_spin_unlock(&state->lock);
+        return true;
+    }
 
-        if (__atomic_compare_exchange_n(&state->window_base_seq, &current_state.window_base_seq,
-                                        next_state.window_base_seq, false,
-                                        __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
-            __atomic_store_n(&state->window_bitmap, next_state.window_bitmap, __ATOMIC_RELEASE);
-            __atomic_store_n(&state->session_id, next_state.session_id, __ATOMIC_RELEASE);
-            return true;
-        }
-    } while (1);
+    uint64_t diff = state->window_base_seq - seq_num;
+    if (diff >= STARSEC_SLIDING_WINDOW_SIZE) {
+        starsec_spin_unlock(&state->lock);
+        return false;
+    }
+
+    uint64_t mask = (1ULL << diff);
+    if ((state->window_bitmap & mask) != 0) {
+        starsec_spin_unlock(&state->lock);
+        return false;
+    }
+
+    state->window_bitmap |= mask;
+    starsec_spin_unlock(&state->lock);
+    return true;
 }
 
 /**
@@ -279,6 +302,41 @@ starsec_crypto_status_t xdp_derive_isl_nonce(
  *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence ceiling is reached,
  *         STARSEC_CRYPTO_ERR_NULL_PARAM on NULL inputs.
  */
+/**
+ * @brief Stores a 64-bit unsigned integer into little-endian byte stream.
+ * @param p Pointer to output buffer of at least 8 bytes.
+ * @param v 64-bit integer to store.
+ */
+static inline void starsec_store64_le_filter(uint8_t *p, uint64_t v) {
+    p[0] = (uint8_t)(v & 0xFFU);
+    p[1] = (uint8_t)((v >> 8) & 0xFFU);
+    p[2] = (uint8_t)((v >> 16) & 0xFFU);
+    p[3] = (uint8_t)((v >> 24) & 0xFFU);
+    p[4] = (uint8_t)((v >> 32) & 0xFFU);
+    p[5] = (uint8_t)((v >> 40) & 0xFFU);
+    p[6] = (uint8_t)((v >> 48) & 0xFFU);
+    p[7] = (uint8_t)((v >> 56) & 0xFFU);
+}
+
+/**
+ * @brief Generates an authentic RFC 8439 Poly1305 128-bit MAC using a derived one-time key.
+ *
+ * Employs RFC 8439 Section 2.6 ChaCha20 block 0 key derivation and Section 2.8 AEAD framing:
+ * - AAD: 32 bytes (Header fields 0..29 + payload_len 2 bytes).
+ * - AAD Padding: 0 bytes (32 is multiple of 16).
+ * - Payload: packet payload bytes.
+ * - Payload Padding: 16 - (payload_len % 16) zero bytes if non-multiple.
+ * - Length Block: 8 bytes LE aad_len + 8 bytes LE payload_len.
+ * Ephemeral subkeys and internal contexts are zeroized upon completion.
+ *
+ * @param hdr Pointer to StarSec packet header whose auth_tag field will be populated.
+ * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
+ * @param payload_len Length of payload in bytes.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success,
+ *         STARSEC_CRYPTO_ERR_REKEY_REQUIRED if sequence ceiling is reached,
+ *         STARSEC_CRYPTO_ERR_NULL_PARAM on NULL inputs.
+ */
 starsec_crypto_status_t xdp_generate_isl_auth_tag(
     starsec_isl_header_t *hdr,
     const uint8_t        *payload,
@@ -304,20 +362,35 @@ starsec_crypto_status_t xdp_generate_isl_auth_tag(
 
     starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
 
+    uint8_t aad[32];
+    memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
+    memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
+
     starsec_poly1305_ctx_t ctx;
     starsec_poly1305_init(&ctx, one_time_key);
+    starsec_poly1305_update(&ctx, aad, sizeof(aad));
 
-    starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
-    starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
+    static const uint8_t zero_padding[16] = {0};
 
     if (payload != NULL && payload_len > 0) {
         starsec_poly1305_update(&ctx, payload, payload_len);
+        size_t pad_payload = (16U - (payload_len % 16U)) % 16U;
+        if (pad_payload > 0) {
+            starsec_poly1305_update(&ctx, zero_padding, pad_payload);
+        }
     }
+
+    uint8_t len_block[16];
+    starsec_store64_le_filter(len_block + 0, (uint64_t)sizeof(aad));
+    starsec_store64_le_filter(len_block + 8, (uint64_t)payload_len);
+    starsec_poly1305_update(&ctx, len_block, sizeof(len_block));
 
     starsec_poly1305_finish(&ctx, hdr->auth_tag);
 
     starsec_secure_zero(one_time_key, sizeof(one_time_key));
     starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(aad, sizeof(aad));
+    starsec_secure_zero(len_block, sizeof(len_block));
     starsec_secure_zero(&ctx, sizeof(ctx));
 
     return STARSEC_CRYPTO_SUCCESS;
@@ -326,8 +399,8 @@ starsec_crypto_status_t xdp_generate_isl_auth_tag(
 /**
  * @brief Validates 128-bit RFC 8439 Poly1305 authentication tag using derived one-time key.
  *
- * Derives the unique single-use 32-byte Poly1305 key via ChaCha20 block 0 and
- * executes constant-time tag verification. Ephemeral key material is wiped immediately.
+ * Implements constant-time RFC 8439 Section 2.8 AEAD framing verification.
+ * Ephemeral key material and internal evaluation contexts are wiped immediately.
  *
  * @param hdr Pointer to StarSec packet header.
  * @param payload Pointer to packet payload bytes (may be NULL if payload_len == 0).
@@ -356,21 +429,37 @@ bool xdp_verify_isl_auth_tag(
 
     starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
 
+    uint8_t aad[32];
+    memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
+    memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
+
     starsec_poly1305_ctx_t ctx;
     uint8_t calculated_tag[16];
 
     starsec_poly1305_init(&ctx, one_time_key);
-    starsec_poly1305_update(&ctx, (const uint8_t *)hdr, offsetof(starsec_isl_header_t, auth_tag));
-    starsec_poly1305_update(&ctx, (const uint8_t *)&hdr->payload_len, sizeof(hdr->payload_len));
+    starsec_poly1305_update(&ctx, aad, sizeof(aad));
+
+    static const uint8_t zero_padding[16] = {0};
 
     if (payload != NULL && payload_len > 0) {
         starsec_poly1305_update(&ctx, payload, payload_len);
+        size_t pad_payload = (16U - (payload_len % 16U)) % 16U;
+        if (pad_payload > 0) {
+            starsec_poly1305_update(&ctx, zero_padding, pad_payload);
+        }
     }
+
+    uint8_t len_block[16];
+    starsec_store64_le_filter(len_block + 0, (uint64_t)sizeof(aad));
+    starsec_store64_le_filter(len_block + 8, (uint64_t)payload_len);
+    starsec_poly1305_update(&ctx, len_block, sizeof(len_block));
 
     starsec_poly1305_finish(&ctx, calculated_tag);
 
     starsec_secure_zero(one_time_key, sizeof(one_time_key));
     starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(aad, sizeof(aad));
+    starsec_secure_zero(len_block, sizeof(len_block));
     starsec_secure_zero(&ctx, sizeof(ctx));
 
     volatile uint8_t diff = 0;
@@ -473,7 +562,10 @@ int xdp_starsec_filter_frame(
         return STARSEC_XDP_DROP;
     }
 
-    xdp_commit_replay_window_authenticated(&config->replay_states[replay_idx], hdr->session_id, hdr->sequence_number);
+    if (!xdp_commit_replay_window_atomic(&config->replay_states[replay_idx], hdr->session_id, hdr->sequence_number)) {
+        stats->dropped_epoch_drift++;
+        return STARSEC_XDP_DROP;
+    }
 
     stats->passed_frames++;
     return STARSEC_XDP_PASS;
