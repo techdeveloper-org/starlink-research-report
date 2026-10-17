@@ -13,6 +13,20 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if defined(__linux__)
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <errno.h>
+
+#ifndef __NR_bpf
+#if defined(__x86_64__)
+#define __NR_bpf 321
+#elif defined(__aarch64__)
+#define __NR_bpf 280
+#endif
+#endif
+#endif
+
 /**
  * @brief Zeroizes memory using a volatile pointer and compiler optimization barrier.
  *
@@ -47,7 +61,33 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats) {
     stats->dropped_invalid_auth = 0;
     stats->dropped_clock_unavailable = 0;
     stats->dropped_stale_session = 0;
+    stats->dropped_sync_failure = 0;
     stats->passed_frames = 0;
+}
+
+/**
+ * @brief Takes a concurrency-safe atomic snapshot of an anti-replay state.
+ *
+ * Acquires state->lock with acquire semantics, performs aligned 64-bit copies
+ * of all replay fields, and releases the lock with release semantics.
+ *
+ * @param state Pointer to source anti-replay state.
+ * @param snapshot Output buffer receiving consistent snapshot.
+ */
+void xdp_replay_take_snapshot(
+    isl_anti_replay_state_t   *state,
+    starsec_replay_snapshot_t *snapshot
+) {
+    if (state == NULL || snapshot == NULL) {
+        return;
+    }
+
+    starsec_spin_lock(&state->lock);
+    snapshot->window_base_seq = state->window_base_seq;
+    snapshot->window_bitmap = state->window_bitmap;
+    snapshot->session_id = state->session_id;
+    snapshot->reserved = 0;
+    starsec_spin_unlock(&state->lock);
 }
 
 /**
@@ -696,6 +736,8 @@ void xdp_pipeline_init(
         return;
     }
     memset(pipeline, 0, sizeof(*pipeline));
+    pipeline->kernel_bpf_map.map_fd = -1;
+    pipeline->kernel_bpf_map.backend_type = STARSEC_BPF_BACKEND_EMULATED;
     if (shared_key_32 != NULL) {
         memcpy(pipeline->filter_config.isl_shared_key, shared_key_32, 32);
     }
@@ -703,6 +745,105 @@ void xdp_pipeline_init(
         pipeline->filter_config.clock_ref = *clock_ref;
     }
     xdp_reset_filter_stats(&pipeline->stats);
+}
+
+/**
+ * @brief Creates an authentic in-kernel BPF hash map using the Linux bpf() system call.
+ * @param map Pointer to starsec_kernel_bpf_map_t to configure.
+ * @param map_name String identifier for the BPF map (up to 15 chars).
+ * @param max_entries Maximum capacity of the map (typically 256).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_create_kernel(
+    starsec_kernel_bpf_map_t *map,
+    const char               *map_name,
+    uint32_t                  max_entries
+) {
+    if (map == NULL) {
+        return -1;
+    }
+
+    map->map_fd = -1;
+    map->backend_type = STARSEC_BPF_BACKEND_EMULATED;
+
+#if defined(__linux__)
+    union starsec_bpf_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.map_create.map_type = 1;
+    attr.map_create.key_size = sizeof(uint16_t);
+    attr.map_create.value_size = sizeof(isl_anti_replay_state_t);
+    attr.map_create.max_entries = (max_entries > 0) ? max_entries : 256;
+    if (map_name != NULL) {
+        strncpy(attr.map_create.map_name, map_name, sizeof(attr.map_create.map_name) - 1);
+    }
+
+    long ret = syscall(__NR_bpf, 0 /* BPF_MAP_CREATE */, &attr, sizeof(attr));
+    if (ret >= 0) {
+        map->map_fd = (int)ret;
+        map->backend_type = STARSEC_BPF_BACKEND_KERNEL_SYSCALL;
+        return 0;
+    }
+    return -errno;
+#else
+    (void)map_name;
+    (void)max_entries;
+    return 0;
+#endif
+}
+
+/**
+ * @brief Updates an element in the Linux kernel BPF map via BPF_MAP_UPDATE_ELEM syscall.
+ * @param map Pointer to active BPF map instance.
+ * @param satellite_id 16-bit Constellation Node ID (key).
+ * @param state Pointer to consistent anti-replay state snapshot (value).
+ * @return true if kernel BPF map updated successfully, false on syscall error.
+ */
+bool starsec_bpf_map_update_elem_kernel(
+    starsec_kernel_bpf_map_t      *map,
+    uint16_t                       satellite_id,
+    const isl_anti_replay_state_t *state
+) {
+    if (map == NULL || state == NULL) {
+        return false;
+    }
+
+#if defined(__linux__)
+    if (map->map_fd < 0) {
+        return false;
+    }
+
+    union starsec_bpf_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.map_elem.map_fd = (uint32_t)map->map_fd;
+    attr.map_elem.key = (uint64_t)(uintptr_t)&satellite_id;
+    attr.map_elem.value = (uint64_t)(uintptr_t)state;
+    attr.map_elem.flags = 0;
+
+    long res = syscall(__NR_bpf, 2 /* BPF_MAP_UPDATE_ELEM */, &attr, sizeof(attr));
+    return (res == 0);
+#else
+    (void)satellite_id;
+    (void)state;
+    return true;
+#endif
+}
+
+/**
+ * @brief Closes the kernel BPF map file descriptor and resets map backend.
+ * @param map Pointer to active BPF map instance.
+ */
+void starsec_bpf_map_close(starsec_kernel_bpf_map_t *map) {
+    if (map == NULL) {
+        return;
+    }
+
+#if defined(__linux__)
+    if (map->map_fd >= 0) {
+        close(map->map_fd);
+        map->map_fd = -1;
+    }
+#endif
+    map->backend_type = STARSEC_BPF_BACKEND_EMULATED;
 }
 
 /**
@@ -723,6 +864,14 @@ bool xdp_pipeline_authorize_node(
     }
     pipeline->filter_config.authorized_nodes[pipeline->filter_config.authorized_count++] = satellite_id;
     pipeline->kernel_bpf_map.satellite_ids[pipeline->kernel_bpf_map.count++] = satellite_id;
+
+    if (pipeline->kernel_bpf_map.backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL &&
+        pipeline->kernel_bpf_map.map_fd >= 0) {
+        isl_anti_replay_state_t zero_state;
+        memset(&zero_state, 0, sizeof(zero_state));
+        starsec_bpf_map_update_elem_kernel(&pipeline->kernel_bpf_map, satellite_id, &zero_state);
+    }
+
     return true;
 }
 
@@ -730,25 +879,46 @@ bool xdp_pipeline_authorize_node(
  * @brief Synchronizes committed userspace replay state directly into the in-kernel BPF map.
  * @param bpf_map Pointer to kernel BPF map instance.
  * @param satellite_id 16-bit Constellation Node ID.
- * @param committed_state Pointer to newly committed atomic replay state.
- * @return true on successful synchronization, false if node not found.
+ * @param source_state Pointer to newly committed atomic replay state.
+ * @return true on successful synchronization, false if node not found or kernel sync error.
  */
 bool xdp_sync_kernel_replay_map(
-    starsec_kernel_bpf_map_t      *bpf_map,
-    uint16_t                       satellite_id,
-    const isl_anti_replay_state_t *committed_state
+    starsec_kernel_bpf_map_t *bpf_map,
+    uint16_t                  satellite_id,
+    isl_anti_replay_state_t  *source_state
 ) {
-    if (bpf_map == NULL || committed_state == NULL) {
+    if (bpf_map == NULL || source_state == NULL) {
         return false;
     }
+
+    starsec_replay_snapshot_t snap;
+    xdp_replay_take_snapshot(source_state, &snap);
+
+    if (bpf_map->backend_type == STARSEC_BPF_BACKEND_KERNEL_SYSCALL && bpf_map->map_fd >= 0) {
+        isl_anti_replay_state_t kernel_state;
+        memset(&kernel_state, 0, sizeof(kernel_state));
+        kernel_state.window_base_seq = snap.window_base_seq;
+        kernel_state.window_bitmap = snap.window_bitmap;
+        kernel_state.session_id = snap.session_id;
+
+        bool k_ok = starsec_bpf_map_update_elem_kernel(bpf_map, satellite_id, &kernel_state);
+        if (!k_ok) {
+            bpf_map->kernel_sync_errors++;
+            return false;
+        }
+        bpf_map->kernel_sync_count++;
+    }
+
+    starsec_spin_lock(&bpf_map->map_lock);
 
     for (size_t i = 0; i < bpf_map->count; i++) {
         if (bpf_map->satellite_ids[i] == satellite_id) {
             starsec_spin_lock(&bpf_map->states[i].lock);
-            bpf_map->states[i].session_id = committed_state->session_id;
-            bpf_map->states[i].window_base_seq = committed_state->window_base_seq;
-            bpf_map->states[i].window_bitmap = committed_state->window_bitmap;
+            bpf_map->states[i].session_id = snap.session_id;
+            bpf_map->states[i].window_base_seq = snap.window_base_seq;
+            bpf_map->states[i].window_bitmap = snap.window_bitmap;
             starsec_spin_unlock(&bpf_map->states[i].lock);
+            starsec_spin_unlock(&bpf_map->map_lock);
             return true;
         }
     }
@@ -756,11 +926,15 @@ bool xdp_sync_kernel_replay_map(
     if (bpf_map->count < 256) {
         size_t idx = bpf_map->count++;
         bpf_map->satellite_ids[idx] = satellite_id;
-        bpf_map->states[idx] = *committed_state;
+        bpf_map->states[idx].session_id = snap.session_id;
+        bpf_map->states[idx].window_base_seq = snap.window_base_seq;
+        bpf_map->states[idx].window_bitmap = snap.window_bitmap;
         bpf_map->states[idx].lock = 0;
+        starsec_spin_unlock(&bpf_map->map_lock);
         return true;
     }
 
+    starsec_spin_unlock(&bpf_map->map_lock);
     return false;
 }
 
@@ -814,8 +988,8 @@ int xdp_pipeline_process_packet(
     }
 
     bool authorized = false;
-    for (size_t i = 0; i < pipeline->kernel_bpf_map.count; i++) {
-        if (pipeline->kernel_bpf_map.satellite_ids[i] == hdr->src_satellite_id) {
+    for (size_t i = 0; i < pipeline->filter_config.authorized_count; i++) {
+        if (pipeline->filter_config.authorized_nodes[i] == hdr->src_satellite_id) {
             authorized = true;
             break;
         }
@@ -877,11 +1051,20 @@ int xdp_pipeline_process_packet(
         return STARSEC_XDP_DROP;
     }
 
-    xdp_sync_kernel_replay_map(
+    bool sync_ok = xdp_sync_kernel_replay_map(
         &pipeline->kernel_bpf_map,
         hdr->src_satellite_id,
         &pipeline->filter_config.replay_states[user_idx]
     );
+
+    if (!sync_ok) {
+        if (decrypted_payload != NULL && decrypted_len != NULL) {
+            starsec_secure_zero(decrypted_payload, *decrypted_len);
+            *decrypted_len = 0;
+        }
+        pipeline->stats.dropped_sync_failure++;
+        return STARSEC_XDP_DROP;
+    }
 
     pipeline->stats.passed_frames++;
     return STARSEC_XDP_PASS;

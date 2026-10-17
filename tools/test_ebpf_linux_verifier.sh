@@ -79,18 +79,28 @@ if [[ -e "${BPF_PIN_PATH}" ]]; then
     rm -f "${BPF_PIN_PATH}"
 fi
 
-# Attempt bpftool load with verbose log level
+# Attempt bpftool load with canonical global debug option
 VERIFIER_START_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 LOAD_STATUS="PASS"
 INSNS_PROCESSED=0
 
-if bpftool prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp log_level 2 > "${LOG_OUTPUT}" 2>&1; then
+if bpftool --debug prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
+    LOAD_STATUS="PASS"
     echo "  -> [PASS] In-kernel verifier accepted BPF bytecode without violation."
-    # Extract instruction metrics from verifier log if available
     if grep -q "processed .* insns" "${LOG_OUTPUT}"; then
         INSNS_PROCESSED=$(grep -oE "processed [0-9]+ insns" "${LOG_OUTPUT}" | head -n1 | awk '{print $2}')
         echo "  -> In-Kernel Verifier Metrics: ${INSNS_PROCESSED} instructions verified, 0 unbounded loops."
     fi
+elif bpftool -d prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
+    LOAD_STATUS="PASS"
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (-d mode)."
+    if grep -q "processed .* insns" "${LOG_OUTPUT}"; then
+        INSNS_PROCESSED=$(grep -oE "processed [0-9]+ insns" "${LOG_OUTPUT}" | head -n1 | awk '{print $2}')
+        echo "  -> In-Kernel Verifier Metrics: ${INSNS_PROCESSED} instructions verified, 0 unbounded loops."
+    fi
+elif bpftool prog load "${OBJ_OUTPUT}" "${BPF_PIN_PATH}" type xdp > "${LOG_OUTPUT}" 2>&1; then
+    LOAD_STATUS="PASS"
+    echo "  -> [PASS] In-kernel verifier accepted BPF bytecode (standard mode)."
 else
     LOAD_STATUS="FAIL"
     echo "  -> [FAIL] In-kernel verifier rejected program. Log excerpt:"

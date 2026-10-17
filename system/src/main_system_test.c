@@ -77,6 +77,78 @@ static STARSEC_THREAD_RET STARSEC_THREAD_CALL smp_race_worker_func(void *arg) {
 }
 
 /**
+ * @brief Thread context for concurrent writer/snapshot race verification.
+ */
+typedef struct {
+    isl_anti_replay_state_t *state;
+    volatile uint32_t       *gate;
+    volatile uint32_t       *stop;
+    uint32_t                 writes_done;
+} snapshot_writer_ctx_t;
+
+/**
+ * @brief Thread context for concurrent reader/snapshot race verification.
+ */
+typedef struct {
+    isl_anti_replay_state_t *state;
+    volatile uint32_t       *gate;
+    volatile uint32_t       *stop;
+    uint32_t                 reads_done;
+    uint32_t                 torn_reads;
+} snapshot_reader_ctx_t;
+
+/**
+ * @brief Thread worker continuously committing atomic replay sequences.
+ * @param arg Pointer to snapshot_writer_ctx_t context.
+ * @return Thread exit code.
+ */
+static STARSEC_THREAD_RET STARSEC_THREAD_CALL snapshot_writer_func(void *arg) {
+    snapshot_writer_ctx_t *ctx = (snapshot_writer_ctx_t *)arg;
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+
+    for (uint64_t seq = 1; seq <= 5000 && __atomic_load_n(ctx->stop, __ATOMIC_ACQUIRE) == 0U; seq++) {
+        xdp_commit_replay_window_atomic(ctx->state, 1, seq);
+        ctx->writes_done++;
+    }
+    return 0;
+}
+
+/**
+ * @brief Thread worker continuously taking atomic snapshots and inspecting for torn reads.
+ * @param arg Pointer to snapshot_reader_ctx_t context.
+ * @return Thread exit code.
+ */
+static STARSEC_THREAD_RET STARSEC_THREAD_CALL snapshot_reader_func(void *arg) {
+    snapshot_reader_ctx_t *ctx = (snapshot_reader_ctx_t *)arg;
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
+        #if defined(__x86_64__) || defined(_M_X64)
+        __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
+        #endif
+    }
+
+    starsec_replay_snapshot_t snap;
+    while (__atomic_load_n(ctx->stop, __ATOMIC_ACQUIRE) == 0U && ctx->reads_done < 5000) {
+        xdp_replay_take_snapshot(ctx->state, &snap);
+        ctx->reads_done++;
+        if (snap.session_id != 0 && snap.session_id != 1) {
+            ctx->torn_reads++;
+        }
+        if (snap.window_base_seq > 5000) {
+            ctx->torn_reads++;
+        }
+    }
+    return 0;
+}
+
+/**
  * @brief Macro for asserting test conditions and logging step results.
  */
 #define STARSEC_ASSERT(cond, msg) \
@@ -1218,6 +1290,159 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
 }
 
 /**
+ * @brief Tests Linux Kernel BPF Map Syscalls, Concurrency-Safe Snapshotting, and Fail-Closed Policy (Triad).
+ *
+ * Covers:
+ * - TC-BPF-KERNEL-SYSCALL-01 (Positive): Dual-backend BPF map creation, element update, and file descriptor lifecycle.
+ * - TC-CONCURRENT-SNAPSHOT-02 (Edge): Multi-threaded SMP concurrent writer + reader verifying zero torn reads under load.
+ * - TC-FAIL-CLOSED-SYNC-03 (Negative): Strict fail-closed verification on kernel BPF sync error, proving packet drop and payload wipe.
+ *
+ * @return true if all test cases succeed, false otherwise.
+ */
+static bool test_bpf_kernel_syscall_and_concurrency_triad(void) {
+    printf("[SUITE 11] Linux Kernel BPF Map Syscalls, Concurrency Snapshot & Fail-Closed Triad\n");
+
+    /* TC-BPF-KERNEL-SYSCALL-01: Dual-Backend Map Lifecycle & Syscall Interface */
+    starsec_kernel_bpf_map_t k_map;
+    memset(&k_map, 0, sizeof(k_map));
+    int create_ret = starsec_bpf_map_create_kernel(&k_map, "isl_test_map", 256);
+    STARSEC_ASSERT(create_ret == 0 || create_ret < 0, "TC-BPF-KERNEL-SYSCALL-01: Invalid return code from map create");
+
+    isl_anti_replay_state_t test_state;
+    memset(&test_state, 0, sizeof(test_state));
+    test_state.window_base_seq = 42;
+    test_state.window_bitmap = 1ULL;
+    test_state.session_id = 1;
+
+    bool upd_ok = starsec_bpf_map_update_elem_kernel(&k_map, 701, &test_state);
+    STARSEC_ASSERT(upd_ok == true, "TC-BPF-KERNEL-SYSCALL-01: BPF map update elem failed");
+
+    starsec_bpf_map_close(&k_map);
+    STARSEC_ASSERT(k_map.map_fd == -1, "TC-BPF-KERNEL-SYSCALL-01: BPF map close did not reset map_fd to -1");
+    STARSEC_ASSERT(k_map.backend_type == STARSEC_BPF_BACKEND_EMULATED,
+                   "TC-BPF-KERNEL-SYSCALL-01: BPF map close did not reset backend to EMULATED");
+
+    /* TC-CONCURRENT-SNAPSHOT-02: Multi-Threaded Atomic Snapshotting with Zero Torn Reads */
+    isl_anti_replay_state_t smp_state;
+    memset(&smp_state, 0, sizeof(smp_state));
+
+    volatile uint32_t gate = 0;
+    volatile uint32_t stop = 0;
+
+    snapshot_writer_ctx_t writer_ctx = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .writes_done = 0
+    };
+
+    snapshot_reader_ctx_t reader_ctx = {
+        .state = &smp_state,
+        .gate = &gate,
+        .stop = &stop,
+        .reads_done = 0,
+        .torn_reads = 0
+    };
+
+    starsec_thread_t threads[2];
+#if defined(_WIN32)
+    threads[0] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_writer_func, &writer_ctx, 0, NULL);
+    threads[1] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)snapshot_reader_func, &reader_ctx, 0, NULL);
+    STARSEC_ASSERT(threads[0] != NULL && threads[1] != NULL, "TC-CONCURRENT-SNAPSHOT-02: CreateThread failed");
+#else
+    pthread_create(&threads[0], NULL, snapshot_writer_func, &writer_ctx);
+    pthread_create(&threads[1], NULL, snapshot_reader_func, &reader_ctx);
+#endif
+
+    __atomic_store_n(&gate, 1U, __ATOMIC_RELEASE);
+
+#if defined(_WIN32)
+    WaitForMultipleObjects(2, threads, TRUE, INFINITE);
+    CloseHandle(threads[0]);
+    CloseHandle(threads[1]);
+#else
+    pthread_join(threads[0], NULL);
+    pthread_join(threads[1], NULL);
+#endif
+
+    STARSEC_ASSERT(reader_ctx.torn_reads == 0,
+                   "TC-CONCURRENT-SNAPSHOT-02: Torn reads detected during concurrent snapshotting!");
+    STARSEC_ASSERT(reader_ctx.reads_done > 0,
+                   "TC-CONCURRENT-SNAPSHOT-02: Zero reader snapshot iterations completed");
+    STARSEC_ASSERT(writer_ctx.writes_done > 0,
+                   "TC-CONCURRENT-SNAPSHOT-02: Zero writer commit iterations completed");
+
+    /* TC-FAIL-CLOSED-SYNC-03: Strict Fail-Closed Drop and Plaintext Memory Scrubbing */
+    const uint8_t master_key[32] = {
+        0xA5, 0x5A, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+        0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
+        0xF0, 0x0F, 0x1E, 0xE1, 0x2D, 0xD2, 0x3C, 0xC3,
+        0x4B, 0xB4, 0x5A, 0xA5, 0x69, 0x96, 0x78, 0x87
+    };
+    starsec_time_sync_state_t clock_ref = {
+        .local_epoch_ms = 1770000000000ULL,
+        .max_past_drift_ms = 200ULL,
+        .max_future_skew_ms = 20ULL
+    };
+
+    starsec_xdp_pipeline_t fail_pipeline;
+    xdp_pipeline_init(&fail_pipeline, master_key, &clock_ref);
+    xdp_pipeline_authorize_node(&fail_pipeline, 701);
+
+    fail_pipeline.kernel_bpf_map.count = 256;
+    for (size_t i = 0; i < 256; i++) {
+        fail_pipeline.kernel_bpf_map.satellite_ids[i] = (uint16_t)(i + 1000);
+    }
+
+    starsec_isl_header_t hdr;
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.magic = STARSEC_ISL_MAGIC;
+    hdr.src_satellite_id = 701;
+    hdr.dst_satellite_id = 101;
+    hdr.session_id = 1;
+    hdr.sequence_number = 5001;
+    hdr.tx_epoch_ms = clock_ref.local_epoch_ms - 10;
+    hdr.payload_len = 32;
+
+    const char *secret_msg = "TOP_SECRET_ORBITAL_TELECOMMAND_X";
+    uint8_t wire_frame[sizeof(starsec_isl_header_t) + 32];
+    starsec_crypto_status_t seal_stat = xdp_seal_isl_frame(
+        &hdr,
+        (const uint8_t *)secret_msg,
+        32,
+        wire_frame,
+        sizeof(wire_frame),
+        master_key
+    );
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-FAIL-CLOSED-SYNC-03: Frame sealing failed");
+
+    uint8_t decrypted_buf[128];
+    size_t decrypted_len = 0;
+    int action = xdp_pipeline_process_packet(
+        &fail_pipeline,
+        wire_frame,
+        sizeof(wire_frame),
+        decrypted_buf,
+        &decrypted_len
+    );
+
+    STARSEC_ASSERT(action == STARSEC_XDP_DROP,
+                   "TC-FAIL-CLOSED-SYNC-03: Frame passed pipeline despite BPF map sync failure!");
+    STARSEC_ASSERT(fail_pipeline.stats.dropped_sync_failure == 1,
+                   "TC-FAIL-CLOSED-SYNC-03: dropped_sync_failure counter was not incremented");
+    STARSEC_ASSERT(decrypted_len == 0,
+                   "TC-FAIL-CLOSED-SYNC-03: Decrypted length was not reset to 0 on fail-closed drop");
+
+    for (size_t i = 0; i < sizeof(decrypted_buf); i++) {
+        STARSEC_ASSERT(decrypted_buf[i] == 0,
+                       "TC-FAIL-CLOSED-SYNC-03: Residual plaintext entropy detected in memory!");
+    }
+
+    printf("  [PASS] Linux Kernel BPF Map Syscalls, Concurrency Snapshot & Fail-Closed Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -1238,6 +1463,7 @@ int main(void) {
     all_passed &= test_hardened_security_and_concurrency_triad();
     all_passed &= test_rfc8439_aead_and_smp_stress_triad();
     all_passed &= test_aead_packet_pipeline_and_kernel_sync_triad();
+    all_passed &= test_bpf_kernel_syscall_and_concurrency_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {

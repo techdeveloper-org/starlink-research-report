@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "kernel_version": "6.18.33.2-microsoft-standard-WSL2",
+  "arch": "x86_64",
+  "created_map_fd": 4,
+  "tested_satellite_id": 701,
+  "read_back_base_seq": 5001,
+  "read_back_bitmap": 1,
+  "read_back_session_id": 1,
+  "kernel_fidelity_verified": true,
+  "syscall_number": 321
+}

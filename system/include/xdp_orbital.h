@@ -119,6 +119,7 @@ typedef struct {
     uint64_t dropped_invalid_auth;
     uint64_t dropped_clock_unavailable;
     uint64_t dropped_stale_session;
+    uint64_t dropped_sync_failure;
     uint64_t passed_frames;
 } xdp_filter_stats_t;
 
@@ -280,13 +281,111 @@ bool xdp_verify_isl_auth_tag(
 );
 
 /**
- * @brief In-kernel eBPF BPF map storage abstraction for peer replay states.
+ * @brief Identifies the active backend driver for BPF map synchronization.
+ */
+typedef enum {
+    /** @brief Emulated in-memory table for testing, non-privileged or non-Linux hosts. */
+    STARSEC_BPF_BACKEND_EMULATED       = 0,
+    /** @brief Real Linux kernel BPF map accessed via bpf() syscall and map file descriptor. */
+    STARSEC_BPF_BACKEND_KERNEL_SYSCALL = 1
+} starsec_bpf_backend_type_t;
+
+/**
+ * @brief Real Linux kernel BPF syscall attribute wrapper matching Linux UAPI linux/bpf.h.
+ */
+union starsec_bpf_attr {
+    struct {
+        uint32_t map_type;               /**< BPF_MAP_TYPE_HASH = 1 */
+        uint32_t key_size;               /**< sizeof(uint16_t) */
+        uint32_t value_size;             /**< sizeof(isl_anti_replay_state_t) */
+        uint32_t max_entries;            /**< 256 */
+        uint32_t map_flags;              /**< 0 */
+        uint32_t inner_map_fd;          /**< 0 */
+        uint32_t numa_node;              /**< 0 */
+        char     map_name[16];           /**< "isl_replay_map" */
+        uint32_t map_ifindex;            /**< 0 */
+        uint32_t btf_fd;                 /**< 0 */
+        uint32_t btf_key_type_id;        /**< 0 */
+        uint32_t btf_value_type_id;      /**< 0 */
+    } map_create;
+
+    struct {
+        uint32_t map_fd;                 /**< Active kernel map file descriptor */
+        uint64_t key;                    /**< Pointer cast to uint64_t */
+        union {
+            uint64_t value;              /**< Pointer cast to uint64_t */
+            uint64_t next_key;
+        };
+        uint64_t flags;                  /**< BPF_ANY = 0 */
+    } map_elem;
+};
+
+/**
+ * @brief Immutable snapshot of anti-replay state captured under spinlock.
  */
 typedef struct {
-    uint16_t                satellite_ids[256];
-    isl_anti_replay_state_t states[256];
-    size_t                  count;
+    uint64_t window_base_seq;            /**< Highest authenticated sequence number */
+    uint64_t window_bitmap;              /**< 64-bit sliding window bitmap */
+    uint32_t session_id;                 /**< Session identifier */
+    uint32_t reserved;                   /**< 32-bit alignment padding */
+} starsec_replay_snapshot_t;
+
+/**
+ * @brief In-kernel eBPF BPF map storage abstraction with dual-backend support.
+ */
+typedef struct {
+    starsec_bpf_backend_type_t backend_type;        /**< Active driver backend */
+    int                        map_fd;              /**< Valid kernel map fd (>= 0), or -1 */
+    char                       pinned_path[128];    /**< Pinned BPF filesystem path (/sys/fs/bpf/...) */
+    uint32_t                   map_lock;            /**< Spinlock protecting map operations */
+    uint64_t                   kernel_sync_count;   /**< Total successful bpf() syscall operations */
+    uint64_t                   kernel_sync_errors;  /**< Failed bpf() syscall invocations */
+    uint16_t                   satellite_ids[256];
+    isl_anti_replay_state_t    states[256];
+    size_t                     count;
 } starsec_kernel_bpf_map_t;
+
+/**
+ * @brief Takes a concurrency-safe atomic snapshot of an anti-replay state.
+ * @param state Pointer to source anti-replay state.
+ * @param snapshot Output buffer receiving consistent snapshot.
+ */
+void xdp_replay_take_snapshot(
+    isl_anti_replay_state_t   *state,
+    starsec_replay_snapshot_t *snapshot
+);
+
+/**
+ * @brief Creates an authentic in-kernel BPF hash map using the Linux bpf() system call.
+ * @param map Pointer to starsec_kernel_bpf_map_t to configure.
+ * @param map_name String identifier for the BPF map (up to 15 chars).
+ * @param max_entries Maximum capacity of the map (typically 256).
+ * @return 0 on success, negative errno on failure.
+ */
+int starsec_bpf_map_create_kernel(
+    starsec_kernel_bpf_map_t *map,
+    const char               *map_name,
+    uint32_t                  max_entries
+);
+
+/**
+ * @brief Updates an element in the Linux kernel BPF map via BPF_MAP_UPDATE_ELEM syscall.
+ * @param map Pointer to active BPF map instance.
+ * @param satellite_id 16-bit Constellation Node ID (key).
+ * @param state Pointer to consistent anti-replay state snapshot (value).
+ * @return true if kernel BPF map updated successfully, false on syscall error.
+ */
+bool starsec_bpf_map_update_elem_kernel(
+    starsec_kernel_bpf_map_t      *map,
+    uint16_t                       satellite_id,
+    const isl_anti_replay_state_t *state
+);
+
+/**
+ * @brief Closes the kernel BPF map file descriptor and resets map backend.
+ * @param map Pointer to active BPF map instance.
+ */
+void starsec_bpf_map_close(starsec_kernel_bpf_map_t *map);
 
 /**
  * @brief Integrated Two-Tier In-Orbit Ingress Security Pipeline.
@@ -328,12 +427,12 @@ bool xdp_pipeline_authorize_node(
  * @param bpf_map Pointer to kernel BPF map instance.
  * @param satellite_id 16-bit Constellation Node ID.
  * @param committed_state Pointer to newly committed atomic replay state.
- * @return true on successful synchronization, false if node not found.
+ * @return true on successful synchronization, false if node not found or kernel sync error.
  */
 bool xdp_sync_kernel_replay_map(
-    starsec_kernel_bpf_map_t      *bpf_map,
-    uint16_t                       satellite_id,
-    const isl_anti_replay_state_t *committed_state
+    starsec_kernel_bpf_map_t *bpf_map,
+    uint16_t                  satellite_id,
+    isl_anti_replay_state_t  *committed_state
 );
 
 /**
