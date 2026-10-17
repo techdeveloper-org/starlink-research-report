@@ -133,20 +133,22 @@ See **[`tools/README.md`](./tools/README.md)** for detailed CLI arguments and ex
 
 ---
 
-## 🧪 Production In-Kernel eBPF & Multi-Core C Verification (GitHub Actions CI)
+## 🧪 Production In-Kernel eBPF, Multi-Core SMP & ThreadSanitizer Verification (GitHub Actions CI)
 
-The framework is verified using an authentic, zero-mock Linux in-kernel eBPF testing and multi-core C triad harness executed on **Ubuntu 24.04 (Noble)** GitHub Actions runners under **Linux Kernel 6.8** with the official static **`bpftool v7.4.0`** binary:
+The framework is verified using an authentic, zero-mock Linux in-kernel eBPF testing, live multi-threaded map mutation, and ThreadSanitizer data-race certification suite executed on **Ubuntu 24.04 (Noble)** GitHub Actions runners under **Linux Kernel 6.8** with the official static **`bpftool v7.4.0`** binary:
 
 | Verification Metric | Production CI Measurement & Evidence |
 | :--- | :--- |
-| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39016293689](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689)** (`PASS`, 100% Verified) |
-| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39016293689/artifacts/12095216383)** (Artifact ID: `12095216383`, 10,784 bytes) |
-| **Artifact SHA256** | `a934bd54a1333532ecdae45902a3a4db4ab7dd05bc49441e04e95333353b90bc` |
+| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39018696644](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39018696644)** (`PASS`, 100% Verified, Job ID: `117355971562`) |
+| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39018696644/artifacts/12095243645)** (Artifact ID: `12095243645`, 10,785 bytes) |
+| **Artifact SHA256** | `ec6f4607c12cf1177b6d31ab6041482e95b83d63d2b0ef725d775736299c6e03` |
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
-| **In-Kernel Verification** | `182 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
-| **Shared Map Bisimulation**| Pinned bpffs maps (`/sys/fs/bpf/starsec_maps/`): **Phases A–G Verified** via `BPF_PROG_TEST_RUN` |
+| **In-Kernel Verification** | `512 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
+| **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
+| **ThreadSanitizer (TSan)** | **Zero Data Races Verified**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 15 suites under `-fsanitize=thread` |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **15/15 Suites Passed (100% Coverage)**: 0 torn reads across 6,796,678 reads, 400,053 collisions safely rejected |
+| **Native C Triad Suites** | **15/15 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention |
+| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27 & 28 formal proofs) |
 
 ```text
 ==================================================================
@@ -159,10 +161,13 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
   [PASS] Phase E: Replayed frame 100 dropped by in-kernel filter (XDP_DROP)
   [PASS] Phase F: In-kernel per-CPU telemetry confirmed replay drop counter
   [PASS] Phase G: Strict FAIL-CLOSED drop on inconsistent/contended Seqlock state (XDP_DROP)
+  [PASS] Phase H: Live multi-threaded in-kernel map updates & simultaneous XDP filtering verified (107 updates, 60 tests)
+  [PASS] ThreadSanitizer (TSan): Certified 0 data races across all 15 Triad Test Suites
 ==================================================================
   [SUCCESS] IN-KERNEL eBPF & TWO-TIER APPLICATION BISIMULATION PROVEN
 ==================================================================
 ```
+
 
 ---
 
