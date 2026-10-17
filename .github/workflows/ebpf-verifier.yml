@@ -24,7 +24,14 @@ jobs:
       - name: Install eBPF Toolchain & Linux Headers
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm libbpf-dev linux-tools-generic bpftool build-essential gcc-multilib
+          sudo apt-get install -y clang llvm libbpf-dev linux-tools-common linux-tools-generic linux-tools-$(uname -r) build-essential gcc-multilib curl
+          if ! command -v bpftool &> /dev/null; then
+            echo "bpftool not found in PATH; installing official static release from libbpf..."
+            curl -fsSL -o /tmp/bpftool.tar.gz https://github.com/libbpf/bpftool/releases/download/v7.4.0/bpftool-v7.4.0-amd64.tar.gz
+            sudo tar -xzf /tmp/bpftool.tar.gz -C /usr/local/bin
+            sudo chmod +x /usr/local/bin/bpftool
+          fi
+          bpftool version
 
       - name: Mount BPF Virtual Filesystem (bpffs)
         run: |

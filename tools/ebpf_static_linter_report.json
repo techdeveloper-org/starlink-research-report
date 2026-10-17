@@ -21,9 +21,9 @@
     {
       "name": "stack_budget",
       "passed": true,
-      "estimated_stack_bytes": 96,
+      "estimated_stack_bytes": 104,
       "stack_limit_bytes": 512,
-      "description": "Stack allocation (96 bytes) within Linux 512-byte eBPF verifier budget."
+      "description": "Stack allocation (104 bytes) within Linux 512-byte eBPF verifier budget."
     },
     {
       "name": "return_code_invariants",

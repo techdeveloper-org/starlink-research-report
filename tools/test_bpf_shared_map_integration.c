@@ -346,18 +346,37 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     }
     printf("  [PASS] Synchronized receiver spacecraft clock into in-kernel time_sync_map.\n");
 
+    uint8_t master_key[32];
+    memset(master_key, 0x5A, sizeof(master_key));
+
+    starsec_isl_header_t template_hdr;
+    memset(&template_hdr, 0, sizeof(template_hdr));
+    template_hdr.magic = STARSEC_ISL_MAGIC;
+    template_hdr.protocol_type = 1;
+    template_hdr.flags = 0;
+    template_hdr.src_satellite_id = 42;
+    template_hdr.dst_satellite_id = 1;
+    template_hdr.session_id = 10;
+    template_hdr.sequence_number = 100;
+    template_hdr.tx_epoch_ms = 1700000000000ULL;
+    template_hdr.payload_len = 32;
+
+    uint8_t raw_plaintext[32] = "STARSEC_ORBITAL_TELEMETRY_PKT";
     uint8_t packet_buffer[sizeof(starsec_isl_header_t) + 32];
     memset(packet_buffer, 0, sizeof(packet_buffer));
-    starsec_isl_header_t *hdr = (starsec_isl_header_t *)packet_buffer;
-    hdr->magic = STARSEC_ISL_MAGIC;
-    hdr->protocol_type = 1;
-    hdr->flags = 0;
-    hdr->src_satellite_id = 42;
-    hdr->dst_satellite_id = 1;
-    hdr->session_id = 10;
-    hdr->sequence_number = 100;
-    hdr->tx_epoch_ms = 1700000000000ULL;
-    hdr->payload_len = 32;
+
+    starsec_crypto_status_t seal_stat = xdp_seal_isl_frame(
+        &template_hdr,
+        raw_plaintext,
+        sizeof(raw_plaintext),
+        packet_buffer,
+        sizeof(packet_buffer),
+        master_key
+    );
+    if (seal_stat != STARSEC_CRYPTO_SUCCESS) {
+        printf("  [FAIL] Failed to seal optical ISL frame with RFC 8439 AEAD!\n");
+        return 1;
+    }
 
     uint32_t verdict = 0;
     int test_res = test_run_bpf_prog_test(prog_fd, packet_buffer, sizeof(packet_buffer), &verdict);
@@ -387,25 +406,40 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     printf("  [PASS] Phase C: In-kernel XDP filter accepted in-sequence frame 100 (verdict = XDP_PASS).\n");
 
     starsec_xdp_pipeline_t pipeline;
-    uint8_t master_key[32];
-    memset(master_key, 0x5A, sizeof(master_key));
-    xdp_pipeline_init_pinned(&pipeline, replay_path, master_key, &t_sync);
-
-    size_t slot_idx = 0;
-    pipeline.filter_config.replay_count = 1;
-    pipeline.filter_config.authorized_nodes[slot_idx] = 42;
-    xdp_commit_replay_window_atomic(&pipeline.filter_config.replay_states[slot_idx], 10, 100);
-
-    bool sync_ret = xdp_sync_kernel_replay_map(&pipeline.kernel_bpf_map, 42, &pipeline.filter_config.replay_states[slot_idx]);
-    if (!sync_ret) {
-        printf("  [FAIL] Userspace application failed to sync state to pinned in-kernel replay map!\n");
+    int init_res = xdp_pipeline_init_pinned(&pipeline, replay_path, master_key, &t_sync);
+    if (init_res != 0) {
+        printf("  [FAIL] Failed to initialize userspace pipeline with pinned replay map!\n");
         return 1;
     }
-    printf("  [PASS] Phase D: Userspace pipeline processed packet and committed seq 100 into pinned map.\n");
+    xdp_pipeline_authorize_node(&pipeline, 42);
+
+    uint8_t decrypted_payload[64];
+    size_t decrypted_len = 0;
+    memset(decrypted_payload, 0, sizeof(decrypted_payload));
+
+    int app_verdict = xdp_pipeline_process_packet(
+        &pipeline,
+        packet_buffer,
+        sizeof(packet_buffer),
+        decrypted_payload,
+        &decrypted_len
+    );
+    if (app_verdict != STARSEC_XDP_PASS) {
+        printf("  [FAIL] Userspace application pipeline rejected authentic frame! (verdict = %d)\n", app_verdict);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    if (decrypted_len != sizeof(raw_plaintext) || memcmp(decrypted_payload, raw_plaintext, sizeof(raw_plaintext)) != 0) {
+        printf("  [FAIL] Userspace application decrypted payload mismatch!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    printf("  [PASS] Phase D: Full application pipeline verified: AEAD authentication, decryption, Seqlock commit & BPF sync.\n");
 
     test_res = test_run_bpf_prog_test(prog_fd, packet_buffer, sizeof(packet_buffer), &verdict);
     if (test_res != 0 || verdict != 1 /* XDP_DROP */) {
         printf("  [FAIL] Kernel XDP filter passed replayed packet 100! verdict = %u (expected XDP_DROP=1)\n", verdict);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
         return 1;
     }
     printf("  [PASS] Phase E: In-kernel XDP filter read shared map and DROPPED replayed sequence 100 (verdict = XDP_DROP)!\n");
@@ -419,11 +453,22 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     telem_attr.map_elem.key = (uint64_t)(uintptr_t)&telem_key;
     telem_attr.map_elem.value = (uint64_t)(uintptr_t)telem_vals;
     long telem_res = syscall(__NR_bpf, 1 /* BPF_MAP_LOOKUP_ELEM */, &telem_attr, sizeof(telem_attr));
-    if (telem_res == 0) {
-        uint64_t total_replay_drops = 0;
-        for (int c = 0; c < 128; c++) total_replay_drops += telem_vals[c];
-        printf("  [PASS] Phase F: In-kernel per-CPU telemetry confirmed replay drop counter: %llu\n", (unsigned long long)total_replay_drops);
+    if (telem_res != 0) {
+        printf("  [FAIL] Failed to lookup in-kernel per-CPU telemetry counter! (errno: %d)\n", errno);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
     }
+    uint64_t total_replay_drops = 0;
+    for (int c = 0; c < 128; c++) {
+        total_replay_drops += telem_vals[c];
+    }
+    if (total_replay_drops == 0) {
+        printf("  [FAIL] In-kernel telemetry dropped_replay_seq counter did not increment! (val: %llu)\n",
+               (unsigned long long)total_replay_drops);
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    printf("  [PASS] Phase F: In-kernel per-CPU telemetry confirmed replay drop counter: %llu\n", (unsigned long long)total_replay_drops);
 
     starsec_bpf_map_close(&pipeline.kernel_bpf_map);
     close(prog_fd);

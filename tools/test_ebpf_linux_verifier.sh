@@ -92,10 +92,12 @@ clang -g -O2 -target bpf \
 
 echo "  -> Object compiled successfully: ${OBJ_OUTPUT}"
 
-# Step 2: Verify ELF Sections
-echo "[2/5] Inspecting BPF ELF sections..."
+# Step 2: Verify ELF Sections & Disassembly (Seqlock Instruction Ordering)
+echo "[2/5] Inspecting BPF ELF sections and disassembly..."
 if command -v llvm-objdump &>/dev/null; then
     llvm-objdump -h "${OBJ_OUTPUT}"
+    echo "--- eBPF Instruction Disassembly (Seqlock Memory Order Verification) ---"
+    llvm-objdump -d "${OBJ_OUTPUT}" || true
 fi
 
 # Step 3: Test In-Kernel BPF Verifier Loading with Map Pinning
@@ -129,6 +131,11 @@ else
     LOAD_STATUS="FAIL"
     echo "  -> [FAIL] In-kernel verifier rejected program. Log excerpt:"
     tail -n 25 "${LOG_OUTPUT}"
+fi
+
+if [[ "${LOAD_STATUS}" == "PASS" ]] && [[ -e "${BPF_PIN_PATH}" ]]; then
+    echo "  -> In-Kernel BPF Bytecode Verification (Volatile Seqlock Instruction Check):"
+    bpftool prog dump xlated pinned "${BPF_PIN_PATH}" | grep -E '\(r[0-9] \+(20|16|8|0)\)' -B 1 -A 1 || true
 fi
 
 if grep -q "processed .* insns" "${LOG_OUTPUT}"; then

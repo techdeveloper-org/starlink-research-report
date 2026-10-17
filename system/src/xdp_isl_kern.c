@@ -248,22 +248,33 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
         uint64_t snap_bitmap = 0;
         bool state_consistent = false;
 
-        uint32_t seq1 = replay_state->lock;
+        const volatile uint32_t *lock_p = (const volatile uint32_t *)&replay_state->lock;
+        const volatile uint32_t *sess_p = (const volatile uint32_t *)&replay_state->session_id;
+        const volatile uint64_t *base_p = (const volatile uint64_t *)&replay_state->window_base_seq;
+        const volatile uint64_t *bmap_p = (const volatile uint64_t *)&replay_state->window_bitmap;
+
+        uint32_t seq1 = *lock_p;
         if ((seq1 & 1U) == 0U) {
-            snap_session_id = replay_state->session_id;
-            snap_base_seq = replay_state->window_base_seq;
-            snap_bitmap = replay_state->window_bitmap;
-            if (seq1 == replay_state->lock) {
+            asm volatile("" ::: "memory");
+            snap_session_id = *sess_p;
+            snap_base_seq = *base_p;
+            snap_bitmap = *bmap_p;
+            asm volatile("" ::: "memory");
+            uint32_t seq2 = *lock_p;
+            if (seq1 == seq2) {
                 state_consistent = true;
             }
         }
         if (!state_consistent) {
-            seq1 = replay_state->lock;
+            seq1 = *lock_p;
             if ((seq1 & 1U) == 0U) {
-                snap_session_id = replay_state->session_id;
-                snap_base_seq = replay_state->window_base_seq;
-                snap_bitmap = replay_state->window_bitmap;
-                if (seq1 == replay_state->lock) {
+                asm volatile("" ::: "memory");
+                snap_session_id = *sess_p;
+                snap_base_seq = *base_p;
+                snap_bitmap = *bmap_p;
+                asm volatile("" ::: "memory");
+                uint32_t seq2 = *lock_p;
+                if (seq1 == seq2) {
                     state_consistent = true;
                 }
             }
