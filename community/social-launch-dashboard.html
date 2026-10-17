@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🛰️ StarSec Social Launch Control Center</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-orange: #f97316;
+      --accent-purple: #8b5cf6;
+      --badge-bg: rgba(56, 189, 248, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top center, #1e293b 0%, #0b0f19 80%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .title {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 750px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* Live Timing Banner */
+    .timing-banner {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      align-items: center;
+      gap: 1rem;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .timing-item {
+      text-align: center;
+    }
+
+    .timing-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .timing-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--text-main);
+      border-color: var(--accent-cyan);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-cyan);
+      color: #0b0f19;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Table / Card Container */
+    .posts-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 1rem;
+    }
+
+    .post-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .post-card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .platform-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .platform-twitter {
+      background: rgba(29, 155, 240, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(29, 155, 240, 0.3);
+    }
+
+    .platform-linkedin {
+      background: rgba(10, 102, 194, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(10, 102, 194, 0.3);
+    }
+
+    .platform-hn {
+      background: rgba(249, 115, 22, 0.15);
+      color: #fb923c;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    .platform-reddit {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .meta-tags {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .char-count {
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .char-count.warning {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* Content Area */
+    .post-content {
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 1.15rem;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #e2e8f0;
+      margin-bottom: 1rem;
+    }
+
+    /* Actions */
+    .card-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-copy {
+      background: var(--accent-cyan);
+      color: #0b0f19;
+    }
+
+    .btn-copy:hover {
+      background: #7dd3fc;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-copy.copied {
+      background: var(--accent-green);
+      color: #ffffff;
+    }
+
+    .btn-launch {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-launch:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--text-main);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: #10b981;
+      color: #ffffff;
+      padding: 0.9rem 1.4rem;
+      border-radius: 8px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9999;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* JSON Viewer Container */
+    #json-container {
+      display: none;
+    }
+
+    .json-box {
+      background: rgba(11, 15, 25, 0.9);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #a5f3fc;
+      max-height: 600px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 1.5rem;
+    }
+
+    a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1 class="title">🛰️ StarSec Social Launch Control Center</h1>
+      <p class="subtitle">
+        One-Click Distribution Hub for Free & Non-Paid Accounts. Copy pre-tagged, algorithm-optimized posts with verified character limits and launch directly to Twitter, LinkedIn, and Hacker News.
+      </p>
+    </header>
+
+    <!-- Timing & Algorithm Banner -->
+    <div class="timing-banner">
+      <div class="timing-item">
+        <div class="timing-label">Target Days</div>
+        <div class="timing-value">Tuesday – Thursday</div>
+      </div>
+      <div class="timing-item">
+        <div class="timing-label">Best Time (India - IST)</div>
+        <div class="timing-value">7:30 PM – 9:30 PM IST</div>
+      </div>
+      <div class="timing-item">
+        <div class="timing-label">Hawthorne / LA (PT)</div>
+        <div class="timing-value">7:00 AM – 9:00 AM PT</div>
+      </div>
+      <div class="timing-item">
+        <div class="timing-label">Starbase / Texas (CT)</div>
+        <div class="timing-value">9:00 AM – 11:00 AM CT</div>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="filterCategory('all', this)">All Posts</button>
+      <button class="tab-btn" onclick="filterCategory('twitter-thread', this)">Twitter (X) Thread (6 Tweets)</button>
+      <button class="tab-btn" onclick="filterCategory('twitter-reply', this)">Twitter (X) Reply to Elon/Mike</button>
+      <button class="tab-btn" onclick="filterCategory('linkedin', this)">LinkedIn Post</button>
+      <button class="tab-btn" onclick="filterCategory('hn-reddit', this)">Hacker News & Reddit</button>
+      <button class="tab-btn" onclick="showJsonTab(this)">Raw JSON Data</button>
+    </div>
+
+    <!-- Dynamic Post Cards List -->
+    <div id="posts-container"></div>
+
+    <!-- JSON Viewer Tab -->
+    <div id="json-container">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h3>Complete Structured JSON Dataset</h3>
+        <button class="btn btn-copy" onclick="copyFullJson()">📋 Copy Full JSON</button>
+      </div>
+      <div class="json-box" id="raw-json-content"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      Repository: <a href="https://github.com/techdeveloper-org/starlink-research-report" target="_blank">techdeveloper-org/starlink-research-report</a> | Open-Source StarSec CSF v1.0
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">✅ Copied to clipboard! Ready to paste.</div>
+
+  <script>
+    // Embedded Launch Data
+    const launchData = {
+      "posts": [
+        {
+          "id": "tweet_1",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 1/6 (The Hook)",
+          "timing": "7:30 PM - 9:30 PM IST (Post 1 in Thread)",
+          "char_count": 268,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `1/6 🛰️ How do you secure 11,000+ satellites against state-sponsored EW jamming, laser intercept, & silicon glitching?
+
+Using multi-agent AI orchestration, I built StarSec (CSF v1.0) & a 16-chapter technical monograph on LEO mega-constellations.
+
+100% open-source. Thread 👇`
+        },
+        {
+          "id": "tweet_2",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 2/6 (The Standards)",
+          "timing": "Immediately in thread below Tweet 1",
+          "char_count": 279,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `2/6 Current space standards (CCSDS) were built for legacy GEO satellites, not 100 Gbps optical meshes.
+
+StarSec introduces 4 formal RFC specs:
+• RFC-001: PQC ML-KEM-1024 Laser ISL Auth
+• RFC-002: Sub-10ns Fault Injection Zeroize
+• RFC-004: Byzantine (t, n) Quorum for TT&C`
+        },
+        {
+          "id": "tweet_3",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 3/6 (AESA Anti-Jamming Math)",
+          "timing": "Immediately in thread below Tweet 2",
+          "char_count": 275,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `3/6 On the RF PHY layer (RFC-003):
+Modeled 1,280-element Ku AESA beamforming.
+
+Using Capon MVDR spatial null-steering, the array synthesizes a >150 dB cancellation null against high-power ground jammers under ±325 kHz orbital Doppler shift.
+
+First-principles verified.`
+        },
+        {
+          "id": "tweet_4",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 4/6 (Working Code & Tests)",
+          "timing": "Immediately in thread below Tweet 3",
+          "char_count": 275,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `4/6 Talk is cheap. Show the code.
+
+The repo features:
+• Low-level C drivers (SRAM-PUF, DCLS fault monitor, ChaCha20-Poly1305)
+• Linux eBPF/XDP orbital packet filter
+• Standalone Python simulators
+
+23 unit tests run locally in <10s with zero cloud dependencies.`
+        },
+        {
+          "id": "tweet_5",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 5/6 (AI Orchestration Story)",
+          "timing": "Immediately in thread below Tweet 4",
+          "char_count": 254,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `5/6 This entire body of work was built using modern multi-agent AI orchestration across astrodynamics, RF, & cryptography.
+
+A testament to what a solo engineer with multi-agent squads can achieve in enterprise-grade aerospace R&D.`
+        },
+        {
+          "id": "tweet_6",
+          "category": "twitter-thread",
+          "platform": "Twitter (X)",
+          "badge_class": "platform-twitter",
+          "title": "Tweet 6/6 (The Callout & Link)",
+          "timing": "Immediately in thread below Tweet 5",
+          "char_count": 278,
+          "limit": 280,
+          "action_url": "https://twitter.com/compose/tweet",
+          "action_label": "Open Twitter",
+          "content": `6/6 Starlink changed orbital connectivity forever. StarSec is an open-source tribute & research effort to harden LEO constellations.
+
+Feedback welcome from aerospace & cyber engineers!
+
+CC: @elonmusk @miker_ny @SpaceX
+
+GitHub: https://github.com/techdeveloper-org/starlink-research-report`
+        },
+        {
+          "id": "reply_elon",
+          "category": "twitter-reply",
+          "platform": "Twitter (X) Reply",
+          "badge_class": "platform-twitter",
+          "title": "Direct Reply to @elonmusk or @miker_ny",
+          "timing": "Whenever Elon or Mike Nicolls tweets on Starlink / Lasers",
+          "char_count": 255,
+          "limit": 280,
+          "action_url": "https://twitter.com/elonmusk",
+          "action_label": "Open Elon's X Profile",
+          "content": `Incredible milestone. To complement this, I built StarSec (CSF v1.0)—an open-source cybersecurity standard & 16-chapter monograph covering LEO constellation hardening (Capon MVDR anti-jamming, SRAM-PUF & eBPF): https://github.com/techdeveloper-org/starlink-research-report`
+        },
+        {
+          "id": "linkedin_full",
+          "category": "linkedin",
+          "platform": "LinkedIn",
+          "badge_class": "platform-linkedin",
+          "title": "LinkedIn High-Impact Launch Post",
+          "timing": "Wednesday or Thursday at 7:30 PM - 8:30 PM IST",
+          "char_count": 2185,
+          "limit": 3000,
+          "action_url": "https://www.linkedin.com/feed/",
+          "action_label": "Open LinkedIn",
+          "content": `What does it take to architect and secure an 11,000-satellite orbital mesh against state-sponsored Electronic Warfare, optical laser intercepts, and silicon-level fault injection?
+
+Over the past few weeks, I used advanced multi-agent AI orchestration to engineer a 16-chapter technical monograph and built StarSec (CSF v1.0)—an open-source cybersecurity standard and astrodynamics evaluation suite for Low Earth Orbit (LEO) mega-constellations.
+
+Most legacy space communications standards (like CCSDS) were conceived for Geostationary (GEO) satellites and bent-pipe relays—not relativistic 100 Gbps free-space optical meshes dynamically orbiting at 7.6 km/s.
+
+Here is what StarSec introduces:
+
+1️⃣ Spacecraft Hardware Hardening (RFC-002):
+Hardware voltage glitching countermeasures inspired by real-world User Terminal exploits (Black Hat 2022). Includes sub-10ns crowbar zeroization, SRAM-PUF fuzzy extractors, and Dual-Core Lockstep (DCLS) monitors in C.
+
+2️⃣ Capon MVDR Spatial Null-Steering (RFC-003):
+Simulated 1,280-element Ku-band AESA phased array beamforming. Synthesizes a >150 dB cancellation null against high-power terrestrial chirp jammers under dynamic ±325 kHz Doppler shifts.
+
+3️⃣ Sovereign Byzantine Quorum for TT&C (RFC-004):
+Shamir (t, n) threshold secret sharing preventing single-point unauthorized telecommand execution or rogue de-orbit commands.
+
+4️⃣ In-Orbit eBPF/XDP Line-Rate Filtering:
+A verified static in-kernel eBPF packet filter dropping unauthenticated orbital frames in <1 µs with zero userspace overhead.
+
+🔬 100% Reproducible & Zero-Cost:
+The entire repository is accompanied by 7 deep R&D whitepapers, interactive Jupyter notebooks, and a local test runner where all 23 unit tests and C drivers compile and pass in under 10 seconds with zero cloud dependencies.
+
+This project represents the sheer power of modern multi-agent AI engineering orchestration—bridging astrodynamics, RF electromagnetics, and post-quantum cryptography as a solo researcher.
+
+Starlink has transformed global connectivity and space logistics. StarSec is an open-source tribute and research foundation dedicated to hardening the next generation of mega-constellations.
+
+Feedback, architectural review, and critique from aerospace, satellite communications, and cybersecurity engineers are warmly invited!
+
+Explore the open-source repository and whitepapers:
+👉 https://github.com/techdeveloper-org/starlink-research-report
+
+#SpaceX #Starlink #AerospaceEngineering #Cybersecurity #SatelliteCommunications #DefenseTech #OpenSource #SoftwareEngineering #PhasedArrays #Astrodynamics`
+        },
+        {
+          "id": "hn_show",
+          "category": "hn-reddit",
+          "platform": "Hacker News",
+          "badge_class": "platform-hn",
+          "title": "Show HN: StarSec – Open-Source Constellation Security Framework",
+          "timing": "Tuesday or Wednesday at 7:30 PM IST",
+          "char_count": 875,
+          "limit": 2000,
+          "action_url": "https://news.ycombinator.com/submit",
+          "action_label": "Open Hacker News",
+          "content": `Title: Show HN: StarSec – Open-Source Constellation Security Framework & Starlink Monograph
+URL: https://github.com/techdeveloper-org/starlink-research-report
+
+Text:
+Hi HN,
+
+Over the past several weeks, I used multi-agent AI orchestration to build a graduate-level technical monograph and cybersecurity framework for Low Earth Orbit mega-constellations: StarSec (CSF v1.0).
+
+It covers:
+1. Astrodynamics (J2 secular drift, Foster collision probability, Walker Delta geometry).
+2. Phased Arrays & RF (Ku/Ka link budgets, Capon MVDR spatial nulling >45 dB against jamming).
+3. Space Cybersecurity (SPARTA-aligned threat matrix with 32 vectors, SRAM-PUF zeroization drivers, and Shamir threshold quorum for satellite telecommands).
+
+All simulation scripts (Python) and system drivers (C / eBPF) run locally in <10 seconds with 0 cloud dependencies (100% unit tests pass).
+
+Would love your feedback and critique on the architectural models and RFC specifications!`
+        },
+        {
+          "id": "reddit_post",
+          "category": "hn-reddit",
+          "platform": "Reddit",
+          "badge_class": "platform-reddit",
+          "title": "Reddit (r/SpaceXLounge & r/netsec)",
+          "timing": "Thursday at 8:00 PM IST",
+          "char_count": 1390,
+          "limit": 10000,
+          "action_url": "https://www.reddit.com/r/SpaceXLounge/submit",
+          "action_label": "Open Reddit",
+          "content": `Title: [Technical Monograph] I built an open-source security framework (StarSec) & architectural assessment of Starlink
+
+Hey everyone,
+
+With Starlink scaling past 11,000 satellites and introducing V2 Mini/V3 spacecraft with optical laser crosslinks and Direct-to-Cell, satellite constellation security and resilience has become a critical engineering frontier.
+
+I spent the last several weeks synthesizing open FCC/ITU filings, peer-reviewed AIAA/IEEE literature, and empirical telemetry to build a 16-chapter technical monograph and open-source cybersecurity standard: StarSec (CSF v1.0).
+
+Key engineering areas covered:
+- Astrodynamics: J2 secular nodal drift (-4.49 deg/day) and Foster collision probability (Pc).
+- Phased Arrays: 1,280-element Ku AESA beamforming and Capon MVDR spatial null-steering (>150 dB cancellation).
+- Hardware Security: Sub-10ns zeroization drivers, SRAM-PUF, and DCLS monitors inspired by terminal voltage-glitching exploits.
+- In-Orbit Networking: Line-rate eBPF/XDP packet filtering and PQC ML-KEM-1024 laser ISL auth.
+
+All code and simulations are open-source and run locally in <10s.
+
+GitHub: https://github.com/techdeveloper-org/starlink-research-report
+
+Curious to hear feedback and thoughts from aerospace and RF engineers here!`
+        }
+      ]
+    };
+
+    // Render Cards
+    function renderPosts(categoryFilter = 'all') {
+      const container = document.getElementById('posts-container');
+      container.innerHTML = '';
+
+      launchData.posts.forEach((post) => {
+        if (categoryFilter !== 'all' && post.category !== categoryFilter) {
+          return;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'post-card';
+
+        const isWithinLimit = post.char_count <= post.limit;
+        const charBadgeClass = isWithinLimit ? 'char-count' : 'char-count warning';
+
+        card.innerHTML = `
+          <div class="card-header">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span class="platform-badge ${post.badge_class}">${post.platform}</span>
+              <strong style="font-size:1.05rem;">${post.title}</strong>
+            </div>
+            <div class="meta-tags">
+              <span>🕒 ${post.timing}</span>
+              <span class="${charBadgeClass}">${post.char_count} / ${post.limit} chars</span>
+            </div>
+          </div>
+          <div class="post-content" id="text-${post.id}">${escapeHtml(post.content)}</div>
+          <div class="card-actions">
+            <button class="btn btn-copy" onclick="copyPost('${post.id}', this)">📋 Copy Post Text</button>
+            <a href="${post.action_url}" target="_blank" class="btn btn-launch">🚀 ${post.action_label}</a>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // Filter Navigation
+    function filterCategory(cat, btn) {
+      document.getElementById('posts-container').style.display = 'block';
+      document.getElementById('json-container').style.display = 'none';
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPosts(cat);
+    }
+
+    // Show JSON View
+    function showJsonTab(btn) {
+      document.getElementById('posts-container').style.display = 'none';
+      document.getElementById('json-container').style.display = 'block';
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.getElementById('raw-json-content').textContent = JSON.stringify(launchData, null, 2);
+    }
+
+    // Copy Single Post
+    function copyPost(id, btnElement) {
+      const text = document.getElementById(`text-${id}`).textContent;
+      copyToClipboard(text);
+
+      const originalHtml = btnElement.innerHTML;
+      btnElement.innerHTML = '✅ Copied!';
+      btnElement.classList.add('copied');
+
+      showToast();
+
+      setTimeout(() => {
+        btnElement.innerHTML = originalHtml;
+        btnElement.classList.remove('copied');
+      }, 2500);
+    }
+
+    // Copy Full JSON
+    function copyFullJson() {
+      const jsonStr = JSON.stringify(launchData, null, 2);
+      copyToClipboard(jsonStr);
+      showToast('✅ Full JSON copied to clipboard!');
+    }
+
+    // Robust Clipboard Copy with Fallback
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).catch(err => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error('Fallback copy failed', err);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    // Toast Alert
+    function showToast(msg = '✅ Copied to clipboard! Ready to paste.') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // HTML Escaping Helper
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // Initial Render
+    renderPosts('all');
+  </script>
+</body>
+</html>
