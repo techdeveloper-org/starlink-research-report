@@ -280,6 +280,136 @@ bool xdp_verify_isl_auth_tag(
 );
 
 /**
+ * @brief In-kernel eBPF BPF map storage abstraction for peer replay states.
+ */
+typedef struct {
+    uint16_t                satellite_ids[256];
+    isl_anti_replay_state_t states[256];
+    size_t                  count;
+} starsec_kernel_bpf_map_t;
+
+/**
+ * @brief Integrated Two-Tier In-Orbit Ingress Security Pipeline.
+ *
+ * Couples Tier 1 in-kernel eBPF fast-path filter with Tier 2 userspace / AF_XDP
+ * RFC 8439 AEAD cryptographic authentication and synchronized atomic replay commit.
+ */
+typedef struct {
+    starsec_kernel_bpf_map_t kernel_bpf_map;
+    xdp_filter_config_t      filter_config;
+    xdp_filter_stats_t       stats;
+} starsec_xdp_pipeline_t;
+
+/**
+ * @brief Initializes the integrated two-tier kernel-to-userspace security pipeline.
+ * @param pipeline Pointer to starsec_xdp_pipeline_t instance to initialize.
+ * @param shared_key_32 Pointer to 32-byte shared ISL master secret.
+ * @param clock_ref Pointer to trusted local spacecraft receiver clock reference.
+ */
+void xdp_pipeline_init(
+    starsec_xdp_pipeline_t          *pipeline,
+    const uint8_t                    shared_key_32[32],
+    const starsec_time_sync_state_t *clock_ref
+);
+
+/**
+ * @brief Registers an authorized satellite node in both Tier 1 BPF map and Tier 2 filter.
+ * @param pipeline Pointer to active pipeline instance.
+ * @param satellite_id 16-bit Constellation Node ID.
+ * @return true on success, false if table is full.
+ */
+bool xdp_pipeline_authorize_node(
+    starsec_xdp_pipeline_t *pipeline,
+    uint16_t                satellite_id
+);
+
+/**
+ * @brief Synchronizes committed userspace replay state directly into the in-kernel BPF map.
+ * @param bpf_map Pointer to kernel BPF map instance.
+ * @param satellite_id 16-bit Constellation Node ID.
+ * @param committed_state Pointer to newly committed atomic replay state.
+ * @return true on successful synchronization, false if node not found.
+ */
+bool xdp_sync_kernel_replay_map(
+    starsec_kernel_bpf_map_t      *bpf_map,
+    uint16_t                       satellite_id,
+    const isl_anti_replay_state_t *committed_state
+);
+
+/**
+ * @brief Seals an optical ISL frame using RFC 8439 Section 2.8 AEAD encryption.
+ *
+ * Implements wire-speed packet envelope construction:
+ * - Packs header fields into frame buffer.
+ * - Extracts 32-byte AAD from header (fields up to auth_tag + payload_len).
+ * - Derives deterministic 96-bit nonce from session_id and sequence_number.
+ * - Encrypts plaintext payload into ciphertext in the frame buffer.
+ * - Computes authentic 16-byte Poly1305 MAC tag and writes directly into hdr->auth_tag.
+ *
+ * @param hdr Pointer to template header.
+ * @param plaintext Pointer to plaintext data bytes (may be NULL if plaintext_len == 0).
+ * @param plaintext_len Length of plaintext in bytes.
+ * @param out_frame Output buffer receiving the full sealed wire frame.
+ * @param max_out_len Maximum capacity of out_frame buffer.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success, error code otherwise.
+ */
+starsec_crypto_status_t xdp_seal_isl_frame(
+    starsec_isl_header_t *hdr,
+    const uint8_t        *plaintext,
+    size_t                plaintext_len,
+    uint8_t              *out_frame,
+    size_t                max_out_len,
+    const uint8_t        *master_key_32
+);
+
+/**
+ * @brief Opens and authenticates a sealed optical ISL frame using RFC 8439 Section 2.8 AEAD.
+ *
+ * Validates 128-bit Poly1305 authentication tag over header AAD and payload ciphertext in constant time.
+ * If valid, decrypts ciphertext into out_plaintext. If invalid or tampered, wipes plaintext output
+ * and returns STARSEC_CRYPTO_ERR_AUTH_FAIL.
+ *
+ * @param frame_bytes Pointer to raw sealed frame bytes.
+ * @param frame_len Total length of sealed frame in bytes.
+ * @param out_plaintext Output buffer receiving decrypted plaintext payload.
+ * @param out_plaintext_len Pointer receiving length of decrypted payload.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_AUTH_FAIL on tag mismatch.
+ */
+starsec_crypto_status_t xdp_open_isl_frame(
+    const uint8_t *frame_bytes,
+    size_t         frame_len,
+    uint8_t       *out_plaintext,
+    size_t        *out_plaintext_len,
+    const uint8_t *master_key_32
+);
+
+/**
+ * @brief Processes an ingress frame through the integrated two-tier kernel/userspace pipeline.
+ *
+ * 1. Tier 1 (eBPF in-kernel fast-path): Validates frame length, magic, local clock freshness,
+ *    authorized satellite ID, and speculative replay against BPF map. Drops at wire speed on failure.
+ * 2. Tier 2 (AF_XDP crypto engine): Executes RFC 8439 AEAD authenticated decryption (xdp_open_isl_frame).
+ * 3. Atomic State Commit: On successful auth, executes xdp_commit_replay_window_atomic() and
+ *    synchronizes the updated replay state directly into the Tier 1 BPF map via xdp_sync_kernel_replay_map().
+ *
+ * @param pipeline Pointer to integrated pipeline instance.
+ * @param frame_bytes Pointer to raw ingress packet memory.
+ * @param frame_len Total length of packet in bytes.
+ * @param decrypted_payload Output buffer receiving decrypted plaintext payload.
+ * @param decrypted_len Pointer receiving length of decrypted plaintext.
+ * @return STARSEC_XDP_PASS on successful authentication and commit, STARSEC_XDP_DROP on failure.
+ */
+int xdp_pipeline_process_packet(
+    starsec_xdp_pipeline_t *pipeline,
+    const uint8_t          *frame_bytes,
+    size_t                  frame_len,
+    uint8_t                *decrypted_payload,
+    size_t                 *decrypted_len
+);
+
+/**
  * @brief Resets all diagnostic telemetry counters to zero.
  * @param stats Pointer to telemetry statistics structure.
  */
@@ -290,3 +420,4 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats);
 #endif
 
 #endif /* STARSEC_XDP_ORBITAL_H */
+

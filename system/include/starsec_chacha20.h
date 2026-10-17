@@ -198,8 +198,30 @@ starsec_crypto_status_t starsec_aead_chacha20_poly1305_decrypt(
     uint8_t       *plaintext
 );
 
+/**
+ * @brief Computes authentic RFC 8439 Section 2.8 Poly1305 AEAD tag over AAD and ciphertext.
+ * @param key Pointer to 32-byte master secret key.
+ * @param nonce Pointer to 12-byte (96-bit) transmission nonce.
+ * @param aad Pointer to Additional Authenticated Data (may be NULL if aad_len == 0).
+ * @param aad_len Length of AAD in bytes.
+ * @param ciphertext Pointer to ciphertext data (may be NULL if ciphertext_len == 0).
+ * @param ciphertext_len Length of ciphertext in bytes.
+ * @param out_tag Output buffer of at least 16 bytes receiving authentic Poly1305 tag.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_NULL_PARAM on invalid pointers.
+ */
+starsec_crypto_status_t starsec_aead_chacha20_poly1305_tag(
+    const uint8_t  key[STARSEC_AEAD_KEY_BYTES],
+    const uint8_t  nonce[STARSEC_AEAD_NONCE_BYTES],
+    const uint8_t *aad,
+    size_t         aad_len,
+    const uint8_t *ciphertext,
+    size_t         ciphertext_len,
+    uint8_t        out_tag[STARSEC_AEAD_TAG_BYTES]
+);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* STARSEC_CHACHA20_H */
+

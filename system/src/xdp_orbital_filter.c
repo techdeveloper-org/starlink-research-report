@@ -11,6 +11,7 @@
 
 #include "xdp_orbital.h"
 #include <string.h>
+#include <stdlib.h>
 
 /**
  * @brief Zeroizes memory using a volatile pointer and compiler optimization barrier.
@@ -351,8 +352,6 @@ starsec_crypto_status_t xdp_generate_isl_auth_tag(
     }
 
     uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
-    uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
-
     starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
     if (status != STARSEC_CRYPTO_SUCCESS) {
         starsec_secure_zero(hdr->auth_tag, sizeof(hdr->auth_tag));
@@ -360,40 +359,23 @@ starsec_crypto_status_t xdp_generate_isl_auth_tag(
         return status;
     }
 
-    starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
-
     uint8_t aad[32];
     memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
     memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
 
-    starsec_poly1305_ctx_t ctx;
-    starsec_poly1305_init(&ctx, one_time_key);
-    starsec_poly1305_update(&ctx, aad, sizeof(aad));
+    status = starsec_aead_chacha20_poly1305_tag(
+        master_key_32,
+        nonce,
+        aad,
+        sizeof(aad),
+        payload,
+        payload_len,
+        hdr->auth_tag
+    );
 
-    static const uint8_t zero_padding[16] = {0};
-
-    if (payload != NULL && payload_len > 0) {
-        starsec_poly1305_update(&ctx, payload, payload_len);
-        size_t pad_payload = (16U - (payload_len % 16U)) % 16U;
-        if (pad_payload > 0) {
-            starsec_poly1305_update(&ctx, zero_padding, pad_payload);
-        }
-    }
-
-    uint8_t len_block[16];
-    starsec_store64_le_filter(len_block + 0, (uint64_t)sizeof(aad));
-    starsec_store64_le_filter(len_block + 8, (uint64_t)payload_len);
-    starsec_poly1305_update(&ctx, len_block, sizeof(len_block));
-
-    starsec_poly1305_finish(&ctx, hdr->auth_tag);
-
-    starsec_secure_zero(one_time_key, sizeof(one_time_key));
     starsec_secure_zero(nonce, sizeof(nonce));
     starsec_secure_zero(aad, sizeof(aad));
-    starsec_secure_zero(len_block, sizeof(len_block));
-    starsec_secure_zero(&ctx, sizeof(ctx));
-
-    return STARSEC_CRYPTO_SUCCESS;
+    return status;
 }
 
 /**
@@ -419,58 +401,186 @@ bool xdp_verify_isl_auth_tag(
     }
 
     uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
-    uint8_t one_time_key[STARSEC_ONE_TIME_KEY_BYTES];
-
     starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
     if (status != STARSEC_CRYPTO_SUCCESS) {
         starsec_secure_zero(nonce, sizeof(nonce));
         return false;
     }
 
-    starsec_chacha20_poly1305_key_gen(master_key_32, nonce, one_time_key);
+    uint8_t aad[32];
+    memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
+    memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
+
+    uint8_t expected_tag[STARSEC_AEAD_TAG_BYTES];
+    status = starsec_aead_chacha20_poly1305_tag(
+        master_key_32,
+        nonce,
+        aad,
+        sizeof(aad),
+        payload,
+        payload_len,
+        expected_tag
+    );
+
+    starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(aad, sizeof(aad));
+
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        return false;
+    }
+
+    volatile uint8_t diff = 0;
+    for (size_t i = 0; i < STARSEC_AEAD_TAG_BYTES; i++) {
+        diff |= (expected_tag[i] ^ hdr->auth_tag[i]);
+    }
+    starsec_secure_zero(expected_tag, sizeof(expected_tag));
+
+    return (diff == 0);
+}
+
+
+/**
+ * @brief Seals an optical ISL frame using RFC 8439 Section 2.8 AEAD encryption.
+ * @param hdr Pointer to template header.
+ * @param plaintext Pointer to plaintext data bytes (may be NULL if plaintext_len == 0).
+ * @param plaintext_len Length of plaintext in bytes.
+ * @param out_frame Output buffer receiving the full sealed wire frame.
+ * @param max_out_len Maximum capacity of out_frame buffer.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success, error code otherwise.
+ */
+starsec_crypto_status_t xdp_seal_isl_frame(
+    starsec_isl_header_t *hdr,
+    const uint8_t        *plaintext,
+    size_t                plaintext_len,
+    uint8_t              *out_frame,
+    size_t                max_out_len,
+    const uint8_t        *master_key_32
+) {
+    if (hdr == NULL || out_frame == NULL || master_key_32 == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    size_t total_frame_len = sizeof(starsec_isl_header_t) + plaintext_len;
+    if (total_frame_len > max_out_len) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    hdr->payload_len = (uint16_t)plaintext_len;
+
+    uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
+    starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        starsec_secure_zero(nonce, sizeof(nonce));
+        return status;
+    }
 
     uint8_t aad[32];
     memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
     memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
 
-    starsec_poly1305_ctx_t ctx;
-    uint8_t calculated_tag[16];
+    uint8_t *ciphertext_dest = out_frame + sizeof(starsec_isl_header_t);
+    status = starsec_aead_chacha20_poly1305_encrypt(
+        master_key_32,
+        nonce,
+        aad,
+        sizeof(aad),
+        plaintext,
+        plaintext_len,
+        ciphertext_dest,
+        hdr->auth_tag
+    );
 
-    starsec_poly1305_init(&ctx, one_time_key);
-    starsec_poly1305_update(&ctx, aad, sizeof(aad));
+    if (status == STARSEC_CRYPTO_SUCCESS) {
+        memcpy(out_frame, hdr, sizeof(starsec_isl_header_t));
+    } else {
+        starsec_secure_zero(out_frame, max_out_len);
+    }
 
-    static const uint8_t zero_padding[16] = {0};
+    starsec_secure_zero(nonce, sizeof(nonce));
+    starsec_secure_zero(aad, sizeof(aad));
+    return status;
+}
 
-    if (payload != NULL && payload_len > 0) {
-        starsec_poly1305_update(&ctx, payload, payload_len);
-        size_t pad_payload = (16U - (payload_len % 16U)) % 16U;
-        if (pad_payload > 0) {
-            starsec_poly1305_update(&ctx, zero_padding, pad_payload);
+/**
+ * @brief Opens and authenticates a sealed optical ISL frame using RFC 8439 Section 2.8 AEAD.
+ * @param frame_bytes Pointer to raw sealed frame bytes.
+ * @param frame_len Total length of sealed frame in bytes.
+ * @param out_plaintext Output buffer receiving decrypted plaintext payload.
+ * @param out_plaintext_len Pointer receiving length of decrypted payload.
+ * @param master_key_32 Pointer to 32-byte shared optical link master secret.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_AUTH_FAIL on tag mismatch.
+ */
+starsec_crypto_status_t xdp_open_isl_frame(
+    const uint8_t *frame_bytes,
+    size_t         frame_len,
+    uint8_t       *out_plaintext,
+    size_t        *out_plaintext_len,
+    const uint8_t *master_key_32
+) {
+    if (frame_bytes == NULL || master_key_32 == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    if (frame_len < sizeof(starsec_isl_header_t)) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    const starsec_isl_header_t *hdr = (const starsec_isl_header_t *)frame_bytes;
+    if (hdr->magic != STARSEC_ISL_MAGIC) {
+        return STARSEC_CRYPTO_ERR_AUTH_FAIL;
+    }
+
+    if ((size_t)(sizeof(starsec_isl_header_t) + hdr->payload_len) != frame_len) {
+        return STARSEC_CRYPTO_ERR_AUTH_FAIL;
+    }
+
+    if (hdr->payload_len > 0 && out_plaintext == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    uint8_t nonce[STARSEC_CHACHA20_NONCE_BYTES];
+    starsec_crypto_status_t status = xdp_derive_isl_nonce(hdr, nonce);
+    if (status != STARSEC_CRYPTO_SUCCESS) {
+        starsec_secure_zero(nonce, sizeof(nonce));
+        return status;
+    }
+
+    uint8_t aad[32];
+    memcpy(aad, hdr, offsetof(starsec_isl_header_t, auth_tag));
+    memcpy(aad + offsetof(starsec_isl_header_t, auth_tag), &hdr->payload_len, sizeof(hdr->payload_len));
+
+    const uint8_t *ciphertext = frame_bytes + sizeof(starsec_isl_header_t);
+
+    status = starsec_aead_chacha20_poly1305_decrypt(
+        master_key_32,
+        nonce,
+        aad,
+        sizeof(aad),
+        ciphertext,
+        hdr->payload_len,
+        hdr->auth_tag,
+        out_plaintext
+    );
+
+    if (status == STARSEC_CRYPTO_SUCCESS) {
+        if (out_plaintext_len != NULL) {
+            *out_plaintext_len = hdr->payload_len;
+        }
+    } else {
+        if (out_plaintext != NULL && hdr->payload_len > 0) {
+            starsec_secure_zero(out_plaintext, hdr->payload_len);
+        }
+        if (out_plaintext_len != NULL) {
+            *out_plaintext_len = 0;
         }
     }
 
-    uint8_t len_block[16];
-    starsec_store64_le_filter(len_block + 0, (uint64_t)sizeof(aad));
-    starsec_store64_le_filter(len_block + 8, (uint64_t)payload_len);
-    starsec_poly1305_update(&ctx, len_block, sizeof(len_block));
-
-    starsec_poly1305_finish(&ctx, calculated_tag);
-
-    starsec_secure_zero(one_time_key, sizeof(one_time_key));
     starsec_secure_zero(nonce, sizeof(nonce));
     starsec_secure_zero(aad, sizeof(aad));
-    starsec_secure_zero(len_block, sizeof(len_block));
-    starsec_secure_zero(&ctx, sizeof(ctx));
-
-    volatile uint8_t diff = 0;
-    for (size_t i = 0; i < 16; i++) {
-        diff |= (calculated_tag[i] ^ hdr->auth_tag[i]);
-    }
-
-    starsec_secure_zero(calculated_tag, sizeof(calculated_tag));
-
-    return (diff == 0);
+    return status;
 }
+
 
 /**
  * @brief In-flight line-rate packet filter hook for optical inter-satellite links.
@@ -570,3 +680,210 @@ int xdp_starsec_filter_frame(
     stats->passed_frames++;
     return STARSEC_XDP_PASS;
 }
+
+/**
+ * @brief Initializes the integrated two-tier kernel-to-userspace security pipeline.
+ * @param pipeline Pointer to starsec_xdp_pipeline_t instance to initialize.
+ * @param shared_key_32 Pointer to 32-byte shared ISL master secret.
+ * @param clock_ref Pointer to trusted local spacecraft receiver clock reference.
+ */
+void xdp_pipeline_init(
+    starsec_xdp_pipeline_t          *pipeline,
+    const uint8_t                    shared_key_32[32],
+    const starsec_time_sync_state_t *clock_ref
+) {
+    if (pipeline == NULL) {
+        return;
+    }
+    memset(pipeline, 0, sizeof(*pipeline));
+    if (shared_key_32 != NULL) {
+        memcpy(pipeline->filter_config.isl_shared_key, shared_key_32, 32);
+    }
+    if (clock_ref != NULL) {
+        pipeline->filter_config.clock_ref = *clock_ref;
+    }
+    xdp_reset_filter_stats(&pipeline->stats);
+}
+
+/**
+ * @brief Registers an authorized satellite node in both Tier 1 BPF map and Tier 2 filter.
+ * @param pipeline Pointer to active pipeline instance.
+ * @param satellite_id 16-bit Constellation Node ID.
+ * @return true on success, false if table is full.
+ */
+bool xdp_pipeline_authorize_node(
+    starsec_xdp_pipeline_t *pipeline,
+    uint16_t                satellite_id
+) {
+    if (pipeline == NULL) {
+        return false;
+    }
+    if (pipeline->filter_config.authorized_count >= 256 || pipeline->kernel_bpf_map.count >= 256) {
+        return false;
+    }
+    pipeline->filter_config.authorized_nodes[pipeline->filter_config.authorized_count++] = satellite_id;
+    pipeline->kernel_bpf_map.satellite_ids[pipeline->kernel_bpf_map.count++] = satellite_id;
+    return true;
+}
+
+/**
+ * @brief Synchronizes committed userspace replay state directly into the in-kernel BPF map.
+ * @param bpf_map Pointer to kernel BPF map instance.
+ * @param satellite_id 16-bit Constellation Node ID.
+ * @param committed_state Pointer to newly committed atomic replay state.
+ * @return true on successful synchronization, false if node not found.
+ */
+bool xdp_sync_kernel_replay_map(
+    starsec_kernel_bpf_map_t      *bpf_map,
+    uint16_t                       satellite_id,
+    const isl_anti_replay_state_t *committed_state
+) {
+    if (bpf_map == NULL || committed_state == NULL) {
+        return false;
+    }
+
+    for (size_t i = 0; i < bpf_map->count; i++) {
+        if (bpf_map->satellite_ids[i] == satellite_id) {
+            starsec_spin_lock(&bpf_map->states[i].lock);
+            bpf_map->states[i].session_id = committed_state->session_id;
+            bpf_map->states[i].window_base_seq = committed_state->window_base_seq;
+            bpf_map->states[i].window_bitmap = committed_state->window_bitmap;
+            starsec_spin_unlock(&bpf_map->states[i].lock);
+            return true;
+        }
+    }
+
+    if (bpf_map->count < 256) {
+        size_t idx = bpf_map->count++;
+        bpf_map->satellite_ids[idx] = satellite_id;
+        bpf_map->states[idx] = *committed_state;
+        bpf_map->states[idx].lock = 0;
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * @brief Processes an ingress frame through the integrated two-tier kernel/userspace pipeline.
+ * @param pipeline Pointer to integrated pipeline instance.
+ * @param frame_bytes Pointer to raw ingress packet memory.
+ * @param frame_len Total length of packet in bytes.
+ * @param decrypted_payload Output buffer receiving decrypted plaintext payload.
+ * @param decrypted_len Pointer receiving length of decrypted plaintext.
+ * @return STARSEC_XDP_PASS on successful authentication and commit, STARSEC_XDP_DROP on failure.
+ */
+int xdp_pipeline_process_packet(
+    starsec_xdp_pipeline_t *pipeline,
+    const uint8_t          *frame_bytes,
+    size_t                  frame_len,
+    uint8_t                *decrypted_payload,
+    size_t                 *decrypted_len
+) {
+    if (pipeline == NULL || frame_bytes == NULL) {
+        if (pipeline != NULL) {
+            pipeline->stats.dropped_bad_magic++;
+        }
+        return STARSEC_XDP_DROP;
+    }
+
+    if (frame_len < sizeof(starsec_isl_header_t)) {
+        pipeline->stats.dropped_bad_magic++;
+        return STARSEC_XDP_DROP;
+    }
+
+    const starsec_isl_header_t *hdr = (const starsec_isl_header_t *)frame_bytes;
+    if (hdr->magic != STARSEC_ISL_MAGIC) {
+        pipeline->stats.dropped_bad_magic++;
+        return STARSEC_XDP_DROP;
+    }
+
+    if ((size_t)(sizeof(starsec_isl_header_t) + hdr->payload_len) != frame_len) {
+        pipeline->stats.dropped_bad_magic++;
+        return STARSEC_XDP_DROP;
+    }
+
+    if (pipeline->filter_config.clock_ref.local_epoch_ms == 0) {
+        pipeline->stats.dropped_clock_unavailable++;
+        return STARSEC_XDP_DROP;
+    }
+
+    if (!xdp_validate_local_freshness(hdr->tx_epoch_ms, &pipeline->filter_config.clock_ref)) {
+        pipeline->stats.dropped_epoch_drift++;
+        return STARSEC_XDP_DROP;
+    }
+
+    bool authorized = false;
+    for (size_t i = 0; i < pipeline->kernel_bpf_map.count; i++) {
+        if (pipeline->kernel_bpf_map.satellite_ids[i] == hdr->src_satellite_id) {
+            authorized = true;
+            break;
+        }
+    }
+    if (!authorized) {
+        pipeline->stats.dropped_unauthorized_node++;
+        return STARSEC_XDP_DROP;
+    }
+
+    size_t bpf_idx = 0;
+    bool found_bpf = false;
+    for (size_t i = 0; i < pipeline->kernel_bpf_map.count; i++) {
+        if (pipeline->kernel_bpf_map.satellite_ids[i] == hdr->src_satellite_id) {
+            bpf_idx = i;
+            found_bpf = true;
+            break;
+        }
+    }
+    if (found_bpf) {
+        if (!xdp_check_replay_window_speculative(&pipeline->kernel_bpf_map.states[bpf_idx], hdr->session_id, hdr->sequence_number)) {
+            if (hdr->session_id < pipeline->kernel_bpf_map.states[bpf_idx].session_id) {
+                pipeline->stats.dropped_stale_session++;
+            } else {
+                pipeline->stats.dropped_epoch_drift++;
+            }
+            return STARSEC_XDP_DROP;
+        }
+    }
+
+    starsec_crypto_status_t dec_stat = xdp_open_isl_frame(
+        frame_bytes,
+        frame_len,
+        decrypted_payload,
+        decrypted_len,
+        pipeline->filter_config.isl_shared_key
+    );
+
+    if (dec_stat != STARSEC_CRYPTO_SUCCESS) {
+        pipeline->stats.dropped_invalid_auth++;
+        return STARSEC_XDP_DROP;
+    }
+
+    size_t user_idx = 0;
+    bool found_user = false;
+    for (size_t i = 0; i < pipeline->filter_config.replay_count; i++) {
+        if (pipeline->filter_config.authorized_nodes[i] == hdr->src_satellite_id) {
+            user_idx = i;
+            found_user = true;
+            break;
+        }
+    }
+    if (!found_user && pipeline->filter_config.replay_count < 256) {
+        user_idx = pipeline->filter_config.replay_count++;
+        pipeline->filter_config.authorized_nodes[user_idx] = hdr->src_satellite_id;
+    }
+
+    if (!xdp_commit_replay_window_atomic(&pipeline->filter_config.replay_states[user_idx], hdr->session_id, hdr->sequence_number)) {
+        pipeline->stats.dropped_epoch_drift++;
+        return STARSEC_XDP_DROP;
+    }
+
+    xdp_sync_kernel_replay_map(
+        &pipeline->kernel_bpf_map,
+        hdr->src_satellite_id,
+        &pipeline->filter_config.replay_states[user_idx]
+    );
+
+    pipeline->stats.passed_frames++;
+    return STARSEC_XDP_PASS;
+}
+

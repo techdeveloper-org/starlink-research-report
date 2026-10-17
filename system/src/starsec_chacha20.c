@@ -260,106 +260,31 @@ void starsec_chacha20_stream_xor(
     starsec_chacha20_secure_zero(block, sizeof(block));
 }
 
-/**
- * @brief Executes RFC 8439 Section 2.8 ChaCha20-Poly1305 AEAD Authenticated Encryption.
- * @param key Pointer to 32-byte master secret key.
- * @param nonce Pointer to 12-byte (96-bit) unique transmission nonce.
- * @param aad Pointer to Additional Authenticated Data (may be NULL if aad_len == 0).
- * @param aad_len Length of AAD in bytes.
- * @param plaintext Pointer to plaintext data (may be NULL if plaintext_len == 0).
- * @param plaintext_len Length of plaintext in bytes.
- * @param ciphertext Output buffer receiving encrypted bytes.
- * @param tag Output buffer of at least 16 bytes receiving authentic Poly1305 tag.
- * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_NULL_PARAM on invalid pointers.
- */
-starsec_crypto_status_t starsec_aead_chacha20_poly1305_encrypt(
-    const uint8_t  key[STARSEC_AEAD_KEY_BYTES],
-    const uint8_t  nonce[STARSEC_AEAD_NONCE_BYTES],
-    const uint8_t *aad,
-    size_t         aad_len,
-    const uint8_t *plaintext,
-    size_t         plaintext_len,
-    uint8_t       *ciphertext,
-    uint8_t        tag[STARSEC_AEAD_TAG_BYTES]
-) {
-    if (key == NULL || nonce == NULL || tag == NULL) {
-        return STARSEC_CRYPTO_ERR_NULL_PARAM;
-    }
-    if (plaintext_len > 0 && (plaintext == NULL || ciphertext == NULL)) {
-        return STARSEC_CRYPTO_ERR_NULL_PARAM;
-    }
-    if (aad_len > 0 && aad == NULL) {
-        return STARSEC_CRYPTO_ERR_NULL_PARAM;
-    }
-
-    uint8_t otk[STARSEC_ONE_TIME_KEY_BYTES];
-    starsec_chacha20_poly1305_key_gen(key, nonce, otk);
-
-    if (plaintext_len > 0) {
-        starsec_chacha20_stream_xor(key, 1U, nonce, plaintext, ciphertext, plaintext_len);
-    }
-
-    starsec_poly1305_ctx_t poly_ctx;
-    starsec_poly1305_init(&poly_ctx, otk);
-
-    static const uint8_t zero_padding[16] = {0};
-
-    if (aad_len > 0) {
-        starsec_poly1305_update(&poly_ctx, aad, aad_len);
-        size_t pad_aad = (16U - (aad_len % 16U)) % 16U;
-        if (pad_aad > 0) {
-            starsec_poly1305_update(&poly_ctx, zero_padding, pad_aad);
-        }
-    }
-
-    if (plaintext_len > 0) {
-        starsec_poly1305_update(&poly_ctx, ciphertext, plaintext_len);
-        size_t pad_ct = (16U - (plaintext_len % 16U)) % 16U;
-        if (pad_ct > 0) {
-            starsec_poly1305_update(&poly_ctx, zero_padding, pad_ct);
-        }
-    }
-
-    uint8_t len_block[16];
-    starsec_store64_le(len_block + 0, (uint64_t)aad_len);
-    starsec_store64_le(len_block + 8, (uint64_t)plaintext_len);
-    starsec_poly1305_update(&poly_ctx, len_block, 16U);
-
-    starsec_poly1305_finish(&poly_ctx, tag);
-
-    starsec_chacha20_secure_zero(otk, sizeof(otk));
-    starsec_chacha20_secure_zero(len_block, sizeof(len_block));
-    starsec_chacha20_secure_zero(&poly_ctx, sizeof(poly_ctx));
-
-    return STARSEC_CRYPTO_SUCCESS;
-}
 
 /**
- * @brief Executes RFC 8439 Section 2.8 ChaCha20-Poly1305 AEAD Authenticated Decryption.
+ * @brief Computes authentic RFC 8439 Section 2.8 Poly1305 AEAD tag over AAD and ciphertext.
  * @param key Pointer to 32-byte master secret key.
- * @param nonce Pointer to 12-byte (96-bit) unique transmission nonce.
+ * @param nonce Pointer to 12-byte (96-bit) transmission nonce.
  * @param aad Pointer to Additional Authenticated Data (may be NULL if aad_len == 0).
  * @param aad_len Length of AAD in bytes.
  * @param ciphertext Pointer to ciphertext data (may be NULL if ciphertext_len == 0).
  * @param ciphertext_len Length of ciphertext in bytes.
- * @param tag Expected 16-byte Poly1305 tag.
- * @param plaintext Output buffer receiving decrypted bytes on successful authentication.
- * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_AUTH_FAIL on tag mismatch.
+ * @param out_tag Output buffer of at least 16 bytes receiving authentic Poly1305 tag.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_NULL_PARAM on invalid pointers.
  */
-starsec_crypto_status_t starsec_aead_chacha20_poly1305_decrypt(
+starsec_crypto_status_t starsec_aead_chacha20_poly1305_tag(
     const uint8_t  key[STARSEC_AEAD_KEY_BYTES],
     const uint8_t  nonce[STARSEC_AEAD_NONCE_BYTES],
     const uint8_t *aad,
     size_t         aad_len,
     const uint8_t *ciphertext,
     size_t         ciphertext_len,
-    const uint8_t  tag[STARSEC_AEAD_TAG_BYTES],
-    uint8_t       *plaintext
+    uint8_t        out_tag[STARSEC_AEAD_TAG_BYTES]
 ) {
-    if (key == NULL || nonce == NULL || tag == NULL) {
+    if (key == NULL || nonce == NULL || out_tag == NULL) {
         return STARSEC_CRYPTO_ERR_NULL_PARAM;
     }
-    if (ciphertext_len > 0 && (ciphertext == NULL || plaintext == NULL)) {
+    if (ciphertext_len > 0 && ciphertext == NULL) {
         return STARSEC_CRYPTO_ERR_NULL_PARAM;
     }
     if (aad_len > 0 && aad == NULL) {
@@ -395,15 +320,96 @@ starsec_crypto_status_t starsec_aead_chacha20_poly1305_decrypt(
     starsec_store64_le(len_block + 8, (uint64_t)ciphertext_len);
     starsec_poly1305_update(&poly_ctx, len_block, 16U);
 
-    uint8_t calculated_tag[STARSEC_AEAD_TAG_BYTES];
-    starsec_poly1305_finish(&poly_ctx, calculated_tag);
-
-    int cmp = starsec_chacha20_const_time_memcmp(calculated_tag, tag, STARSEC_AEAD_TAG_BYTES);
+    starsec_poly1305_finish(&poly_ctx, out_tag);
 
     starsec_chacha20_secure_zero(otk, sizeof(otk));
     starsec_chacha20_secure_zero(len_block, sizeof(len_block));
-    starsec_chacha20_secure_zero(calculated_tag, sizeof(calculated_tag));
     starsec_chacha20_secure_zero(&poly_ctx, sizeof(poly_ctx));
+
+    return STARSEC_CRYPTO_SUCCESS;
+}
+
+/**
+ * @brief Executes RFC 8439 Section 2.8 ChaCha20-Poly1305 AEAD Authenticated Encryption.
+ * @param key Pointer to 32-byte master secret key.
+ * @param nonce Pointer to 12-byte (96-bit) unique transmission nonce.
+ * @param aad Pointer to Additional Authenticated Data (may be NULL if aad_len == 0).
+ * @param aad_len Length of AAD in bytes.
+ * @param plaintext Pointer to plaintext data (may be NULL if plaintext_len == 0).
+ * @param plaintext_len Length of plaintext in bytes.
+ * @param ciphertext Output buffer receiving encrypted bytes.
+ * @param tag Output buffer of at least 16 bytes receiving authentic Poly1305 tag.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_NULL_PARAM on invalid pointers.
+ */
+starsec_crypto_status_t starsec_aead_chacha20_poly1305_encrypt(
+    const uint8_t  key[STARSEC_AEAD_KEY_BYTES],
+    const uint8_t  nonce[STARSEC_AEAD_NONCE_BYTES],
+    const uint8_t *aad,
+    size_t         aad_len,
+    const uint8_t *plaintext,
+    size_t         plaintext_len,
+    uint8_t       *ciphertext,
+    uint8_t        tag[STARSEC_AEAD_TAG_BYTES]
+) {
+    if (key == NULL || nonce == NULL || tag == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+    if (plaintext_len > 0 && (plaintext == NULL || ciphertext == NULL)) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+    if (aad_len > 0 && aad == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    if (plaintext_len > 0) {
+        starsec_chacha20_stream_xor(key, 1U, nonce, plaintext, ciphertext, plaintext_len);
+    }
+
+    return starsec_aead_chacha20_poly1305_tag(key, nonce, aad, aad_len, ciphertext, plaintext_len, tag);
+}
+
+/**
+ * @brief Executes RFC 8439 Section 2.8 ChaCha20-Poly1305 AEAD Authenticated Decryption.
+ * @param key Pointer to 32-byte master secret key.
+ * @param nonce Pointer to 12-byte (96-bit) unique transmission nonce.
+ * @param aad Pointer to Additional Authenticated Data (may be NULL if aad_len == 0).
+ * @param aad_len Length of AAD in bytes.
+ * @param ciphertext Pointer to ciphertext data (may be NULL if ciphertext_len == 0).
+ * @param ciphertext_len Length of ciphertext in bytes.
+ * @param tag Expected 16-byte Poly1305 tag.
+ * @param plaintext Output buffer receiving decrypted bytes on successful authentication.
+ * @return STARSEC_CRYPTO_SUCCESS on success, STARSEC_CRYPTO_ERR_AUTH_FAIL on tag mismatch.
+ */
+starsec_crypto_status_t starsec_aead_chacha20_poly1305_decrypt(
+    const uint8_t  key[STARSEC_AEAD_KEY_BYTES],
+    const uint8_t  nonce[STARSEC_AEAD_NONCE_BYTES],
+    const uint8_t *aad,
+    size_t         aad_len,
+    const uint8_t *ciphertext,
+    size_t         ciphertext_len,
+    const uint8_t  tag[STARSEC_AEAD_TAG_BYTES],
+    uint8_t       *plaintext
+) {
+    if (key == NULL || nonce == NULL || tag == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+    if (ciphertext_len > 0 && (ciphertext == NULL || plaintext == NULL)) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+    if (aad_len > 0 && aad == NULL) {
+        return STARSEC_CRYPTO_ERR_NULL_PARAM;
+    }
+
+    uint8_t calculated_tag[STARSEC_AEAD_TAG_BYTES];
+    starsec_crypto_status_t tag_stat = starsec_aead_chacha20_poly1305_tag(
+        key, nonce, aad, aad_len, ciphertext, ciphertext_len, calculated_tag
+    );
+    if (tag_stat != STARSEC_CRYPTO_SUCCESS) {
+        return tag_stat;
+    }
+
+    int cmp = starsec_chacha20_const_time_memcmp(calculated_tag, tag, STARSEC_AEAD_TAG_BYTES);
+    starsec_chacha20_secure_zero(calculated_tag, sizeof(calculated_tag));
 
     if (cmp != 0) {
         if (plaintext != NULL && ciphertext_len > 0) {
@@ -418,5 +424,6 @@ starsec_crypto_status_t starsec_aead_chacha20_poly1305_decrypt(
 
     return STARSEC_CRYPTO_SUCCESS;
 }
+
 
 

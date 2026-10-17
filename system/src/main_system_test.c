@@ -57,9 +57,11 @@ typedef struct {
  */
 static STARSEC_THREAD_RET STARSEC_THREAD_CALL smp_race_worker_func(void *arg) {
     smp_race_ctx_t *ctx = (smp_race_ctx_t *)arg;
-    while (*(ctx->gate) == 0U) {
+    while (__atomic_load_n(ctx->gate, __ATOMIC_ACQUIRE) == 0U) {
         #if defined(__x86_64__) || defined(_M_X64)
         __builtin_ia32_pause();
+        #elif defined(__aarch64__)
+        __asm__ __volatile__("yield");
         #endif
     }
 
@@ -980,7 +982,7 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
         #endif
     }
 
-    start_gate = 1;
+    __atomic_store_n(&start_gate, 1U, __ATOMIC_RELEASE);
 
     #if defined(_WIN32)
     WaitForMultipleObjects(SMP_THREAD_COUNT, threads, TRUE, INFINITE);
@@ -1000,7 +1002,7 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
 
     successes = 0;
     conflicts = 0;
-    start_gate = 0;
+    __atomic_store_n(&start_gate, 0U, __ATOMIC_RELEASE);
 
     for (size_t t = 0; t < SMP_THREAD_COUNT; t++) {
         ctxs[t].state = &smp_state;
@@ -1018,7 +1020,7 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
         #endif
     }
 
-    start_gate = 1;
+    __atomic_store_n(&start_gate, 1U, __ATOMIC_RELEASE);
 
     #if defined(_WIN32)
     WaitForMultipleObjects(SMP_THREAD_COUNT, threads, TRUE, INFINITE);
@@ -1048,6 +1050,174 @@ static bool test_rfc8439_aead_and_smp_stress_triad(void) {
 }
 
 /**
+ * @brief Executes TC-AEAD-PACKET-PIPELINE-01 and TC-KERNEL-USERSPACE-SYNC-01.
+ *
+ * Validates in-flight optical packet envelope sealing, authentic decryption, 3-way single-bit
+ * tamper rejection, and bi-directional in-kernel BPF map replay state synchronization.
+ *
+ * @return true if all pipeline and synchronization tests pass, false otherwise.
+ */
+static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
+    printf("[TEST] Running End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad...\n");
+
+    const uint8_t master_key[32] = {
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+        0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+        0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f
+    };
+
+    /* TC-AEAD-PACKET-PIPELINE-01: Envelope Sealing & Decryption Fidelity */
+    starsec_isl_header_t hdr;
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.magic = STARSEC_ISL_MAGIC;
+    hdr.protocol_type = STARSEC_PROTO_TELECOMMAND;
+    hdr.flags = 0x01;
+    hdr.src_satellite_id = 701;
+    hdr.dst_satellite_id = 702;
+    hdr.session_id = 5;
+    hdr.sequence_number = 10001;
+    hdr.tx_epoch_ms = 1770000000000ULL;
+
+    const char *telecommand_payload = "ORBITAL_MANEUVER:THRUSTER_DELTA_V=+0.150m/s:ATTITUDE_Q=(0,0,0,1)";
+    size_t payload_len = strlen(telecommand_payload);
+
+    uint8_t wire_frame[256];
+    memset(wire_frame, 0, sizeof(wire_frame));
+    starsec_crypto_status_t seal_stat = xdp_seal_isl_frame(
+        &hdr,
+        (const uint8_t *)telecommand_payload,
+        payload_len,
+        wire_frame,
+        sizeof(wire_frame),
+        master_key
+    );
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-AEAD-PACKET-PIPELINE-01: Frame sealing failed");
+
+    const uint8_t *ciphertext_in_frame = wire_frame + sizeof(starsec_isl_header_t);
+    STARSEC_ASSERT(memcmp(ciphertext_in_frame, telecommand_payload, payload_len) != 0,
+                   "TC-AEAD-PACKET-PIPELINE-01: Payload was not encrypted in wire frame");
+
+    uint8_t decrypted_buf[128];
+    size_t decrypted_len = 0;
+    starsec_crypto_status_t open_stat = xdp_open_isl_frame(
+        wire_frame,
+        sizeof(starsec_isl_header_t) + payload_len,
+        decrypted_buf,
+        &decrypted_len,
+        master_key
+    );
+    STARSEC_ASSERT(open_stat == STARSEC_CRYPTO_SUCCESS, "TC-AEAD-PACKET-PIPELINE-01: Frame opening failed");
+    STARSEC_ASSERT(decrypted_len == payload_len, "TC-AEAD-PACKET-PIPELINE-01: Decrypted length mismatch");
+    STARSEC_ASSERT(memcmp(decrypted_buf, telecommand_payload, payload_len) == 0,
+                   "TC-AEAD-PACKET-PIPELINE-01: Decrypted plaintext did not match original telecommand");
+
+    /* Adverse Injection 1: Tampered Header AAD (flip 1 bit in src_satellite_id) */
+    uint8_t tampered_frame_aad[256];
+    memcpy(tampered_frame_aad, wire_frame, sizeof(starsec_isl_header_t) + payload_len);
+    tampered_frame_aad[6] ^= 0x01;
+    starsec_crypto_status_t tamper_aad_stat = xdp_open_isl_frame(
+        tampered_frame_aad,
+        sizeof(starsec_isl_header_t) + payload_len,
+        decrypted_buf,
+        &decrypted_len,
+        master_key
+    );
+    STARSEC_ASSERT(tamper_aad_stat == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-PACKET-PIPELINE-01: Tampered AAD was not rejected by AEAD");
+
+    /* Adverse Injection 2: Tampered Ciphertext Payload (flip 1 bit in ciphertext) */
+    uint8_t tampered_frame_ct[256];
+    memcpy(tampered_frame_ct, wire_frame, sizeof(starsec_isl_header_t) + payload_len);
+    tampered_frame_ct[sizeof(starsec_isl_header_t) + 10] ^= 0x80;
+    starsec_crypto_status_t tamper_ct_stat = xdp_open_isl_frame(
+        tampered_frame_ct,
+        sizeof(starsec_isl_header_t) + payload_len,
+        decrypted_buf,
+        &decrypted_len,
+        master_key
+    );
+    STARSEC_ASSERT(tamper_ct_stat == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-PACKET-PIPELINE-01: Tampered ciphertext was not rejected by AEAD");
+
+    /* Adverse Injection 3: Tampered Poly1305 Tag (flip 1 bit in auth_tag) */
+    uint8_t tampered_frame_tag[256];
+    memcpy(tampered_frame_tag, wire_frame, sizeof(starsec_isl_header_t) + payload_len);
+    tampered_frame_tag[0x1E + 15] ^= 0x01;
+    starsec_crypto_status_t tamper_tag_stat = xdp_open_isl_frame(
+        tampered_frame_tag,
+        sizeof(starsec_isl_header_t) + payload_len,
+        decrypted_buf,
+        &decrypted_len,
+        master_key
+    );
+    STARSEC_ASSERT(tamper_tag_stat == STARSEC_CRYPTO_ERR_AUTH_FAIL,
+                   "TC-AEAD-PACKET-PIPELINE-01: Tampered auth tag was not rejected by AEAD");
+
+    /* TC-KERNEL-USERSPACE-SYNC-01: Two-Tier Pipeline & BPF Replay Map Synchronization */
+    starsec_time_sync_state_t clock_ref = {
+        .local_epoch_ms = 1770000000000ULL,
+        .max_past_drift_ms = 200ULL,
+        .max_future_skew_ms = 20ULL
+    };
+    starsec_xdp_pipeline_t pipeline;
+    xdp_pipeline_init(&pipeline, master_key, &clock_ref);
+    bool auth_reg = xdp_pipeline_authorize_node(&pipeline, 701);
+    STARSEC_ASSERT(auth_reg == true, "TC-KERNEL-USERSPACE-SYNC-01: Node authorization failed");
+
+    /* Feed authentic packet 1 (Seq 5001) */
+    hdr.session_id = 1;
+    hdr.sequence_number = 5001;
+    hdr.tx_epoch_ms = clock_ref.local_epoch_ms - 10;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-KERNEL-USERSPACE-SYNC-01: Frame seal failed");
+
+    int act1 = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act1 == STARSEC_XDP_PASS, "TC-KERNEL-USERSPACE-SYNC-01: Authentic packet was dropped by pipeline");
+    STARSEC_ASSERT(pipeline.stats.passed_frames == 1, "TC-KERNEL-USERSPACE-SYNC-01: passed_frames counter mismatch");
+    STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_base_seq == 5001,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Kernel BPF map base sequence not synchronized to 5001");
+    STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_bitmap == 1ULL,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Kernel BPF map window bitmap not synchronized to 1");
+
+    /* Feed duplicate packet (Seq 5001) */
+    int act_dup = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_dup == STARSEC_XDP_DROP,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Replayed packet was not dropped by pipeline");
+    STARSEC_ASSERT(pipeline.stats.dropped_epoch_drift == 1,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Replayed packet was not dropped at Tier 1 BPF check");
+    STARSEC_ASSERT(pipeline.stats.passed_frames == 1,
+                   "TC-KERNEL-USERSPACE-SYNC-01: passed_frames increased on duplicate packet");
+
+    /* Feed out-of-order in-window packet (Seq 5000) */
+    hdr.sequence_number = 5000;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-KERNEL-USERSPACE-SYNC-01: Out-of-order seal failed");
+
+    int act_ooo = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_ooo == STARSEC_XDP_PASS,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Valid in-window out-of-order packet dropped");
+    STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_base_seq == 5001,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Base sequence incorrectly changed on out-of-order packet");
+    STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_bitmap == 0x03ULL,
+                   "TC-KERNEL-USERSPACE-SYNC-01: In-kernel BPF bitmap did not reflect both bits 0 and 1");
+
+    /* Adversarial State Poisoning Attempt: Spoofed high sequence (Seq 999999) with corrupt tag */
+    hdr.sequence_number = 999999;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    wire_frame[0x1E + 2] ^= 0x55; /* Corrupt MAC */
+
+    int act_spoof = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_spoof == STARSEC_XDP_DROP, "TC-KERNEL-USERSPACE-SYNC-01: Spoofed frame passed pipeline");
+    STARSEC_ASSERT(pipeline.stats.dropped_invalid_auth == 1, "TC-KERNEL-USERSPACE-SYNC-01: Invalid auth counter not incremented");
+    STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_base_seq == 5001,
+                   "TC-KERNEL-USERSPACE-SYNC-01: Kernel BPF replay window poisoned by unauthenticated frame!");
+
+    printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
+    return true;
+}
+
+/**
  * @brief Main entry point for standalone C test harness execution.
  * @return 0 on all tests passing, 1 on any test failure.
  */
@@ -1067,6 +1237,7 @@ int main(void) {
     all_passed &= test_ebpf_kernel_ingress_triad();
     all_passed &= test_hardened_security_and_concurrency_triad();
     all_passed &= test_rfc8439_aead_and_smp_stress_triad();
+    all_passed &= test_aead_packet_pipeline_and_kernel_sync_triad();
 
     printf("\n-----------------------------------------------------------------\n");
     if (all_passed) {
@@ -1079,3 +1250,4 @@ int main(void) {
         return 1;
     }
 }
+
