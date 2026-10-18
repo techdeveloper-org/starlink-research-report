@@ -79,7 +79,7 @@ graph TD
 ## 3. Mathematical Foundations & Formal Theorems
 
 ### Theorem 27 (ISO C11 §5.1.2.4 Data-Race-Freedom of Relaxed Atomic Seqlock)
-Let the memory location set of an anti-replay state instance $\mathcal{S}$ (`isl_anti_replay_state_t` in [`system/include/xdp_orbital.h`](file:///C:/Users/techd/Documents/workspace-spring-tool-suite-4-4.27.0-new/starlink-research-report/system/include/xdp_orbital.h#L73-L79)) be:
+Let the memory location set of an anti-replay state instance $\mathcal{S}$ (`isl_anti_replay_state_t` in [`system/include/xdp_orbital.h`](./system/include/xdp_orbital.h#L73-L79)) be:
 $$\mathcal{M}(\mathcal{S}) = \{ \text{lock}, \text{window\_base\_seq}, \text{window\_bitmap}, \text{session\_id} \}$$
 
 **Definition (ISO C11 §5.1.2.4 p25)**:

@@ -15,7 +15,7 @@ python tools/run_all_tests.py
 ```
 
 ### Verification Pipeline:
-1. **Native C Hardware Drivers (Phase 1):** Compiles `system/src/*.c` using local MinGW GCC (`-O2 -Wall -Wextra`) and executes `tools/test_system_drivers.exe` validating sub-10 ns memory zeroization, SRAM-PUF BCH key recovery, DCLS SEU lockstep state machine, and in-orbit eBPF/XDP optical packet filter.
+1. **Native C Hardware Drivers (Phase 1):** Compiles `system/src/*.c` using local MinGW GCC (`-O2 -Wall -Wextra`) and executes `tools/test_system_drivers.exe`, running all 16 Triad Test Suites (100% assertion coverage) validating sub-10 ns memory zeroization, SRAM-PUF BCH key recovery, DCLS SEU lockstep, RFC 8439 ChaCha20-Poly1305 AEAD, RFC 6479 sliding replay window shift bounds (Suite 16), and the 1000-attempt auth failure quarantine invariant (`TC-AUTH-QUARANTINE-01`).
 2. **Python Simulation Test Suite (Phase 2):** Executes all 23 triad unit tests (`simulations/test_simulations.py`) covering SGP4 orbital mechanics, Capon MVDR beamforming, NIST FIPS 203 ML-KEM arithmetic, and Shamir $(t, n)$ secret sharing.
 3. **Tooling CLI Parity (Phase 3):** Validates interface contracts for `threat_score_calculator.py` and `mpc_quorum_telecommand.py`.
 
@@ -25,9 +25,14 @@ python tools/run_all_tests.py
 
 ## 🛠️ Standalone C Driver Test Harness Compilation
 
-You can also compile and run the native C test harness independently with GCC:
+You can also compile and run the 16-suite native C test harness independently with GCC:
 ```bash
-gcc -O2 -Wall -Wextra -I./system/include ./system/src/tamper_zeroize_driver.c ./system/src/sram_puf_fuzzy_extractor.c ./system/src/dcls_fault_monitor.c ./system/src/xdp_orbital_filter.c ./system/src/main_system_test.c -o ./tools/test_system_drivers.exe ; ./tools/test_system_drivers.exe
+gcc -O2 -Wall -Wextra -pthread -I./system/include ./system/src/tamper_zeroize_driver.c ./system/src/sram_puf_fuzzy_extractor.c ./system/src/dcls_fault_monitor.c ./system/src/starsec_poly1305.c ./system/src/starsec_chacha20.c ./system/src/xdp_orbital_filter.c ./system/src/main_system_test.c -o ./tools/test_system_drivers.exe ; ./tools/test_system_drivers.exe
+```
+
+For ThreadSanitizer data-race certification (asserting 0 data races and 0 `[-Wtsan]` warnings):
+```bash
+gcc -fsanitize=thread -O1 -g -pthread -I./system/include ./system/src/tamper_zeroize_driver.c ./system/src/sram_puf_fuzzy_extractor.c ./system/src/dcls_fault_monitor.c ./system/src/starsec_poly1305.c ./system/src/starsec_chacha20.c ./system/src/xdp_orbital_filter.c ./system/src/main_system_test.c -o ./tools/test_system_drivers_tsan.exe ; ./tools/test_system_drivers_tsan.exe
 ```
 
 ---

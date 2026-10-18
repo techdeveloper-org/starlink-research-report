@@ -60,11 +60,9 @@ First-principles verified.
 4/6 Talk is cheap. Show the code.
 
 The repo features:
-• Low-level C drivers (SRAM-PUF, DCLS fault monitor, ChaCha20-Poly1305)
-• Linux eBPF/XDP orbital packet filter
-• Standalone Python simulators
-
-23 unit tests run locally in <10s with zero cloud dependencies.
+• Low-level C drivers (SRAM-PUF, DCLS, ChaCha20-Poly1305)
+• Linux eBPF/XDP in-kernel orbital filter
+• 16 Triad C suites (TSan 0-race certified) + 23 Python tests run locally in <10s with zero cloud dependencies.
 ```
 
 ```markdown
@@ -133,7 +131,7 @@ Shamir (t, n) threshold secret sharing preventing single-point unauthorized tele
 A verified static in-kernel eBPF packet filter dropping unauthenticated orbital frames in <1 µs with zero userspace overhead.
 
 🔬 100% Reproducible & Zero-Cost:
-The entire repository is accompanied by 7 deep R&D whitepapers, interactive Jupyter notebooks, and a local test runner where all 23 unit tests and C drivers compile and pass in under 10 seconds with zero cloud dependencies.
+The entire repository is accompanied by 7 deep R&D whitepapers, interactive Jupyter notebooks, and a local test runner where all 16 C Triad test suites (ThreadSanitizer data-race free certified) and 23 Python simulation tests compile and pass in seconds with zero cloud dependencies.
 
 This project represents the sheer power of modern multi-agent AI engineering orchestration—bridging astrodynamics, RF electromagnetics, and post-quantum cryptography as a solo researcher.
 

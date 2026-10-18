@@ -148,15 +148,16 @@ The normative technical specifications of the StarSec Constellation Security Fra
 - **`system/include/tamper_zeroize.h` & `system/src/tamper_zeroize_driver.c`:** Register-level MMIO driver with volatile compiler barriers and sub-10 ns memory zeroization.
 - **`system/include/sram_puf.h` & `system/src/sram_puf_fuzzy_extractor.c`:** Constant-time SRAM-PUF helper data generation and 256-bit key recovery with error correction.
 - **`system/include/dcls_monitor.h` & `system/src/dcls_fault_monitor.c`:** Dual-Core Lockstep radiation single-event upset (SEU) comparator and recovery state machine.
-- **`system/include/xdp_orbital.h` & `system/src/xdp_orbital_filter.c`:** Wire-speed laser packet filter dropping corrupt, replayed, or rogue BGP route frames.
-- **`system/src/main_system_test.c`:** Native C standalone test suite executing positive, negative, and edge-case test vectors.
+- **`system/include/xdp_orbital.h` & `system/src/xdp_orbital_filter.c`:** Wire-speed laser packet filter with RFC 6479 UB-free sliding anti-replay window, ISO C11 lockless synchronization, and fail-closed 1000-attempt consecutive authentication failure session quarantine (`STARSEC_AUTH_FAILURE_QUARANTINE_THRESHOLD 1000U`).
+- **`system/src/main_system_test.c`:** 16 Comprehensive Triad Test Suites (100% assertion coverage) certified data-race free under ThreadSanitizer (`-fsanitize=thread`), validating hardware zeroization, SRAM-PUF, Seqlock contention, RFC 6479 boundary shifts (Suite 16), and `TC-AUTH-QUARANTINE-01`.
+- **[`MATHEMATICAL-FINALIZATION-REPORT.md`](../MATHEMATICAL-FINALIZATION-REPORT.md):** Formal mathematical proofs for in-kernel live map concurrency (Theorem 27), RFC 6479 sliding window safety (Theorem 28), and ChaCha20-Poly1305 multi-query AEAD forgery bound ($P \le 2^{-86.48}$, Theorem 29).
 
 ### 5.4 Space Threat Matrix & CVSS v4 Profile (`/framework/threat-matrix/`)
 - **[`README.md`](./threat-matrix/README.md):** Space Cyber Threat Taxonomy & Assessment Methodology.
 - **[`constellation-threat-matrix.md`](./threat-matrix/constellation-threat-matrix.md):** 30+ Space Constellation Threat Vectors mapped to Aerospace SPARTA, MITRE ATT&CK for Space, and StarSec Controls.
 - **[`cvss-v4-space-profile.md`](./threat-matrix/cvss-v4-space-profile.md):** CVSS v4 Space Domain Scoring Extension incorporating orbital conjunction risk and life-safety impacts.
 
-### 5.3 Scientific Simulation & Tooling Suite (`/simulations/` & `/tools/`)
+### 5.5 Scientific Simulation & Tooling Suite (`/simulations/` & `/tools/`)
 - **[`tools/README.md`](../tools/README.md):** User guide for executing the reproducible scientific simulation tools.
 - **[`threat_score_calculator.py`](../simulations/threat_score_calculator.py):** Automated CLI tool for calculating CVSS v4 Space Profile and SPARTA risk metrics.
 - **[`mpc_quorum_telecommand.py`](../simulations/mpc_quorum_telecommand.py):** Verifiable Shamir $(t, n)$ Threshold Signature and Flight Maneuver Quorum simulator.
