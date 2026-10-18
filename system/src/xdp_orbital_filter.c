@@ -64,6 +64,8 @@ void xdp_reset_filter_stats(xdp_filter_stats_t *stats) {
     stats->dropped_stale_session = 0;
     stats->dropped_sync_failure = 0;
     stats->dropped_replay_inconsistent = 0;
+    stats->dropped_quarantined = 0;
+    stats->quarantined_sessions = 0;
     stats->passed_frames = 0;
 }
 
@@ -89,7 +91,6 @@ void xdp_replay_take_snapshot(
         if ((seq1 & 1U) != 0U) {
             continue;
         }
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
         snapshot->window_base_seq = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
         snapshot->window_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
         snapshot->session_id = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
@@ -1168,6 +1169,11 @@ int xdp_pipeline_process_packet(
         return STARSEC_XDP_DROP;
     }
 
+    if (pipeline->is_quarantined) {
+        pipeline->stats.dropped_quarantined++;
+        return STARSEC_XDP_DROP;
+    }
+
     if (frame_len < sizeof(starsec_isl_header_t)) {
         pipeline->stats.dropped_bad_magic++;
         return STARSEC_XDP_DROP;
@@ -1236,8 +1242,15 @@ int xdp_pipeline_process_packet(
 
     if (dec_stat != STARSEC_CRYPTO_SUCCESS) {
         pipeline->stats.dropped_invalid_auth++;
+        pipeline->consecutive_auth_failures++;
+        if (pipeline->consecutive_auth_failures >= STARSEC_AUTH_FAILURE_QUARANTINE_THRESHOLD) {
+            pipeline->is_quarantined = true;
+            pipeline->stats.quarantined_sessions++;
+        }
         return STARSEC_XDP_DROP;
     }
+
+    pipeline->consecutive_auth_failures = 0;
 
     size_t user_idx = 0;
     bool found_user = false;

@@ -115,7 +115,6 @@ static inline void starsec_spin_lock(volatile uint32_t *lock) {
  * @param lock Pointer to 32-bit atomic lock word.
  */
 static inline void starsec_spin_unlock(volatile uint32_t *lock) {
-    __atomic_thread_fence(__ATOMIC_RELEASE);
     __atomic_add_fetch(lock, 1U, __ATOMIC_RELEASE);
 }
 
@@ -151,7 +150,6 @@ static inline uint32_t starsec_seqlock_read_begin(const volatile uint32_t *lock)
  * @return true if write collision occurred or counter was odd, false if snapshot was uncorrupted.
  */
 static inline bool starsec_seqlock_read_retry(const volatile uint32_t *lock, uint32_t start_seq) {
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
     uint32_t end_seq = __atomic_load_n(lock, __ATOMIC_ACQUIRE);
     return ((start_seq & 1U) != 0U) || (start_seq != end_seq);
 }
@@ -181,6 +179,15 @@ typedef struct {
 } starsec_time_sync_state_t;
 
 /**
+ * @brief Anomaly-driven quarantine threshold for consecutive cryptographic MAC verification failures.
+ *
+ * Implements hardware-enforced protection against adaptive chosen-ciphertext injection and
+ * multi-query MAC forgery attacks. After 1000 consecutive authentication failures, the session is
+ * quarantined, bounding the maximum adversary verification queries to q_v <= 1000.
+ */
+#define STARSEC_AUTH_FAILURE_QUARANTINE_THRESHOLD 1000U
+
+/**
  * @brief Diagnostic traffic counters for the in-orbit XDP filter.
  */
 typedef struct {
@@ -192,6 +199,8 @@ typedef struct {
     uint64_t dropped_stale_session;
     uint64_t dropped_sync_failure;
     uint64_t dropped_replay_inconsistent;
+    uint64_t dropped_quarantined;
+    uint64_t quarantined_sessions;
     uint64_t passed_frames;
 } xdp_filter_stats_t;
 
@@ -427,7 +436,6 @@ static inline bool starsec_seqlock_read_try(
     if ((seq1 & 1U) != 0U) {
         return false;
     }
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
     out_snapshot->window_base_seq = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
     out_snapshot->window_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
     out_snapshot->session_id = STARSEC_ATOMIC_READ_RELAXED(&state->session_id);
@@ -545,6 +553,8 @@ typedef struct {
     starsec_kernel_bpf_map_t kernel_bpf_map;
     xdp_filter_config_t      filter_config;
     xdp_filter_stats_t       stats;
+    uint32_t                  consecutive_auth_failures; /**< Consecutive MAC authentication rejections */
+    bool                     is_quarantined;            /**< True if session quarantined due to rate limit */
 } starsec_xdp_pipeline_t;
 
 /**

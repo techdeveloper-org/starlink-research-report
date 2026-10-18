@@ -1373,6 +1373,44 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(pipeline.kernel_bpf_map.states[0].window_base_seq == 5001,
                    "TC-KERNEL-USERSPACE-SYNC-01: Kernel BPF replay window poisoned by unauthenticated frame!");
 
+    /* TC-AUTH-QUARANTINE-01: Anomaly-Driven 1000 Consecutive Failure Quarantine & Rate Limiting Enforcement */
+    for (uint32_t i = 0; i < 998; i++) {
+        hdr.sequence_number = 1000000ULL + (uint64_t)i;
+        int act = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+        STARSEC_ASSERT(act == STARSEC_XDP_DROP, "TC-AUTH-QUARANTINE-01: Spoofed frame not dropped");
+    }
+    STARSEC_ASSERT(pipeline.consecutive_auth_failures == 999U, "TC-AUTH-QUARANTINE-01: consecutive_auth_failures mismatch at 999");
+    STARSEC_ASSERT(pipeline.is_quarantined == false, "TC-AUTH-QUARANTINE-01: Premature quarantine trip at 999 failures");
+    STARSEC_ASSERT(pipeline.stats.dropped_invalid_auth == 999ULL, "TC-AUTH-QUARANTINE-01: dropped_invalid_auth mismatch at 999");
+
+    /* Exactly 1000th consecutive authentication failure MUST trip session quarantine */
+    hdr.sequence_number = 1000999ULL;
+    int act_trip = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_trip == STARSEC_XDP_DROP, "TC-AUTH-QUARANTINE-01: 1000th frame not dropped");
+    STARSEC_ASSERT(pipeline.consecutive_auth_failures == 1000U, "TC-AUTH-QUARANTINE-01: Failure counter mismatch at 1000");
+    STARSEC_ASSERT(pipeline.is_quarantined == true, "TC-AUTH-QUARANTINE-01: Pipeline failed to quarantine at 1000 failures");
+    STARSEC_ASSERT(pipeline.stats.quarantined_sessions == 1ULL, "TC-AUTH-QUARANTINE-01: quarantined_sessions counter mismatch");
+
+    /* Subsequent 1001st frame (even with genuine authenticated MAC) MUST be unconditionally dropped by quarantine gate */
+    hdr.sequence_number = 5002;
+    hdr.tx_epoch_ms = pipeline.filter_config.clock_ref.local_epoch_ms - 10;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-AUTH-QUARANTINE-01: Seal authentic frame failed");
+
+    int act_quarantine_drop = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_quarantine_drop == STARSEC_XDP_DROP, "TC-AUTH-QUARANTINE-01: Quarantined pipeline admitted packet!");
+    STARSEC_ASSERT(pipeline.stats.dropped_quarantined == 1ULL, "TC-AUTH-QUARANTINE-01: dropped_quarantined counter mismatch");
+
+    /* Verify that a fresh unquarantined pipeline resets consecutive failure count upon authentic packet */
+    starsec_xdp_pipeline_t recovery_pipeline;
+    xdp_pipeline_init(&recovery_pipeline, master_key, &clock_ref);
+    recovery_pipeline.filter_config.authorized_nodes[0] = 701;
+    recovery_pipeline.filter_config.authorized_count = 1;
+    recovery_pipeline.consecutive_auth_failures = 50;
+    int act_recovery = xdp_pipeline_process_packet(&recovery_pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_recovery == STARSEC_XDP_PASS, "TC-AUTH-QUARANTINE-01: Valid packet failed on recovery pipeline");
+    STARSEC_ASSERT(recovery_pipeline.consecutive_auth_failures == 0U, "TC-AUTH-QUARANTINE-01: Failure counter not reset to 0 on valid auth");
+
     printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
     return true;
 }

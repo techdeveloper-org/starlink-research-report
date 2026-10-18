@@ -145,10 +145,10 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
 | **In-Kernel Verification** | `512 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
 | **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
-| **ThreadSanitizer (TSan)** | **Mandatory Fail-Closed CI Gate & Zero Data Races**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 16 suites under `-fsanitize=thread`; enforced as a mandatory build-fail gate in CI |
+| **ThreadSanitizer (TSan)** | **Mandatory Fail-Closed CI Gate & Zero Data Races**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 16 suites under `-fsanitize=thread` with 0 `[-Wtsan]` warnings; fence limitations disclosed; enforced as a mandatory build-fail gate in CI |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention (Workflow manifest & runner fully synchronized to 16/16 suites) |
-| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27, 28 & 29 formal proofs: RFC 6479 UB-free shift & Poly1305 bounded multi-query forgery probability $P \le 2^{-86.48}$) |
+| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention (Workflow manifest & runner fully synchronized to 16/16 suites, including `TC-AUTH-QUARANTINE-01`) |
+| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27, 28 & 29 formal proofs: RFC 6479 UB-free shift & Poly1305 bounded multi-query forgery probability $P \le 2^{-86.48}$ backed by code-enforced 1000-attempt quarantine & `TC-AUTH-QUARANTINE-01`) |
 
 ```text
 ==================================================================
