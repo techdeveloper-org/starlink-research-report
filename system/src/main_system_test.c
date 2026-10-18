@@ -1579,6 +1579,13 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(interleaved_pipeline.kernel_bpf_map.states[0].is_quarantined == 0U,
                    "TC-INTERLEAVED-AUTH-QUARANTINE-01: Kernel BPF map state remained quarantined after rekey");
 
+    uint8_t expected_interleaved_fp[32];
+    puf_sha256_kdf(fresh_interleaved_key, 32, expected_interleaved_fp);
+    STARSEC_ASSERT(memcmp(interleaved_pipeline.filter_config.replay_states[0].reserved_padding, expected_interleaved_fp, 32) == 0,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Userspace key fingerprint mismatch");
+    STARSEC_ASSERT(memcmp(interleaved_pipeline.kernel_bpf_map.states[0].reserved_padding, expected_interleaved_fp, 32) == 0,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: In-kernel BPF map key fingerprint mismatch (Theorem 30)");
+
     /* Step I: Authentic traffic under newly rekeyed session 101 with fresh key MUST be accepted */
     auth_hdr.session_id = 101;
     auth_hdr.sequence_number = 1ULL;
@@ -1613,7 +1620,17 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     bool rekey_701_ok = xdp_pipeline_rekey_peer(&multi_peer_pipe, 701, 11, key_701);
     STARSEC_ASSERT(rekey_701_ok == true, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Rekey node 701 failed");
 
-    /* 1. Transmit authentic frame from Node 701 with key_701: MUST PASS */
+    uint8_t expected_fp_701[32];
+    puf_sha256_kdf(key_701, 32, expected_fp_701);
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.filter_config.replay_states[0].reserved_padding, expected_fp_701, 32) == 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 userspace fingerprint mismatch");
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.kernel_bpf_map.states[0].reserved_padding, expected_fp_701, 32) == 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 kernel BPF fingerprint mismatch (Theorem 30)");
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.filter_config.replay_states[1].reserved_padding, expected_fp_701, 32) != 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 contaminated with Node 701 fingerprint!");
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.kernel_bpf_map.states[1].reserved_padding, expected_fp_701, 32) != 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 kernel BPF contaminated with Node 701 fingerprint!");
+
     starsec_isl_header_t hdr_701 = hdr;
     hdr_701.src_satellite_id = 701;
     hdr_701.session_id = 11;
@@ -1625,7 +1642,6 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     int act_701 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_701 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 valid frame rejected");
 
-    /* 2. Transmit authentic frame from Node 42 with master_key: MUST PASS (Node 42 is unaffected by Node 701 rekey!) */
     starsec_isl_header_t hdr_42 = hdr;
     hdr_42.src_satellite_id = 42;
     hdr_42.session_id = 20;
@@ -1637,12 +1653,46 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     int act_42 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_42 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 disrupted by Node 701 rekey!");
 
-    /* 3. Transmit frame from Node 42 using Node 701's key: MUST BE DROPPED */
     hdr_42.sequence_number = 2ULL;
     seal_stat = xdp_seal_isl_frame(&hdr_42, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), key_701);
     STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 42 cross-key failed");
     int act_cross = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_cross == STARSEC_XDP_DROP, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 cross-key frame accepted!");
+
+    uint8_t key_701_v2[32];
+    for (size_t k = 0; k < 32; k++) {
+        key_701_v2[k] = (uint8_t)(0x82 ^ k);
+    }
+    bool rekey_701_v2_ok = xdp_pipeline_rekey_peer(&multi_peer_pipe, 701, 12, key_701_v2);
+    STARSEC_ASSERT(rekey_701_v2_ok == true, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Re-rekey node 701 v2 failed");
+
+    uint8_t expected_fp_701_v2[32];
+    puf_sha256_kdf(key_701_v2, 32, expected_fp_701_v2);
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.filter_config.replay_states[0].reserved_padding, expected_fp_701_v2, 32) == 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 userspace fingerprint v2 mismatch");
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.kernel_bpf_map.states[0].reserved_padding, expected_fp_701_v2, 32) == 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 kernel BPF fingerprint v2 mismatch (Theorem 30)");
+    STARSEC_ASSERT(memcmp(multi_peer_pipe.filter_config.replay_states[1].reserved_padding, expected_fp_701_v2, 32) != 0,
+                   "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 contaminated with Node 701 v2 fingerprint!");
+
+    hdr_701.session_id = 12;
+    hdr_701.sequence_number = 1ULL;
+    seal_stat = xdp_seal_isl_frame(&hdr_701, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), key_701_v2);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 701 v2 failed");
+    int act_701_v2 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_701_v2 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 v2 valid frame rejected");
+
+    hdr_701.sequence_number = 2ULL;
+    seal_stat = xdp_seal_isl_frame(&hdr_701, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), key_701);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 701 retired key failed");
+    int act_701_old = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_701_old == STARSEC_XDP_DROP, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 accepted frame with retired key!");
+
+    hdr_42.sequence_number = 3ULL;
+    seal_stat = xdp_seal_isl_frame(&hdr_42, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 42 after v2 failed");
+    int act_42_v2 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_42_v2 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 disrupted after Node 701 second rekey!");
 
     printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
     return true;

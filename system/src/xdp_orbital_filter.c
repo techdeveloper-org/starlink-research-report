@@ -1128,6 +1128,7 @@ bool xdp_sync_kernel_replay_map(
         kernel_state.session_id = snap.session_id;
         kernel_state.session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
         kernel_state.is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
+        memcpy(kernel_state.reserved_padding, source_state->reserved_padding, sizeof(kernel_state.reserved_padding));
 
         bool k_ok = starsec_bpf_map_update_elem_kernel(bpf_map, satellite_id, &kernel_state);
         if (!k_ok) {
@@ -1147,6 +1148,7 @@ bool xdp_sync_kernel_replay_map(
             bpf_map->states[i].window_bitmap = snap.window_bitmap;
             bpf_map->states[i].session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
             bpf_map->states[i].is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
+            memcpy(bpf_map->states[i].reserved_padding, source_state->reserved_padding, sizeof(bpf_map->states[i].reserved_padding));
             starsec_spin_unlock(&bpf_map->states[i].lock);
             starsec_spin_unlock(&bpf_map->map_lock);
             return true;
@@ -1161,6 +1163,7 @@ bool xdp_sync_kernel_replay_map(
         bpf_map->states[idx].window_bitmap = snap.window_bitmap;
         bpf_map->states[idx].session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
         bpf_map->states[idx].is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
+        memcpy(bpf_map->states[idx].reserved_padding, source_state->reserved_padding, sizeof(bpf_map->states[idx].reserved_padding));
         bpf_map->states[idx].lock = 0;
         starsec_spin_unlock(&bpf_map->map_lock);
         return true;

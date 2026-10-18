@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include "xdp_orbital.h"
+#include "sram_puf.h"
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -717,6 +718,33 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     printf("         Kernel updates committed: %u, in-flight tests: %u (passed: %u, dropped: %u), final kernel seq: %llu\n",
            live_ctx.updates_completed, live_iterations, live_passed, live_dropped,
            (unsigned long long)final_kernel_state.window_base_seq);
+
+    printf("[Phase I] Verifying In-Kernel Pinned Map Key Fingerprint Coherence (Theorem 30)...\n");
+    uint8_t fresh_phase_i_key[32];
+    for (size_t k = 0; k < 32; k++) {
+        fresh_phase_i_key[k] = (uint8_t)(master_key[k] ^ 0x5A);
+    }
+    bool rekey_phase_i = xdp_pipeline_rekey_peer(&pipeline, 42, 11, fresh_phase_i_key);
+    if (!rekey_phase_i) {
+        printf("  [FAIL] Phase I: Failed to rekey peer 42 with fresh key!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    isl_anti_replay_state_t rekey_kernel_check;
+    memset(&rekey_kernel_check, 0, sizeof(rekey_kernel_check));
+    if (!test_kernel_bpf_lookup_elem(replay_fd, sat_key, &rekey_kernel_check)) {
+        printf("  [FAIL] Phase I: Failed to lookup rekeyed state from kernel BPF map!\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    uint8_t expected_phase_i_fp[32];
+    puf_sha256_kdf(fresh_phase_i_key, 32, expected_phase_i_fp);
+    if (memcmp(rekey_kernel_check.reserved_padding, expected_phase_i_fp, 32) != 0) {
+        printf("  [FAIL] Phase I: In-kernel BPF map key fingerprint mismatch! (Theorem 30 failure)\n");
+        starsec_bpf_map_close(&pipeline.kernel_bpf_map);
+        return 1;
+    }
+    printf("  [PASS] Phase I: In-kernel pinned map verified byte-for-byte SHA-256 key fingerprint coherence (Theorem 30)!\n");
 
     starsec_bpf_map_close(&pipeline.kernel_bpf_map);
     close(prog_fd);

@@ -162,6 +162,7 @@ if command -v gcc &>/dev/null; then
         -I"${INCLUDE_DIR}" \
         "${SCRIPT_DIR}/test_bpf_shared_map_integration.c" \
         "${REPO_ROOT}/system/src/xdp_orbital_filter.c" \
+        "${REPO_ROOT}/system/src/sram_puf_fuzzy_extractor.c" \
         "${REPO_ROOT}/system/src/starsec_chacha20.c" \
         "${REPO_ROOT}/system/src/starsec_poly1305.c" \
         -o "${SHARED_TEST_BIN}"
