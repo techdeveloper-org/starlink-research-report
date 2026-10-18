@@ -3,10 +3,9 @@
 **Standard:** StarSec Constellation Security Framework (CSF v1.0), RFC 8439, RFC 6479, RFC 4303, ISO C11 §5.1.2.4 & §6.5.7 p3  
 **Status:** Certified Pre-Flight Verification Candidate — In-Kernel Concurrency, Piecewise Sliding-Window & Two-Tier Formal Verification (CI Verified)  
 **Date:** October 18, 2026  
-**GitHub Actions Run:** [Run #39033716266](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39033716266) (Job ID: `117399229343`, Duration: 33s)  
-**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12100979040`)  
-**Artifact SHA-256 Digest:** `da9af097d791b2b2411f37e3ca25cd2255ee4f6044ac0dee54ad8b99897976d6`  
-**Latest Verified Commits:** `ef1967a`, `d7f5f11`, `a2198d0`, `5a49327`  
+**GitHub Actions Run:** [Run #39087065696](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696) (Job ID: `117555738822`, Duration: 27s)  
+**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12120958516`)  
+**Latest Verified Commits:** `ef1967a`, `d7f5f11`, `a2198d0`, `5a49327`, `ce532c3`  
 
 ---
 
