@@ -3,9 +3,9 @@
 **Standard:** StarSec Constellation Security Framework (CSF v1.0), RFC 8439, RFC 6479, RFC 4303, ISO C11 §5.1.2.4 & §6.5.7 p3  
 **Status:** Certified Pre-Flight Verification Candidate — In-Kernel Concurrency, Piecewise Sliding-Window & Two-Tier Formal Verification (CI Verified)  
 **Date:** October 18, 2026  
-**GitHub Actions Run:** [Run #39098894058](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39098894058) (Job ID: `117590912042`, Duration: 26s)  
-**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12126175494`)  
-**Latest Verified Commits:** `ef1967a`, `d7f5f11`, `a2198d0`, `5a49327`, `ce532c3`, `30613cc`, `b0cdea6`  
+**GitHub Actions Run:** [Run #39100746555](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555) (Job ID: `117596336518`, Duration: 26s)  
+**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12125579379`)  
+**Latest Verified Commits:** `ef1967a`, `d7f5f11`, `a2198d0`, `5a49327`, `ce532c3`, `30613cc`, `b0cdea6`, `166eda5`  
 
 ---
 
@@ -569,7 +569,7 @@ The runner step dynamically compiles and executes `system/src/main_system_test.c
 gcc -O2 -Wall -Wextra -pthread -I system/include system/src/main_system_test.c -o build/system_test_runner
 ./build/system_test_runner
 ```
-In GitHub Actions console logs for Run [#39089100313](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313) (Job ID: `117561785411`) and verified Mandatory TSan Gate Run [#39098894058](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39098894058) (Job ID: `117590912042`), the console output explicitly records:
+In GitHub Actions console logs for Run [#39089100313](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313) (Job ID: `117561785411`), verified Mandatory TSan Gate Run [#39098894058](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39098894058) (Job ID: `117590912042`), and Quarantine & Zero-[-Wtsan] Run [#39100746555](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555) (Job ID: `117596336518`), the console output explicitly records:
 ```text
 [4b/5] Executing Standalone Native C Triad Suites with ThreadSanitizer (TSan DRF Proof)...
 [SUITE 16] Sliding Window Boundary, Shift Invariants & UB Prevention Triad
@@ -585,9 +585,9 @@ Every single one of the 16 suites compiled, ran, and passed with 100% assertion 
 ## 5. Artifact Verification & Checksum Attestation
 
 The canonical runtime verifier artifact generated during CI execution has been permanently archived on GitHub Actions:
-- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39098894058/artifacts/12126175494)
-- **Archive Size:** 10,906 bytes
-- **SHA-256 Checksum:** `9cd387c310a8cccfef90c4e31f2b0be2bad54e4eed5a859e95ad1242b0eb7f5a`
+- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555/artifacts/12125579379)
+- **Archive Size:** 10,907 bytes
+- **SHA-256 Checksum:** `4a0524c2ec057de40de2391ea4fa5afb44ba7f154d98cb9a2720244e7072ab1a`
 - **Contained Files:**
   - `tools/ebpf_linux_verifier_report.json`
   - `tools/ebpf_kernel_verifier_log.txt`
@@ -604,7 +604,7 @@ The StarSec In-Orbit Packet Filter and userspace cryptographic pipeline have res
 3. **Suite 16 executable boundary verification** testing $\Delta = 1, 63, 64, 65$, duplicates, in-window out-of-order, and behind-horizon limits.
 4. **Two-tier pipeline composition (Theorem 29)** formally separating line-rate Tier 1 XDP ingress admission from Tier 2 ChaCha20-Poly1305 AEAD payload acceptance, proving replay window poisoning is cryptographically infeasible under bounded forgery probability (single-query $P \le 2^{-96.45} < 1.13 \times 10^{-29}$; rate-limited multi-query $P \le 2^{-86.48} < 1.13 \times 10^{-26}$ for $q_v \le 1000$) grounded in independently validated Nonce Uniqueness ($P \le 2^{-256}$ negligible, A1), Bernstein 2005 modulo $2^{128}$ ambiguity ($K_{\text{ambiguity}} \le 8$), ChaCha20 PRF computational reduction (A2), zero-mutation call path proofs, and executable regression assertions (`TC-POISON-ATTACK-01`, `TC-KERNEL-USERSPACE-SYNC-01`, and `TC-AUTH-QUARANTINE-01`).
 5. **ISO C11 §5.1.2.4 memory model compliance & TSan Fence Calibration** established mathematically and certified by ThreadSanitizer as a **Mandatory Fail-Closed CI Gate** with zero data races and zero `[-Wtsan]` warnings across all 16 Triad test suites on tested schedules $\tau \in \mathcal{T}_{\text{harness}}$, with fence-based shadow state limitations transparently disclosed.
-6. **16/16 Triad Test Suites & Mandatory TSan Gate** verified with 100% pass rate in CI Run [#39098894058](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39098894058) (Job ID: `117590912042`).
+6. **16/16 Triad Test Suites & Mandatory TSan Gate** verified with 100% pass rate in CI Run [#39100746555](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555) (Job ID: `117596336518`).
 7. **CI workflow display label alignment** resolved by updating `.github/workflows/ebpf-verifier.yml` with authenticated `workflow` scope credentials, synchronizing the GitHub Actions web interface job label (`16 Triad Test Suites`) and step label (`16/16 Suites`) with runtime test suite execution.
 
 The framework demonstrates rigorous mathematical-to-implementation consistency, robust SMP kernel concurrency, and provable fail-closed safety, establishing StarSec CSF v1.0 as a certified Pre-Flight Verification Candidate for constellation deployment.
