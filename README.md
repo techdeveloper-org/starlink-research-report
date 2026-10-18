@@ -139,16 +139,16 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 
 | Verification Metric | Production CI Measurement & Evidence |
 | :--- | :--- |
-| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39018696644](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39018696644)** (`PASS`, 100% Verified, Job ID: `117355971562`) |
-| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39018696644/artifacts/12095243645)** (Artifact ID: `12095243645`, 10,785 bytes) |
-| **Artifact SHA256** | `ec6f4607c12cf1177b6d31ab6041482e95b83d63d2b0ef725d775736299c6e03` |
+| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39033716266](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39033716266)** (`PASS`, 100% Verified, Job ID: `117399229343`) |
+| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39033716266/artifacts/12100979040)** (Artifact ID: `12100979040`, 10,783 bytes) |
+| **Artifact SHA256** | `da9af097d791b2b2411f37e3ca25cd2255ee4f6044ac0dee54ad8b99897976d6` |
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
 | **In-Kernel Verification** | `512 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
 | **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
 | **ThreadSanitizer (TSan)** | **Zero Data Races Verified**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 16 suites under `-fsanitize=thread` |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention |
-| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27 & 28 formal proofs) |
+| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention *(Note: In GitHub Actions UI, the job header retains the static label "14 Triad Test Suites" due to OAuth workflow permission boundaries, while the job runner executes all 16/16 suites cleanly)* |
+| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27, 28 & 29 formal proofs) |
 
 ```text
 ==================================================================
