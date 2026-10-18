@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-10-18T06:24:08Z",
+  "timestamp": "2026-10-18T07:16:16Z",
   "overall_status": "PASS",
-  "total_duration_seconds": 8.3699,
+  "total_duration_seconds": 6.5214,
   "cloud_costs_usd": 0.0,
   "github_actions_minutes_consumed": 0,
   "phases": {

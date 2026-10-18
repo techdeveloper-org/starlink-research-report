@@ -28,8 +28,9 @@
     {
       "name": "return_code_invariants",
       "passed": true,
-      "returns_count": 11,
+      "returns_count": 12,
       "return_values": [
+        "XDP_DROP",
         "XDP_DROP",
         "XDP_DROP",
         "XDP_DROP",
@@ -42,7 +43,7 @@
         "XDP_DROP",
         "XDP_PASS"
       ],
-      "description": "All 11 execution paths strictly terminate in verified XDP actions (['XDP_DROP', 'XDP_PASS'])."
+      "description": "All 12 execution paths strictly terminate in verified XDP actions (['XDP_DROP', 'XDP_PASS'])."
     },
     {
       "name": "maps_and_license",

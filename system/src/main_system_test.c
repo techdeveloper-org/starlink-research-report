@@ -1411,6 +1411,93 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(act_recovery == STARSEC_XDP_PASS, "TC-AUTH-QUARANTINE-01: Valid packet failed on recovery pipeline");
     STARSEC_ASSERT(recovery_pipeline.consecutive_auth_failures == 0U, "TC-AUTH-QUARANTINE-01: Failure counter not reset to 0 on valid auth");
 
+    /* TC-INTERLEAVED-AUTH-QUARANTINE-01: Interleaved Traffic Adversarial Attack & Inviolable Quota Resistance */
+    starsec_xdp_pipeline_t interleaved_pipeline;
+    xdp_pipeline_init(&interleaved_pipeline, master_key, &clock_ref);
+    bool auth_reg_il = xdp_pipeline_authorize_node(&interleaved_pipeline, 701);
+    STARSEC_ASSERT(auth_reg_il == true, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Node authorization failed");
+    interleaved_pipeline.filter_config.replay_states[0].session_id = 100;
+
+    uint8_t interleaved_forged_wire[sizeof(starsec_isl_header_t) + 256];
+    memset(interleaved_forged_wire, 0, sizeof(interleaved_forged_wire));
+    starsec_isl_header_t forged_hdr = hdr;
+    forged_hdr.session_id = 100;
+    forged_hdr.sequence_number = 1;
+    forged_hdr.tx_epoch_ms = clock_ref.local_epoch_ms - 5;
+    forged_hdr.payload_len = (uint16_t)payload_len;
+    memcpy(interleaved_forged_wire, &forged_hdr, sizeof(starsec_isl_header_t));
+    memcpy(interleaved_forged_wire + sizeof(starsec_isl_header_t), telecommand_payload, payload_len);
+    memset(interleaved_forged_wire + offsetof(starsec_isl_header_t, auth_tag), 0xAA, 16);
+
+    for (uint32_t i = 0; i < 500; i++) {
+        forged_hdr.sequence_number = 1000ULL + (uint64_t)i;
+        memcpy(interleaved_forged_wire, &forged_hdr, sizeof(starsec_isl_header_t));
+        int act = xdp_pipeline_process_packet(&interleaved_pipeline, interleaved_forged_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+        STARSEC_ASSERT(act == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Forged frame 1..500 not dropped");
+    }
+    STARSEC_ASSERT(interleaved_pipeline.consecutive_auth_failures == 500U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: consecutive mismatch at 500");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 500U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: session_auth_failures mismatch at 500");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Premature quarantine at 500 failures");
+
+    uint8_t authentic_wire[sizeof(starsec_isl_header_t) + 256];
+    starsec_isl_header_t auth_hdr = hdr;
+    auth_hdr.session_id = 100;
+    auth_hdr.sequence_number = 5001ULL;
+    auth_hdr.tx_epoch_ms = clock_ref.local_epoch_ms - 5;
+    auth_hdr.payload_len = (uint16_t)payload_len;
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing authentic frame failed");
+
+    int act_auth1 = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_auth1 == STARSEC_XDP_PASS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Authentic frame rejected");
+    STARSEC_ASSERT(interleaved_pipeline.consecutive_auth_failures == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Burst counter did not reset on valid packet");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 500U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Cumulative failure count corrupted by valid traffic!");
+
+    /* Step C: Inject 499 more forged frames ahead of window base (6000..6498 > 5001) */
+    for (uint32_t i = 0; i < 499; i++) {
+        forged_hdr.sequence_number = 6000ULL + (uint64_t)i;
+        memcpy(interleaved_forged_wire, &forged_hdr, sizeof(starsec_isl_header_t));
+        int act = xdp_pipeline_process_packet(&interleaved_pipeline, interleaved_forged_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+        STARSEC_ASSERT(act == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Forged frame 501..999 not dropped");
+    }
+    STARSEC_ASSERT(interleaved_pipeline.consecutive_auth_failures == 499U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: consecutive mismatch at 499");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 999U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: session_auth_failures mismatch at 999");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Premature quarantine at 999 failures");
+
+    /* Step D: Interleave 2nd genuine authentic packet under session_id = 100 */
+    auth_hdr.sequence_number = 7000ULL;
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing 2nd authentic frame failed");
+    int act_auth2 = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_auth2 == STARSEC_XDP_PASS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: 2nd authentic frame rejected");
+    STARSEC_ASSERT(interleaved_pipeline.consecutive_auth_failures == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Burst counter did not reset");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 999U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Cumulative count reset on valid packet!");
+
+    /* Step E: Inject the 1000th cumulative forged frame (even though consecutive is only 1!) */
+    forged_hdr.sequence_number = 8000ULL;
+    memcpy(interleaved_forged_wire, &forged_hdr, sizeof(starsec_isl_header_t));
+    int act_trip_interleaved = xdp_pipeline_process_packet(&interleaved_pipeline, interleaved_forged_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_trip_interleaved == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: 1000th cumulative frame not dropped");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 1000U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Cumulative count mismatch at 1000");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 1U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Peer session failed to quarantine at 1000 cumulative failures!");
+
+    /* Step F: Subsequent genuine packet on quarantined session MUST be dropped fail-closed */
+    auth_hdr.sequence_number = 8001ULL;
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing 3rd authentic frame failed");
+    int act_auth3 = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_auth3 == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quarantined session admitted packet!");
+
+    auth_hdr.session_id = 101;
+    auth_hdr.sequence_number = 1ULL;
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing rekey frame failed");
+    int act_rekey = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_rekey == STARSEC_XDP_PASS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Valid rekeyed session rejected!");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_id == 101U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Session ID not updated on rekey");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session failure budget not initialized to 0");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session remained quarantined");
+
     printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
     return true;
 }
@@ -1723,7 +1810,9 @@ static bool test_exact_memory_layout_conformance_triad(void) {
     STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, window_bitmap) == 8, "TC-MEM-LAYOUT-01: window_bitmap offset != 8");
     STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, session_id) == 16, "TC-MEM-LAYOUT-01: session_id offset != 16");
     STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, lock) == 20, "TC-MEM-LAYOUT-01: lock offset != 20");
-    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, reserved_padding) == 24, "TC-MEM-LAYOUT-01: reserved_padding offset != 24");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, session_auth_failures) == 24, "TC-MEM-LAYOUT-01: session_auth_failures offset != 24");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, is_quarantined) == 28, "TC-MEM-LAYOUT-01: is_quarantined offset != 28");
+    STARSEC_ASSERT(offsetof(isl_anti_replay_state_t, reserved_padding) == 32, "TC-MEM-LAYOUT-01: reserved_padding offset != 32");
     STARSEC_ASSERT(sizeof(uint16_t) == 2, "TC-MEM-LAYOUT-01: Key size must be 2 bytes");
     STARSEC_ASSERT(sizeof(starsec_replay_snapshot_t) == 24, "TC-MEM-LAYOUT-01: Snapshot size mismatch");
 

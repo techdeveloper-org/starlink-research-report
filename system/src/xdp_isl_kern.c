@@ -104,7 +104,9 @@ typedef struct {
     uint64_t window_bitmap;
     uint32_t session_id;
     uint32_t lock;
-    uint8_t  reserved_padding[40];
+    uint32_t session_auth_failures;
+    uint32_t is_quarantined;
+    uint8_t  reserved_padding[32];
 } isl_anti_replay_state_t;
 
 /**
@@ -244,6 +246,12 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
 
     isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id);
     if (replay_state != NULL) {
+        if (__atomic_load_n(&replay_state->is_quarantined, __ATOMIC_RELAXED) != 0U &&
+            hdr->session_id <= __atomic_load_n(&replay_state->session_id, __ATOMIC_RELAXED)) {
+            starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
+            return XDP_DROP;
+        }
+
         uint32_t snap_session_id = 0;
         uint64_t snap_base_seq = 0;
         uint64_t snap_bitmap = 0;

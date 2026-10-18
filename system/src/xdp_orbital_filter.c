@@ -184,7 +184,16 @@ void xdp_commit_replay_window_authenticated(
     uint64_t current_base = STARSEC_ATOMIC_READ_RELAXED(&state->window_base_seq);
     uint64_t current_bitmap = STARSEC_ATOMIC_READ_RELAXED(&state->window_bitmap);
 
-    if (session_id > current_session || (current_base == 0 && current_bitmap == 0)) {
+    if (session_id > current_session) {
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_auth_failures, 0U);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->is_quarantined, 0U);
+        return;
+    }
+
+    if (current_base == 0 && current_bitmap == 0) {
         STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
         STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
         STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
@@ -242,6 +251,8 @@ bool xdp_commit_replay_window_atomic(
         STARSEC_ATOMIC_WRITE_RELAXED(&state->session_id, session_id);
         STARSEC_ATOMIC_WRITE_RELAXED(&state->window_base_seq, seq_num);
         STARSEC_ATOMIC_WRITE_RELAXED(&state->window_bitmap, 1ULL);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->session_auth_failures, 0U);
+        STARSEC_ATOMIC_WRITE_RELAXED(&state->is_quarantined, 0U);
         starsec_spin_unlock(&state->lock);
         return true;
     }
@@ -967,7 +978,13 @@ bool starsec_verify_memory_layout(void) {
     if (offsetof(isl_anti_replay_state_t, lock) != 20) {
         return false;
     }
-    if (offsetof(isl_anti_replay_state_t, reserved_padding) != 24) {
+    if (offsetof(isl_anti_replay_state_t, session_auth_failures) != 24) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, is_quarantined) != 28) {
+        return false;
+    }
+    if (offsetof(isl_anti_replay_state_t, reserved_padding) != 32) {
         return false;
     }
     if (sizeof(uint16_t) != 2) {
@@ -1108,6 +1125,8 @@ bool xdp_sync_kernel_replay_map(
         kernel_state.window_base_seq = snap.window_base_seq;
         kernel_state.window_bitmap = snap.window_bitmap;
         kernel_state.session_id = snap.session_id;
+        kernel_state.session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
+        kernel_state.is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
 
         bool k_ok = starsec_bpf_map_update_elem_kernel(bpf_map, satellite_id, &kernel_state);
         if (!k_ok) {
@@ -1125,6 +1144,8 @@ bool xdp_sync_kernel_replay_map(
             bpf_map->states[i].session_id = snap.session_id;
             bpf_map->states[i].window_base_seq = snap.window_base_seq;
             bpf_map->states[i].window_bitmap = snap.window_bitmap;
+            bpf_map->states[i].session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
+            bpf_map->states[i].is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
             starsec_spin_unlock(&bpf_map->states[i].lock);
             starsec_spin_unlock(&bpf_map->map_lock);
             return true;
@@ -1137,6 +1158,8 @@ bool xdp_sync_kernel_replay_map(
         bpf_map->states[idx].session_id = snap.session_id;
         bpf_map->states[idx].window_base_seq = snap.window_base_seq;
         bpf_map->states[idx].window_bitmap = snap.window_bitmap;
+        bpf_map->states[idx].session_auth_failures = STARSEC_ATOMIC_READ_RELAXED(&source_state->session_auth_failures);
+        bpf_map->states[idx].is_quarantined = STARSEC_ATOMIC_READ_RELAXED(&source_state->is_quarantined);
         bpf_map->states[idx].lock = 0;
         starsec_spin_unlock(&bpf_map->map_lock);
         return true;
@@ -1221,6 +1244,33 @@ int xdp_pipeline_process_packet(
             break;
         }
     }
+
+    size_t user_idx = 0;
+    bool found_user = false;
+    for (size_t i = 0; i < pipeline->filter_config.replay_count; i++) {
+        if (pipeline->filter_config.authorized_nodes[i] == hdr->src_satellite_id) {
+            user_idx = i;
+            found_user = true;
+            break;
+        }
+    }
+    if (!found_user && pipeline->filter_config.replay_count < 256) {
+        user_idx = pipeline->filter_config.replay_count++;
+        pipeline->filter_config.authorized_nodes[user_idx] = hdr->src_satellite_id;
+        found_user = true;
+    }
+
+    if (found_bpf && pipeline->kernel_bpf_map.states[bpf_idx].is_quarantined != 0U &&
+        hdr->session_id <= pipeline->kernel_bpf_map.states[bpf_idx].session_id) {
+        pipeline->stats.dropped_quarantined++;
+        return STARSEC_XDP_DROP;
+    }
+    if (found_user && pipeline->filter_config.replay_states[user_idx].is_quarantined != 0U &&
+        hdr->session_id <= pipeline->filter_config.replay_states[user_idx].session_id) {
+        pipeline->stats.dropped_quarantined++;
+        return STARSEC_XDP_DROP;
+    }
+
     if (found_bpf) {
         if (!xdp_check_replay_window_speculative(&pipeline->kernel_bpf_map.states[bpf_idx], hdr->session_id, hdr->sequence_number)) {
             if (hdr->session_id < pipeline->kernel_bpf_map.states[bpf_idx].session_id) {
@@ -1243,28 +1293,34 @@ int xdp_pipeline_process_packet(
     if (dec_stat != STARSEC_CRYPTO_SUCCESS) {
         pipeline->stats.dropped_invalid_auth++;
         pipeline->consecutive_auth_failures++;
+        bool just_quarantined = false;
         if (pipeline->consecutive_auth_failures >= STARSEC_AUTH_FAILURE_QUARANTINE_THRESHOLD) {
-            pipeline->is_quarantined = true;
+            if (!pipeline->is_quarantined) {
+                pipeline->is_quarantined = true;
+                just_quarantined = true;
+            }
+        }
+        if (found_user) {
+            isl_anti_replay_state_t *user_st = &pipeline->filter_config.replay_states[user_idx];
+            user_st->session_auth_failures++;
+            if (user_st->session_auth_failures >= STARSEC_SESSION_AUTH_FAILURE_BUDGET) {
+                if (user_st->is_quarantined == 0U) {
+                    user_st->is_quarantined = 1U;
+                    just_quarantined = true;
+                }
+                if (found_bpf) {
+                    pipeline->kernel_bpf_map.states[bpf_idx].session_auth_failures = user_st->session_auth_failures;
+                    pipeline->kernel_bpf_map.states[bpf_idx].is_quarantined = 1U;
+                }
+            }
+        }
+        if (just_quarantined) {
             pipeline->stats.quarantined_sessions++;
         }
         return STARSEC_XDP_DROP;
     }
 
     pipeline->consecutive_auth_failures = 0;
-
-    size_t user_idx = 0;
-    bool found_user = false;
-    for (size_t i = 0; i < pipeline->filter_config.replay_count; i++) {
-        if (pipeline->filter_config.authorized_nodes[i] == hdr->src_satellite_id) {
-            user_idx = i;
-            found_user = true;
-            break;
-        }
-    }
-    if (!found_user && pipeline->filter_config.replay_count < 256) {
-        user_idx = pipeline->filter_config.replay_count++;
-        pipeline->filter_config.authorized_nodes[user_idx] = hdr->src_satellite_id;
-    }
 
     if (!xdp_commit_replay_window_atomic(&pipeline->filter_config.replay_states[user_idx], hdr->session_id, hdr->sequence_number)) {
         pipeline->stats.dropped_epoch_drift++;

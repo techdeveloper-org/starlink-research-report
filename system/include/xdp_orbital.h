@@ -64,6 +64,9 @@ typedef struct __attribute__((packed)) {
 /** @brief Permitted forward clock skew tolerance in milliseconds (GPSDO sync bound). */
 #define STARSEC_MAX_CLOCK_SKEW_AHEAD_MS  20ULL
 
+/** @brief Maximum cumulative unauthenticated verification failure quota before peer session quarantine. */
+#define STARSEC_SESSION_AUTH_FAILURE_BUDGET 1000U
+
 /**
  * @brief Two-stage anti-replay state with RFC 6479 64-bit sliding window.
  *
@@ -75,7 +78,9 @@ typedef struct __attribute__((aligned(64))) {
     uint64_t window_bitmap;              /**< 64-bit bitmap of authenticated packets (bit 0 = base) */
     uint32_t session_id;                 /**< Active authenticated session identifier */
     uint32_t lock;                       /**< Cacheline-embedded atomic test-and-set spinlock */
-    uint8_t  reserved_padding[40];       /**< Explicit padding guaranteeing full 64-byte cacheline isolation */
+    uint32_t session_auth_failures;      /**< Cumulative auth verification failure quota under active session_id */
+    uint32_t is_quarantined;             /**< Peer session quarantine status flag (1 = quarantined, 0 = active) */
+    uint8_t  reserved_padding[32];       /**< Explicit padding guaranteeing full 64-byte cacheline isolation */
 } isl_anti_replay_state_t;
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
@@ -85,7 +90,9 @@ _Static_assert(offsetof(isl_anti_replay_state_t, window_base_seq) == 0, "window_
 _Static_assert(offsetof(isl_anti_replay_state_t, window_bitmap) == 8, "window_bitmap offset mismatch");
 _Static_assert(offsetof(isl_anti_replay_state_t, session_id) == 16, "session_id offset mismatch");
 _Static_assert(offsetof(isl_anti_replay_state_t, lock) == 20, "lock offset mismatch");
-_Static_assert(offsetof(isl_anti_replay_state_t, reserved_padding) == 24, "reserved_padding offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, session_auth_failures) == 24, "session_auth_failures offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, is_quarantined) == 28, "is_quarantined offset mismatch");
+_Static_assert(offsetof(isl_anti_replay_state_t, reserved_padding) == 32, "reserved_padding offset mismatch");
 #endif
 
 /**
