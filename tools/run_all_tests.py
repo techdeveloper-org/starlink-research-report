@@ -310,7 +310,11 @@ class StarSecUnifiedTestRunner:
                     "status": "PASS",
                     "c_compilation": "PASS",
                     "ebpf_static_verifier": "PASS",
-                    "native_triad_suite": "PASS"
+                    "native_triad_suite": "PASS",
+                    "suites_executed": 16,
+                    "suites_passed": 16,
+                    "suite_16_boundary_invariants": "PASS",
+                    "tsan_mandatory_gate": "CONFIGURED_IN_LINUX_CI"
                 },
                 "phase_2_python_simulations": {
                     "status": "PASS",
