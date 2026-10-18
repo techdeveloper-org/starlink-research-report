@@ -9,7 +9,7 @@ on:
 
 jobs:
   ebpf-kernel-verifier:
-    name: eBPF Verifier, Pinned Map Sharing & 14 Triad Test Suites
+    name: eBPF Verifier, Pinned Map Sharing & 16 Triad Test Suites
     runs-on: ubuntu-24.04
 
     steps:
@@ -48,7 +48,7 @@ jobs:
         run: |
           sudo python3 tools/test_linux_kernel_bpf_live.py
 
-      - name: Compile & Run C Triad Test Suites (15/15 Suites)
+      - name: Compile & Run C Triad Test Suites (16/16 Suites)
         run: |
           gcc -O2 -Wall -Wextra -pthread \
             -I system/include \

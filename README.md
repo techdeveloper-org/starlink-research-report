@@ -147,8 +147,8 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 | **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
 | **ThreadSanitizer (TSan)** | **Zero Data Races Verified**: ISO C11 §5.1.2.4 relaxed atomic protocol certified clean across all 16 suites under `-fsanitize=thread` |
 | **Fail-Closed Contention** | **Phase G Verified**: Inconsistent Seqlock read (`lock=1`) triggers immediate `XDP_DROP` + `telem[8] = 1` |
-| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention *(Note: In GitHub Actions UI, the job header retains the static label "14 Triad Test Suites" due to OAuth workflow permission boundaries, while the job runner executes all 16/16 suites cleanly)* |
-| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27, 28 & 29 formal proofs) |
+| **Native C Triad Suites** | **16/16 Suites Passed (100% Coverage)**: 0 torn reads across multi-threaded lockless readers under intense writer contention (Workflow manifest & runner fully synchronized to 16/16 suites) |
+| **Mathematical Report** | **[MATHEMATICAL-FINALIZATION-REPORT.md](./MATHEMATICAL-FINALIZATION-REPORT.md)** (Theorems 27, 28 & 29 formal proofs: RFC 6479 UB-free shift & Poly1305 bounded forgery probability) |
 
 ```text
 ==================================================================
