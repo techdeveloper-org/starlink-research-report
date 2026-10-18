@@ -1260,13 +1260,11 @@ int xdp_pipeline_process_packet(
         found_user = true;
     }
 
-    if (found_bpf && pipeline->kernel_bpf_map.states[bpf_idx].is_quarantined != 0U &&
-        hdr->session_id <= pipeline->kernel_bpf_map.states[bpf_idx].session_id) {
+    if (found_bpf && pipeline->kernel_bpf_map.states[bpf_idx].is_quarantined != 0U) {
         pipeline->stats.dropped_quarantined++;
         return STARSEC_XDP_DROP;
     }
-    if (found_user && pipeline->filter_config.replay_states[user_idx].is_quarantined != 0U &&
-        hdr->session_id <= pipeline->filter_config.replay_states[user_idx].session_id) {
+    if (found_user && pipeline->filter_config.replay_states[user_idx].is_quarantined != 0U) {
         pipeline->stats.dropped_quarantined++;
         return STARSEC_XDP_DROP;
     }
@@ -1345,4 +1343,82 @@ int xdp_pipeline_process_packet(
     pipeline->stats.passed_frames++;
     return STARSEC_XDP_PASS;
 }
+
+/**
+ * @brief Authoritatively rekeys an optical link peer session and recovers quarantine status.
+ *
+ * Invoked by flight software upon completed post-quantum key exchange (ML-KEM-1024)
+ * or authenticated telecommand key update. Updates active session_id, resets the 64-bit
+ * sliding anti-replay window to initial base, resets session_auth_failures to zero,
+ * clears peer quarantine status, optionally updates the shared 32-byte symmetric master key,
+ * synchronizes state to the kernel BPF map, and clears pipeline-level burst quarantine.
+ *
+ * @param pipeline Pointer to active two-tier security pipeline.
+ * @param satellite_id 16-bit Constellation Node ID of the remote peer.
+ * @param new_session_id New monotonic session identifier (must be strictly greater than active session_id).
+ * @param new_key_32 Pointer to 32-byte new session key (if NULL, active shared key is retained).
+ * @return true if peer was found, session_id was monotonic, and state was synchronized; false otherwise.
+ */
+bool xdp_pipeline_rekey_peer(
+    starsec_xdp_pipeline_t *pipeline,
+    uint16_t                satellite_id,
+    uint32_t                new_session_id,
+    const uint8_t          *new_key_32
+) {
+    if (pipeline == NULL) {
+        return false;
+    }
+
+    size_t user_idx = 0;
+    bool found_user = false;
+    for (size_t i = 0; i < pipeline->filter_config.replay_count; i++) {
+        if (pipeline->filter_config.authorized_nodes[i] == satellite_id) {
+            user_idx = i;
+            found_user = true;
+            break;
+        }
+    }
+
+    if (!found_user) {
+        if (pipeline->filter_config.replay_count >= 256) {
+            return false;
+        }
+        user_idx = pipeline->filter_config.replay_count++;
+        pipeline->filter_config.authorized_nodes[user_idx] = satellite_id;
+        bool auth_present = false;
+        for (size_t j = 0; j < pipeline->filter_config.authorized_count; j++) {
+            if (pipeline->filter_config.authorized_nodes[j] == satellite_id) {
+                auth_present = true;
+                break;
+            }
+        }
+        if (!auth_present && pipeline->filter_config.authorized_count < 256) {
+            pipeline->filter_config.authorized_nodes[pipeline->filter_config.authorized_count++] = satellite_id;
+        }
+    }
+
+    isl_anti_replay_state_t *st = &pipeline->filter_config.replay_states[user_idx];
+    uint32_t current_session = STARSEC_ATOMIC_READ_RELAXED(&st->session_id);
+    if (current_session != 0 && new_session_id <= current_session) {
+        return false;
+    }
+
+    starsec_spin_lock(&st->lock);
+    STARSEC_ATOMIC_WRITE_RELAXED(&st->session_id, new_session_id);
+    STARSEC_ATOMIC_WRITE_RELAXED(&st->window_base_seq, 0ULL);
+    STARSEC_ATOMIC_WRITE_RELAXED(&st->window_bitmap, 0ULL);
+    STARSEC_ATOMIC_WRITE_RELAXED(&st->session_auth_failures, 0U);
+    STARSEC_ATOMIC_WRITE_RELAXED(&st->is_quarantined, 0U);
+    starsec_spin_unlock(&st->lock);
+
+    if (new_key_32 != NULL) {
+        memcpy(pipeline->filter_config.isl_shared_key, new_key_32, 32);
+    }
+
+    pipeline->consecutive_auth_failures = 0;
+    pipeline->is_quarantined = false;
+
+    return xdp_sync_kernel_replay_map(&pipeline->kernel_bpf_map, satellite_id, st);
+}
+
 

@@ -1401,6 +1401,22 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(act_quarantine_drop == STARSEC_XDP_DROP, "TC-AUTH-QUARANTINE-01: Quarantined pipeline admitted packet!");
     STARSEC_ASSERT(pipeline.stats.dropped_quarantined == 1ULL, "TC-AUTH-QUARANTINE-01: dropped_quarantined counter mismatch");
 
+    /* TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Proving Pipeline Deadlock Freedom via Authorized Rekey */
+    bool burst_rekey_ok = xdp_pipeline_rekey_peer(&pipeline, 701, 2, master_key);
+    STARSEC_ASSERT(burst_rekey_ok == true, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Rekey failed on burst-quarantined pipeline");
+    STARSEC_ASSERT(pipeline.is_quarantined == false, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Pipeline quarantine flag not cleared on rekey");
+    STARSEC_ASSERT(pipeline.consecutive_auth_failures == 0U, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Consecutive failures not reset to 0");
+
+    hdr.session_id = 2;
+    hdr.sequence_number = 1;
+    hdr.tx_epoch_ms = pipeline.filter_config.clock_ref.local_epoch_ms - 10;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Frame seal failed");
+
+    int act_burst_recovery = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_burst_recovery == STARSEC_XDP_PASS, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Valid packet rejected after burst rekey recovery");
+    STARSEC_ASSERT(pipeline.stats.passed_frames == 3ULL, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: passed_frames counter mismatch");
+
     /* Verify that a fresh unquarantined pipeline resets consecutive failure count upon authentic packet */
     starsec_xdp_pipeline_t recovery_pipeline;
     xdp_pipeline_init(&recovery_pipeline, master_key, &clock_ref);
@@ -1488,6 +1504,42 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     int act_auth3 = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_auth3 == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quarantined session admitted packet!");
 
+    /* Step G: Adversarial Higher Session ID Spoofing Attempt (Proving Verification Quota q_v <= 1000 Invariant) */
+    uint64_t prev_dropped_quarantined = interleaved_pipeline.stats.dropped_quarantined;
+    uint64_t prev_dropped_invalid_auth = interleaved_pipeline.stats.dropped_invalid_auth;
+
+    uint32_t forged_sessions[] = { 101, 102, 999999, 101 };
+    for (size_t k = 0; k < sizeof(forged_sessions) / sizeof(forged_sessions[0]); k++) {
+        forged_hdr.session_id = forged_sessions[k];
+        forged_hdr.sequence_number = 1ULL;
+        memcpy(interleaved_forged_wire, &forged_hdr, sizeof(starsec_isl_header_t));
+        memset(interleaved_forged_wire + offsetof(starsec_isl_header_t, auth_tag), 0xEE, 16);
+        int act_forged_hi = xdp_pipeline_process_packet(&interleaved_pipeline, interleaved_forged_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+        STARSEC_ASSERT(act_forged_hi == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Forged higher session ID bypassed quarantine!");
+    }
+
+    STARSEC_ASSERT(interleaved_pipeline.stats.dropped_quarantined == prev_dropped_quarantined + 4ULL,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Forged higher session IDs were not dropped at quarantine gate");
+    STARSEC_ASSERT(interleaved_pipeline.stats.dropped_invalid_auth == prev_dropped_invalid_auth,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Higher session IDs triggered Poly1305 verification (q_v quota breached!)");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 1000U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Cumulative failure count corrupted by higher session ID attempts");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 1U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Peer session prematurely un-quarantined");
+
+    /* Step H: Authorized Rekeying via Control Plane (RFC-001 ML-KEM-1024 Session Rollover) */
+    bool rekey_ok = xdp_pipeline_rekey_peer(&interleaved_pipeline, 701, 101, master_key);
+    STARSEC_ASSERT(rekey_ok == true, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Authorized rekey failed");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_id == 101U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Session ID not updated on authorized rekey");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 0U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session failure budget not initialized to 0");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Peer remained quarantined after authorized rekey");
+    STARSEC_ASSERT(interleaved_pipeline.kernel_bpf_map.states[0].is_quarantined == 0U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Kernel BPF map state remained quarantined after rekey");
+
+    /* Step I: Authentic traffic under newly rekeyed session 101 MUST be accepted */
     auth_hdr.session_id = 101;
     auth_hdr.sequence_number = 1ULL;
     seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
@@ -1497,6 +1549,7 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_id == 101U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Session ID not updated on rekey");
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session failure budget not initialized to 0");
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session remained quarantined");
+    STARSEC_ASSERT(interleaved_pipeline.stats.passed_frames == 3ULL, "TC-INTERLEAVED-AUTH-QUARANTINE-01: passed_frames counter mismatch");
 
     printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
     return true;

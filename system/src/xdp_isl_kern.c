@@ -247,8 +247,7 @@ int starsec_isl_xdp_filter(struct xdp_md *ctx) {
     isl_anti_replay_state_t *replay_state = (isl_anti_replay_state_t *)bpf_map_lookup_elem(&isl_replay_filter_map, &hdr->src_satellite_id);
     if (replay_state != NULL) {
         const volatile uint32_t *quarantine_p = (const volatile uint32_t *)&replay_state->is_quarantined;
-        const volatile uint32_t *curr_sess_p = (const volatile uint32_t *)&replay_state->session_id;
-        if (*quarantine_p != 0U && hdr->session_id <= *curr_sess_p) {
+        if (*quarantine_p != 0U) {
             starsec_increment_telemetry(STARSEC_TELEM_DROPPED_STALE_SESSION);
             return XDP_DROP;
         }

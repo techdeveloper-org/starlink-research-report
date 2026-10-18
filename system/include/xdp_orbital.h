@@ -689,6 +689,28 @@ int xdp_pipeline_process_packet(
 );
 
 /**
+ * @brief Authoritatively rekeys an optical link peer session and recovers quarantine status.
+ *
+ * Invoked by flight software upon completed post-quantum key exchange (ML-KEM-1024)
+ * or authenticated telecommand key update. Updates active session_id, resets the 64-bit
+ * sliding anti-replay window to initial base, resets session_auth_failures to zero,
+ * clears peer quarantine status, optionally updates the shared 32-byte symmetric master key,
+ * synchronizes state to the kernel BPF map, and clears pipeline-level burst quarantine.
+ *
+ * @param pipeline Pointer to active two-tier security pipeline.
+ * @param satellite_id 16-bit Constellation Node ID of the remote peer.
+ * @param new_session_id New monotonic session identifier (must be strictly greater than active session_id).
+ * @param new_key_32 Pointer to 32-byte new session key (if NULL, active shared key is retained).
+ * @return true if peer was found, session_id was monotonic, and state was synchronized; false otherwise.
+ */
+bool xdp_pipeline_rekey_peer(
+    starsec_xdp_pipeline_t *pipeline,
+    uint16_t                satellite_id,
+    uint32_t                new_session_id,
+    const uint8_t          *new_key_32
+);
+
+/**
  * @brief Resets all diagnostic telemetry counters to zero.
  * @param stats Pointer to telemetry statistics structure.
  */
