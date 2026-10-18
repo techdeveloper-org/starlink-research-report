@@ -10,6 +10,7 @@
  */
 
 #include "xdp_orbital.h"
+#include "sram_puf.h"
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -1280,12 +1281,17 @@ int xdp_pipeline_process_packet(
         }
     }
 
+    const uint8_t *active_key = pipeline->filter_config.isl_shared_key;
+    if (found_user && pipeline->filter_config.has_peer_key[user_idx]) {
+        active_key = pipeline->filter_config.peer_keys[user_idx];
+    }
+
     starsec_crypto_status_t dec_stat = xdp_open_isl_frame(
         frame_bytes,
         frame_len,
         decrypted_payload,
         decrypted_len,
-        pipeline->filter_config.isl_shared_key
+        active_key
     );
 
     if (dec_stat != STARSEC_CRYPTO_SUCCESS) {
@@ -1350,14 +1356,18 @@ int xdp_pipeline_process_packet(
  * Invoked by flight software upon completed post-quantum key exchange (ML-KEM-1024)
  * or authenticated telecommand key update. Updates active session_id, resets the 64-bit
  * sliding anti-replay window to initial base, resets session_auth_failures to zero,
- * clears peer quarantine status, optionally updates the shared 32-byte symmetric master key,
+ * clears peer quarantine status, installs the fresh 32-byte key into the isolated
+ * per-peer slot without altering other peers, binds the key fingerprint,
  * synchronizes state to the kernel BPF map, and clears pipeline-level burst quarantine.
+ *
+ * Security Invariant (Theorem Q2-A & Q2-B):
+ * Strictly rejects NULL keys, all-zero keys, and keys identical to the active peer key (memcmp == 0).
  *
  * @param pipeline Pointer to active two-tier security pipeline.
  * @param satellite_id 16-bit Constellation Node ID of the remote peer.
  * @param new_session_id New monotonic session identifier (must be strictly greater than active session_id).
- * @param new_key_32 Pointer to 32-byte new session key (if NULL, active shared key is retained).
- * @return true if peer was found, session_id was monotonic, and state was synchronized; false otherwise.
+ * @param new_key_32 Pointer to 32-byte fresh session key (MUST be non-NULL and distinct from active key).
+ * @return true if peer was found, session_id was monotonic, key was fresh, and state synchronized; false otherwise.
  */
 bool xdp_pipeline_rekey_peer(
     starsec_xdp_pipeline_t *pipeline,
@@ -1365,7 +1375,15 @@ bool xdp_pipeline_rekey_peer(
     uint32_t                new_session_id,
     const uint8_t          *new_key_32
 ) {
-    if (pipeline == NULL) {
+    if (pipeline == NULL || new_key_32 == NULL) {
+        return false;
+    }
+
+    uint8_t zero_acc = 0;
+    for (size_t k = 0; k < 32; k++) {
+        zero_acc |= new_key_32[k];
+    }
+    if (zero_acc == 0) {
         return false;
     }
 
@@ -1397,6 +1415,13 @@ bool xdp_pipeline_rekey_peer(
         }
     }
 
+    const uint8_t *curr_peer_key = pipeline->filter_config.has_peer_key[user_idx] ?
+        pipeline->filter_config.peer_keys[user_idx] : pipeline->filter_config.isl_shared_key;
+
+    if (memcmp(new_key_32, curr_peer_key, 32) == 0) {
+        return false;
+    }
+
     isl_anti_replay_state_t *st = &pipeline->filter_config.replay_states[user_idx];
     uint32_t current_session = STARSEC_ATOMIC_READ_RELAXED(&st->session_id);
     if (current_session != 0 && new_session_id <= current_session) {
@@ -1409,11 +1434,11 @@ bool xdp_pipeline_rekey_peer(
     STARSEC_ATOMIC_WRITE_RELAXED(&st->window_bitmap, 0ULL);
     STARSEC_ATOMIC_WRITE_RELAXED(&st->session_auth_failures, 0U);
     STARSEC_ATOMIC_WRITE_RELAXED(&st->is_quarantined, 0U);
+    puf_sha256_kdf(new_key_32, 32, (uint8_t *)st->reserved_padding);
     starsec_spin_unlock(&st->lock);
 
-    if (new_key_32 != NULL) {
-        memcpy(pipeline->filter_config.isl_shared_key, new_key_32, 32);
-    }
+    memcpy(pipeline->filter_config.peer_keys[user_idx], new_key_32, 32);
+    pipeline->filter_config.has_peer_key[user_idx] = true;
 
     pipeline->consecutive_auth_failures = 0;
     pipeline->is_quarantined = false;

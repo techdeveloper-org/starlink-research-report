@@ -1401,16 +1401,31 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(act_quarantine_drop == STARSEC_XDP_DROP, "TC-AUTH-QUARANTINE-01: Quarantined pipeline admitted packet!");
     STARSEC_ASSERT(pipeline.stats.dropped_quarantined == 1ULL, "TC-AUTH-QUARANTINE-01: dropped_quarantined counter mismatch");
 
-    /* TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Proving Pipeline Deadlock Freedom via Authorized Rekey */
-    bool burst_rekey_ok = xdp_pipeline_rekey_peer(&pipeline, 701, 2, master_key);
-    STARSEC_ASSERT(burst_rekey_ok == true, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Rekey failed on burst-quarantined pipeline");
+    /* TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Proving Pipeline Deadlock Freedom & Strict Key Rotation Requirements */
+    /* Attempt 1: NULL key must be strictly rejected */
+    bool burst_null_rekey = xdp_pipeline_rekey_peer(&pipeline, 701, 2, NULL);
+    STARSEC_ASSERT(burst_null_rekey == false, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Rekey permitted NULL key!");
+    STARSEC_ASSERT(pipeline.is_quarantined == true, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Quarantine cleared on NULL key!");
+
+    /* Attempt 2: Same key must be strictly rejected (Theorem Q2-A: per-key quota protection) */
+    bool burst_same_rekey = xdp_pipeline_rekey_peer(&pipeline, 701, 2, master_key);
+    STARSEC_ASSERT(burst_same_rekey == false, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Rekey permitted same key without rotation!");
+    STARSEC_ASSERT(pipeline.is_quarantined == true, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Quarantine cleared on same key!");
+
+    /* Attempt 3: Genuinely fresh key succeeds and unwedges the pipeline */
+    uint8_t fresh_burst_key[32];
+    for (size_t k = 0; k < 32; k++) {
+        fresh_burst_key[k] = (uint8_t)(master_key[k] ^ 0x5A);
+    }
+    bool burst_rekey_ok = xdp_pipeline_rekey_peer(&pipeline, 701, 2, fresh_burst_key);
+    STARSEC_ASSERT(burst_rekey_ok == true, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Rekey failed on burst-quarantined pipeline with fresh key");
     STARSEC_ASSERT(pipeline.is_quarantined == false, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Pipeline quarantine flag not cleared on rekey");
     STARSEC_ASSERT(pipeline.consecutive_auth_failures == 0U, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Consecutive failures not reset to 0");
 
     hdr.session_id = 2;
     hdr.sequence_number = 1;
     hdr.tx_epoch_ms = pipeline.filter_config.clock_ref.local_epoch_ms - 10;
-    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), fresh_burst_key);
     STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-CONSECUTIVE-BURST-REKEY-RECOVERY-01: Frame seal failed");
 
     int act_burst_recovery = xdp_pipeline_process_packet(&pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
@@ -1423,6 +1438,10 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     recovery_pipeline.filter_config.authorized_nodes[0] = 701;
     recovery_pipeline.filter_config.authorized_count = 1;
     recovery_pipeline.consecutive_auth_failures = 50;
+    hdr.session_id = 1;
+    hdr.sequence_number = 1;
+    seal_stat = xdp_seal_isl_frame(&hdr, (const uint8_t *)telecommand_payload, payload_len, wire_frame, sizeof(wire_frame), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-AUTH-QUARANTINE-01: Frame seal failed on recovery pipeline");
     int act_recovery = xdp_pipeline_process_packet(&recovery_pipeline, wire_frame, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_recovery == STARSEC_XDP_PASS, "TC-AUTH-QUARANTINE-01: Valid packet failed on recovery pipeline");
     STARSEC_ASSERT(recovery_pipeline.consecutive_auth_failures == 0U, "TC-AUTH-QUARANTINE-01: Failure counter not reset to 0 on valid auth");
@@ -1528,8 +1547,29 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
                    "TC-INTERLEAVED-AUTH-QUARANTINE-01: Peer session prematurely un-quarantined");
 
     /* Step H: Authorized Rekeying via Control Plane (RFC-001 ML-KEM-1024 Session Rollover) */
-    bool rekey_ok = xdp_pipeline_rekey_peer(&interleaved_pipeline, 701, 101, master_key);
-    STARSEC_ASSERT(rekey_ok == true, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Authorized rekey failed");
+    /* Attempt 1: Reject NULL key */
+    bool rekey_null_rejected = xdp_pipeline_rekey_peer(&interleaved_pipeline, 701, 101, NULL);
+    STARSEC_ASSERT(rekey_null_rejected == false, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Rekey permitted NULL key!");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 1U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quarantine cleared on NULL key!");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 1000U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quota reset on NULL key!");
+
+    /* Attempt 2: Reject same key (Theorem Q2-A per-key quota protection) */
+    bool rekey_same_rejected = xdp_pipeline_rekey_peer(&interleaved_pipeline, 701, 101, master_key);
+    STARSEC_ASSERT(rekey_same_rejected == false, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Rekey permitted same key without rotation!");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 1U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quarantine cleared on same key!");
+    STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 1000U,
+                   "TC-INTERLEAVED-AUTH-QUARANTINE-01: Quota reset on same key!");
+
+    /* Attempt 3: Authorized rekey with genuinely fresh key succeeds */
+    uint8_t fresh_interleaved_key[32];
+    for (size_t k = 0; k < 32; k++) {
+        fresh_interleaved_key[k] = (uint8_t)(master_key[k] ^ 0xA5);
+    }
+    bool rekey_ok = xdp_pipeline_rekey_peer(&interleaved_pipeline, 701, 101, fresh_interleaved_key);
+    STARSEC_ASSERT(rekey_ok == true, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Authorized rekey with fresh key failed");
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_id == 101U,
                    "TC-INTERLEAVED-AUTH-QUARANTINE-01: Session ID not updated on authorized rekey");
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 0U,
@@ -1539,10 +1579,10 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(interleaved_pipeline.kernel_bpf_map.states[0].is_quarantined == 0U,
                    "TC-INTERLEAVED-AUTH-QUARANTINE-01: Kernel BPF map state remained quarantined after rekey");
 
-    /* Step I: Authentic traffic under newly rekeyed session 101 MUST be accepted */
+    /* Step I: Authentic traffic under newly rekeyed session 101 with fresh key MUST be accepted */
     auth_hdr.session_id = 101;
     auth_hdr.sequence_number = 1ULL;
-    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), fresh_interleaved_key);
     STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing rekey frame failed");
     int act_rekey = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
     STARSEC_ASSERT(act_rekey == STARSEC_XDP_PASS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Valid rekeyed session rejected!");
@@ -1550,6 +1590,59 @@ static bool test_aead_packet_pipeline_and_kernel_sync_triad(void) {
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].session_auth_failures == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session failure budget not initialized to 0");
     STARSEC_ASSERT(interleaved_pipeline.filter_config.replay_states[0].is_quarantined == 0U, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Fresh session remained quarantined");
     STARSEC_ASSERT(interleaved_pipeline.stats.passed_frames == 3ULL, "TC-INTERLEAVED-AUTH-QUARANTINE-01: passed_frames counter mismatch");
+
+    /* Verify old retired key is strictly rejected fail-closed */
+    auth_hdr.sequence_number = 2ULL;
+    seal_stat = xdp_seal_isl_frame(&auth_hdr, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Sealing old key frame failed");
+    int act_old_key = xdp_pipeline_process_packet(&interleaved_pipeline, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_old_key == STARSEC_XDP_DROP, "TC-INTERLEAVED-AUTH-QUARANTINE-01: Frame with old retired key accepted!");
+
+    /* Step J: TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Proving Per-Peer Key Rotation Isolation (Theorem Q2-B) */
+    starsec_xdp_pipeline_t multi_peer_pipe;
+    xdp_pipeline_init(&multi_peer_pipe, master_key, &clock_ref);
+    STARSEC_ASSERT(xdp_pipeline_authorize_node(&multi_peer_pipe, 701) == true, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Auth node 701 failed");
+    STARSEC_ASSERT(xdp_pipeline_authorize_node(&multi_peer_pipe, 42) == true, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Auth node 42 failed");
+    multi_peer_pipe.filter_config.replay_states[0].session_id = 10;
+    multi_peer_pipe.filter_config.replay_states[1].session_id = 20;
+
+    uint8_t key_701[32];
+    for (size_t k = 0; k < 32; k++) {
+        key_701[k] = (uint8_t)(0x71 ^ k);
+    }
+    bool rekey_701_ok = xdp_pipeline_rekey_peer(&multi_peer_pipe, 701, 11, key_701);
+    STARSEC_ASSERT(rekey_701_ok == true, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Rekey node 701 failed");
+
+    /* 1. Transmit authentic frame from Node 701 with key_701: MUST PASS */
+    starsec_isl_header_t hdr_701 = hdr;
+    hdr_701.src_satellite_id = 701;
+    hdr_701.session_id = 11;
+    hdr_701.sequence_number = 1ULL;
+    hdr_701.tx_epoch_ms = clock_ref.local_epoch_ms - 5;
+    hdr_701.payload_len = (uint16_t)payload_len;
+    seal_stat = xdp_seal_isl_frame(&hdr_701, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), key_701);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 701 failed");
+    int act_701 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_701 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 701 valid frame rejected");
+
+    /* 2. Transmit authentic frame from Node 42 with master_key: MUST PASS (Node 42 is unaffected by Node 701 rekey!) */
+    starsec_isl_header_t hdr_42 = hdr;
+    hdr_42.src_satellite_id = 42;
+    hdr_42.session_id = 20;
+    hdr_42.sequence_number = 1ULL;
+    hdr_42.tx_epoch_ms = clock_ref.local_epoch_ms - 5;
+    hdr_42.payload_len = (uint16_t)payload_len;
+    seal_stat = xdp_seal_isl_frame(&hdr_42, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), master_key);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 42 failed");
+    int act_42 = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_42 == STARSEC_XDP_PASS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 disrupted by Node 701 rekey!");
+
+    /* 3. Transmit frame from Node 42 using Node 701's key: MUST BE DROPPED */
+    hdr_42.sequence_number = 2ULL;
+    seal_stat = xdp_seal_isl_frame(&hdr_42, (const uint8_t *)telecommand_payload, payload_len, authentic_wire, sizeof(authentic_wire), key_701);
+    STARSEC_ASSERT(seal_stat == STARSEC_CRYPTO_SUCCESS, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Seal 42 cross-key failed");
+    int act_cross = xdp_pipeline_process_packet(&multi_peer_pipe, authentic_wire, sizeof(starsec_isl_header_t) + payload_len, decrypted_buf, &decrypted_len);
+    STARSEC_ASSERT(act_cross == STARSEC_XDP_DROP, "TC-PER-PEER-KEY-ROTATION-ISOLATION-01: Node 42 cross-key frame accepted!");
 
     printf("  [PASS] End-to-End AEAD Packet Pipeline & Kernel-Userspace Sync Triad Successful.\n");
     return true;
