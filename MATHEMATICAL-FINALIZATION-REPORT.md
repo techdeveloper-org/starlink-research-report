@@ -3,9 +3,9 @@
 **Standard:** StarSec Constellation Security Framework (CSF v1.0), RFC 8439, RFC 6479, RFC 4303, ISO C11 §5.1.2.4 & §6.5.7 p3  
 **Status:** High-Assurance Pre-Flight Aerospace Research Prototype — In-Kernel Concurrency, Piecewise Sliding-Window & Multi-Query Quarantine (CI Verified)  
 **Date:** October 18, 2026  
-**GitHub Actions Run:** [Run #39100746555](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555) (Job ID: `117596336518`, Duration: 26s)  
-**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12125579379`)  
-**Latest Verified Commits:** `ef1967a`, `d7f5f11`, `a2198d0`, `5a49327`, `ce532c3`, `30613cc`, `b0cdea6`, `166eda5`  
+**GitHub Actions Run:** [Run #39107212236](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39107212236) (Job ID: `117615571510`, Duration: 33s)  
+**Artifact Archive:** `ebpf-kernel-verifier-reports.zip` (Artifact ID: `12129245669`)  
+**Latest Verified Commits:** `ef1967a`, `30613cc`, `b0cdea6`, `166eda5`, `8af0981`, `47c21a1`, `829b4fe`  
 
 ---
 
@@ -660,9 +660,9 @@ Every single one of the 16 suites compiled, ran, and passed with 100% assertion 
 ## 5. Artifact Verification & Checksum Attestation
 
 The canonical runtime verifier artifact generated during CI execution has been permanently archived on GitHub Actions:
-- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555/artifacts/12125579379)
-- **Archive Size:** 10,907 bytes
-- **SHA-256 Checksum:** `4a0524c2ec057de40de2391ea4fa5afb44ba7f154d98cb9a2720244e7072ab1a`
+- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39107212236/artifacts/12129245669)
+- **Archive Size:** 11,478 bytes
+- **SHA-256 Checksum:** `ebd0fd8df56df7f9c2ba051cd7333131a66f5d7f195bf6d6caa388a66bd1fc31`
 - **Contained Files:**
   - `tools/ebpf_linux_verifier_report.json`
   - `tools/ebpf_kernel_verifier_log.txt`
@@ -679,7 +679,7 @@ The StarSec In-Orbit Packet Filter and userspace cryptographic pipeline have res
 3. **Suite 16 executable boundary verification** testing $\Delta = 1, 63, 64, 65$, duplicates, in-window out-of-order, and behind-horizon limits.
 4. **Two-tier pipeline composition & per-session quarantine (Theorems 29, Q1 & Q2)** formally separating line-rate Tier 1 XDP ingress admission from Tier 2 ChaCha20-Poly1305 AEAD payload acceptance, proving replay window poisoning is cryptographically infeasible under bounded forgery probability (single-query $P \le 2^{-96.45} < 1.13 \times 10^{-29}$; rate-limited multi-query $P \le 2^{-86.48} < 1.13 \times 10^{-26}$ for $q_v \le 1000$) grounded in independently validated Nonce Uniqueness ($P \le 2^{-256}$ negligible, A1), Bernstein 2005 modulo $2^{128}$ ambiguity ($K_{\text{ambiguity}} \le 8$), ChaCha20 PRF computational reduction (A2), zero-mutation call path proofs, inviolable per-session cumulative failure quota resisting interleaved adversarial traffic (Theorem Q2), and executable regression assertions (`TC-POISON-ATTACK-01`, `TC-KERNEL-USERSPACE-SYNC-01`, `TC-AUTH-QUARANTINE-01`, and `TC-INTERLEAVED-AUTH-QUARANTINE-01`).
 5. **ISO C11 §5.1.2.4 memory model compliance & TSan Fence Calibration** established mathematically and certified by ThreadSanitizer as a **Mandatory Fail-Closed CI Gate** with zero data races and zero `[-Wtsan]` warnings across all 16 Triad test suites on tested schedules $\tau \in \mathcal{T}_{\text{harness}}$, with fence-based shadow state limitations transparently disclosed.
-6. **16/16 Triad Test Suites & Mandatory TSan Gate** verified with 100% pass rate in CI Run [#39100746555](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39100746555) (Job ID: `117596336518`).
+6. **16/16 Triad Test Suites & Mandatory TSan Gate** verified with 100% pass rate in CI Run [#39107212236](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39107212236) (Job ID: `117615571510`).
 7. **CI workflow display label alignment** resolved by updating `.github/workflows/ebpf-verifier.yml` with authenticated `workflow` scope credentials, synchronizing the GitHub Actions web interface job label (`16 Triad Test Suites`) and step label (`16/16 Suites`) with runtime test suite execution.
 
 The framework demonstrates rigorous mathematical-to-implementation consistency, robust SMP kernel concurrency, and provable fail-closed safety, establishing StarSec CSF v1.0 as a **High-Assurance Pre-Flight Aerospace Research Prototype with Passing In-Kernel CI**. Full production spaceflight certification will follow on-orbit qualification and independent third-party cryptographic audit.
