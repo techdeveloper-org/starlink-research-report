@@ -415,7 +415,7 @@ The runner step dynamically compiles and executes `system/src/main_system_test.c
 gcc -O2 -Wall -Wextra -pthread -I system/include system/src/main_system_test.c -o build/system_test_runner
 ./build/system_test_runner
 ```
-In GitHub Actions console logs (such as Run [#39087065696](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696), Job ID: `117555738822`), the console output explicitly records:
+In GitHub Actions console logs for Run [#39089100313](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313) (Job ID: `117561785411`), the console output explicitly records:
 ```text
 [SUITE 16] Sliding Window Boundary, Shift Invariants & UB Prevention Triad
 [PASS] ALL SYSTEM DRIVER TESTS SUCCESSFUL (16/16 Suites Passed - 100% Coverage)
@@ -427,9 +427,9 @@ Every single one of the 16 suites compiled, ran, and passed with 100% assertion 
 ## 5. Artifact Verification & Checksum Attestation
 
 The canonical runtime verifier artifact generated during CI execution has been permanently archived on GitHub Actions:
-- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696/artifacts/12120958516)
-- **Archive Size:** 10,785 bytes
-- **SHA-256 Checksum:** `da9af097d791b2b2411f37e3ca25cd2255ee4f6044ac0dee54ad8b99897976d6`
+- **Download URL:** [ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313/artifacts/12121733421)
+- **Archive Size:** 10,783 bytes
+- **SHA-256 Checksum:** `544c2ab9be311161c0c9235838448e7b3b70f914908e91a2de711a6b17a13b71`
 - **Contained Files:**
   - `tools/ebpf_linux_verifier_report.json`
   - `tools/ebpf_kernel_verifier_log.txt`
@@ -446,7 +446,7 @@ The StarSec In-Orbit Packet Filter and userspace cryptographic pipeline have res
 3. **Suite 16 executable boundary verification** testing $\Delta = 1, 63, 64, 65$, duplicates, in-window out-of-order, and behind-horizon limits.
 4. **Two-tier pipeline composition (Theorem 29)** formally separating line-rate Tier 1 XDP ingress admission from Tier 2 ChaCha20-Poly1305 AEAD payload acceptance, proving replay window poisoning is cryptographically infeasible under bounded forgery probability ($P \le \frac{8\lceil L/16 \rceil}{2^{106}} \approx 2^{-96.45} < 1.13 \times 10^{-29}$) and verified by zero-mutation call path proofs and executable regression assertions (`TC-POISON-ATTACK-01`, `TC-KERNEL-USERSPACE-SYNC-01`).
 5. **ISO C11 §5.1.2.4 memory model compliance** established mathematically and certified by ThreadSanitizer with zero data races across all 16 Triad test suites on tested schedules $\tau \in \mathcal{T}_{\text{harness}}$.
-6. **16/16 Triad Test Suites** verified with 100% pass rate in CI Run [#39087065696](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696).
+6. **16/16 Triad Test Suites** verified with 100% pass rate in CI Run [#39089100313](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313).
 7. **CI workflow display label alignment** resolved by updating `.github/workflows/ebpf-verifier.yml` with authenticated `workflow` scope credentials, synchronizing the GitHub Actions web interface job label (`16 Triad Test Suites`) and step label (`16/16 Suites`) with runtime test suite execution.
 
 The framework demonstrates rigorous mathematical-to-implementation consistency, robust SMP kernel concurrency, and provable fail-closed safety, establishing StarSec CSF v1.0 as a certified Pre-Flight Verification Candidate for constellation deployment.

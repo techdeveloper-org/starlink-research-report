@@ -139,9 +139,9 @@ The framework is verified using an authentic, zero-mock Linux in-kernel eBPF tes
 
 | Verification Metric | Production CI Measurement & Evidence |
 | :--- | :--- |
-| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39087065696](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696)** (`PASS`, 100% Verified, Job ID: `117555738822`) |
-| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39087065696/artifacts/12120958516)** (Artifact ID: `12120958516`, 10,785 bytes) |
-| **Artifact SHA256** | `da9af097d791b2b2411f37e3ca25cd2255ee4f6044ac0dee54ad8b99897976d6` |
+| **CI Workflow Run** | [![Linux Kernel eBPF CI](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml/badge.svg)](https://github.com/techdeveloper-org/starlink-research-report/actions/workflows/ebpf-verifier.yml) · **[Run #39089100313](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313)** (`PASS`, 100% Verified, Job ID: `117561785411`) |
+| **Official CI Artifacts** | **[ebpf-kernel-verifier-reports.zip](https://github.com/techdeveloper-org/starlink-research-report/actions/runs/39089100313/artifacts/12121733421)** (Artifact ID: `12121733421`, 10,783 bytes) |
+| **Artifact SHA256** | `544c2ab9be311161c0c9235838448e7b3b70f914908e91a2de711a6b17a13b71` |
 | **Kernel BPF Toolchain** | Official static `bpftool v7.4.0` (libbpf) + Clang 18 BPF Target (`clang -target bpf -O2`) |
 | **In-Kernel Verification** | `512 instructions` verified by kernel, 0 unbounded loops, 0 memory leaks, strictly bounded stack |
 | **Live SMP Concurrency** | **Phase H Verified**: 107 live `BPF_MAP_UPDATE_ELEM` mutations executed concurrently with 60 `BPF_PROG_TEST_RUN` evaluations (30 passed, 30 dropped, 0 faults, final kernel seq: 412) |
