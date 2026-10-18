@@ -722,7 +722,7 @@ static int test_run_loaded_xdp_end_to_end(const char *prog_pin_path, const char 
     printf("[Phase I] Verifying In-Kernel Pinned Map Key Fingerprint Coherence (Theorem 30)...\n");
     uint8_t fresh_phase_i_key[32];
     for (size_t k = 0; k < 32; k++) {
-        fresh_phase_i_key[k] = (uint8_t)(master_key[k] ^ 0x5A);
+        fresh_phase_i_key[k] = (uint8_t)(master_key[k] ^ 0xA5);
     }
     bool rekey_phase_i = xdp_pipeline_rekey_peer(&pipeline, 42, 11, fresh_phase_i_key);
     if (!rekey_phase_i) {
